@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -11,8 +11,12 @@ from models.workout import Log, WorkoutSession
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
+def _today_utc() -> date:
+    return datetime.now(timezone.utc).date()
+
+
 def _iso_week_bounds() -> tuple[str, str]:
-    today = date.today()
+    today = _today_utc()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
     return week_start.isoformat(), week_end.isoformat()
@@ -21,7 +25,7 @@ def _iso_week_bounds() -> tuple[str, str]:
 def _compute_streak(trained_dates: set[str]) -> int:
     if not trained_dates:
         return 0
-    today = date.today()
+    today = _today_utc()
     dates = sorted({date.fromisoformat(d) for d in trained_dates}, reverse=True)
     if dates[0] < today - timedelta(days=1):
         return 0

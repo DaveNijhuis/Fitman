@@ -37,10 +37,12 @@ All tests live in `backend/tests/`. The suite uses a single in-memory SQLite dat
 |---|---|
 | `test_auth.py` | Password hashing, login, registration validation (min length), JWT-protected endpoints |
 | `test_cardio.py` | Cardio entry logging, list, delete, activity validation, schema contract (no `session_id`) |
+| `test_exercises.py` | Exercise list (session + search filters), exercise by ID, sessions list |
 | `test_formulas.py` | Body composition formula calculations (BMI, fat mass, lean mass, BMR, segmental values) — pure unit tests, no HTTP |
-| `test_logs.py` | Set logging validation (`weight >= 0`, `reps > 0`), valid edge cases |
-| `test_measurements.py` | Body measurement CRUD, auth enforcement |
-| `test_progress.py` | Muscle balance endpoint — null/malformed muscle handling, percentage sum |
+| `test_logs.py` | Set logging validation (`weight >= 0`, `reps > 0`), POST edge cases (bad IDs), GET last log, GET log list |
+| `test_measurements.py` | Body measurement CRUD, auth enforcement, full BIA formula application with impedance inputs |
+| `test_progress.py` | Muscle balance, `epley_1rm` unit tests, strength progression (structure + daily best), volume over time, consistency heatmap, personal records |
+| `test_sessions.py` | Full workout session flow: start → log sets → end → list → get logs; edge cases (unknown session, already ended, 404) |
 | `test_stats.py` | Home stats structure, streak calculation (unit + UTC correctness), week bounds (UTC correctness) |
 
 ## conftest.py

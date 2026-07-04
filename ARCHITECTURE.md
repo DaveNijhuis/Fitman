@@ -100,6 +100,23 @@ Fitman/
 
 ## Database schema
 
+### Users
+
+```
+users
+  id              INTEGER PRIMARY KEY
+  username        TEXT NOT NULL UNIQUE
+  email           TEXT UNIQUE
+  hashed_password TEXT NOT NULL         -- bcrypt hash
+  display_name    TEXT
+  date_of_birth   TEXT                  -- ISO date string; age calculated dynamically
+  sex             TEXT                  -- "male" | "female" | "other"
+  height_cm       REAL
+  is_active       BOOLEAN NOT NULL DEFAULT 1
+  is_admin        BOOLEAN NOT NULL DEFAULT 0
+  created_at      TEXT NOT NULL
+```
+
 ### Strength training
 
 ```
@@ -130,14 +147,8 @@ logs
 ### Cardio
 
 ```
-cardio_sessions
-  id          INTEGER PRIMARY KEY
-  started_at  TEXT NOT NULL
-  ended_at    TEXT
-
-cardio_logs
+cardio_entries
   id           INTEGER PRIMARY KEY
-  session_id   INTEGER REFERENCES cardio_sessions(id)
   activity     TEXT NOT NULL          -- "Run" | "Walk" | "Bike" | "Swim" | "Row" | "Other"
   distance_m   REAL                   -- metres (null if not tracked)
   duration_s   INTEGER                -- seconds (null if not tracked)
@@ -149,19 +160,42 @@ cardio_logs
 
 ```
 body_measurements
-  id           INTEGER PRIMARY KEY
-  recorded_at  TEXT NOT NULL
-  weight_kg    REAL
-  body_fat_pct REAL
-  height_cm    REAL
-  bone_mass_kg REAL
-  notes        TEXT
+  id                  INTEGER PRIMARY KEY
+  recorded_at         TEXT NOT NULL
+  weight_kg           REAL
+  height_cm           REAL
+  notes               TEXT
+  -- Whole-body composition (calculated via BIA formulae)
+  body_fat_pct        REAL
+  bmi                 REAL
+  fat_mass_kg         REAL
+  lean_mass_kg        REAL
+  skeletal_muscle_kg  REAL
+  fat_free_weight_kg  REAL
+  body_water_pct      REAL
+  protein_kg          REAL
+  inorganic_salt_kg   REAL
+  bmr_kcal            REAL
+  visceral_fat_grade  REAL
+  subcutaneous_fat_pct REAL
+  body_age            INTEGER
+  whr_estimate        REAL
+  smi                 REAL
+  -- Segmental fat (kg) — 5 body segments
+  ra_fat_kg / la_fat_kg / trunk_fat_kg / rl_fat_kg / ll_fat_kg  REAL
+  -- Segmental muscle (kg)
+  ra_muscle_kg / la_muscle_kg / trunk_muscle_kg / rl_muscle_kg / ll_muscle_kg  REAL
+  -- Raw impedance at 20 kHz and 100 kHz (Ω)
+  ra_z20 / la_z20 / rl_z20 / ll_z20 / trunk_z20    REAL
+  ra_z100 / la_z100 / rl_z100 / ll_z100 / trunk_z100  REAL
 ```
 
 ## API routes
 
 ```
 # Auth
+GET    /api/auth/setup-required          Returns {required: true} if no users exist yet
+POST   /api/auth/register                Create first admin user (only available on empty DB)
 POST   /api/auth/login                   Returns JWT token
 
 # Exercises
@@ -208,21 +242,24 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `SECRET_KEY` | ✅ | — | Random string for signing JWT tokens |
-| `ADMIN_USERNAME` | ✅ | — | Login username |
-| `ADMIN_PASSWORD` | ✅ | — | Login password |
+| `SECRET_KEY` | ✅ | — | Random string for signing JWT tokens. Changing it invalidates all sessions. |
 | `JWT_EXPIRE_DAYS` | | `7` | Token validity in days |
 | `DATA_DIR` | | `./data` | SQLite file location (`/app/data` in Docker) |
 | `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins |
 
-The backend refuses to start if any required variable is missing.
+User credentials are stored in the database. On first launch, visit `/setup` to create the admin account. `ADMIN_USERNAME` and `ADMIN_PASSWORD` are no longer used.
+
+The backend refuses to start if `SECRET_KEY` is missing.
 
 ## Auth flow
 
-1. User logs in with username + password → `POST /api/auth/login`
-2. Backend returns a JWT access token
-3. Frontend stores the token in localStorage and sends it as `Authorization: Bearer <token>` on every request
-4. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again
+1. **First launch**: frontend detects empty DB via `GET /api/auth/setup-required` and redirects to `/setup`
+2. User registers via `POST /api/auth/register` — first user is automatically admin
+3. Subsequent logins: `POST /api/auth/login` with username + password
+4. Backend verifies against bcrypt hash stored in the `users` table, returns a JWT
+5. Frontend stores the token in localStorage and sends it as `Authorization: Bearer <token>` on every request
+6. JWT payload contains `user_id` as `sub`; `get_current_user` validates the token and fetches the user from DB
+7. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again
 
 Since Tailscale already restricts who can reach the server, JWT here primarily prevents accidents rather than acting as the sole security layer.
 

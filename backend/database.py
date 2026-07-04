@@ -23,6 +23,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class TZDateTime(TypeDecorator):
     """Stores datetimes as ISO strings, returns timezone-aware UTC datetime objects."""
+
     impl = String
     cache_ok = True
 

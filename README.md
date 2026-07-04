@@ -12,8 +12,9 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 
 - **Workout logging** — log sets, reps, and weight per exercise in real time with a rest timer
 - **Cardio tracking** — log runs, rides, swims and more with distance and duration
-- **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, and personal records
-- **Body measurements** — track weight and body composition over time
+- **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, personal records, and interactive body composition trends
+- **Body composition analysis** — connect an e.volve BLE smart scale to capture segmental impedance data; BIA formulae (Janssen, Watson, Katch-McArdle) derive fat mass, muscle mass, BMR, visceral fat grade, and more
+- **Body measurements** — manually log weight and body fat % over time with trend charts
 - **Exercise library** — browse and search all exercises with muscle and equipment info
 - **Workout history** — review past sessions with full set-by-set detail
 
@@ -59,15 +60,13 @@ cd Fitman
 cp .env.example .env
 ```
 
-Edit `.env` and fill in three required values:
+Edit `.env` and set one required value:
 
 ```bash
 # Generate a secure key:
 python3 -c "import secrets; print(secrets.token_hex(32))"
 
 SECRET_KEY=<paste generated key here>
-ADMIN_USERNAME=<your username>
-ADMIN_PASSWORD=<your password>
 ```
 
 Then start the app:
@@ -76,7 +75,11 @@ Then start the app:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### 5. Access the app
+### 5. Create your account
+
+On first launch, visit `http://localhost/setup` (or `http://fitman/setup` via Tailscale) to create the admin account. Credentials are stored in the database — no plaintext passwords in `.env`.
+
+### 6. Access the app
 
 - From your server: `http://localhost`
 - From any device on Tailscale: `http://fitman` (or `http://<tailscale-ip>`)
@@ -144,7 +147,8 @@ docker compose -f docker-compose.prod.yml up -d
 cd backend
 uv venv .venv --python 3.11
 source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install -r requirements.txt -r requirements-dev.txt
+pre-commit install
 alembic upgrade head
 fastapi dev main.py
 
@@ -157,6 +161,8 @@ npm run dev
 The frontend dev server runs on `http://localhost:5173` and proxies `/api` requests to the backend automatically.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full project structure and API reference.
+
+See [TESTING.md](TESTING.md) for the test suite structure, TDD workflow, and CI pipeline.
 
 See [SCALE.md](SCALE.md) for the smart scale BLE protocol, packet decoding, and body composition calculation methodology.
 

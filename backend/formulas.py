@@ -22,16 +22,16 @@ from dataclasses import dataclass
 class UserProfile:
     age: int
     height_cm: float
-    sex: int        # 1 = male, 0 = female
+    sex: int  # 1 = male, 0 = female
     weight_kg: float
 
 
 @dataclass
 class ImpedanceInputs:
-    ra_z20: float     # Right arm 20 kHz (Ω)
-    la_z20: float     # Left arm 20 kHz (Ω)
-    rl_z20: float     # Right leg 20 kHz (Ω)
-    ll_z20: float     # Left leg 20 kHz (Ω)
+    ra_z20: float  # Right arm 20 kHz (Ω)
+    la_z20: float  # Left arm 20 kHz (Ω)
+    rl_z20: float  # Right leg 20 kHz (Ω)
+    ll_z20: float  # Left leg 20 kHz (Ω)
     trunk_z20: float  # Trunk 20 kHz (Ω)
     ra_z100: float
     la_z100: float
@@ -59,7 +59,7 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     fat_pct = inputs.body_fat_pct
 
     # ── Basic ──────────────────────────────────────────────────────────────────
-    bmi = _r(w / h_m ** 2)
+    bmi = _r(w / h_m**2)
     fat_mass_kg = _r(w * fat_pct / 100)
     lean_mass_kg = _r(w - fat_mass_kg)
     fat_free_weight_kg = lean_mass_kg
@@ -71,12 +71,7 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     # Male:   TBW = 2.447 − 0.09156×age + 0.1074×height_cm + 0.3362×weight_kg
     # Female: TBW = −2.097 + 0.1069×height_cm + 0.2466×weight_kg
     if profile.sex == 1:
-        tbw_kg = (
-            2.447
-            - 0.09156 * profile.age
-            + 0.1074 * profile.height_cm
-            + 0.3362 * w
-        )
+        tbw_kg = 2.447 - 0.09156 * profile.age + 0.1074 * profile.height_cm + 0.3362 * w
     else:
         tbw_kg = -2.097 + 0.1069 * profile.height_cm + 0.2466 * w
     tbw_kg = max(0.0, tbw_kg)
@@ -95,7 +90,7 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     # wrist-to-ankle; 20 kHz gives a conservative overestimate of resistance).
     R = inputs.ra_z20 + inputs.trunk_z20 + inputs.rl_z20
     smm = (
-        (profile.height_cm ** 2 / R * 0.401)
+        (profile.height_cm**2 / R * 0.401)
         + (profile.sex * 3.825)
         - (profile.age * 0.071)
         + 5.102
@@ -103,7 +98,7 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     skeletal_muscle_kg = _r(max(0.0, smm))
 
     # SMI — Skeletal Muscle Index (kg/m²); low SMI flags sarcopenia risk
-    smi = _r(skeletal_muscle_kg / h_m ** 2)
+    smi = _r(skeletal_muscle_kg / h_m**2)
 
     # ── Visceral fat grade (approximation) ────────────────────────────────────
     # No standard BIA-to-grade formula is published; consumer scales use
@@ -143,7 +138,7 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     # ── Segmental lean mass ────────────────────────────────────────────────────
     # Impedance index for each segment: II = H² / Z (20 kHz)
     # Lean mass distributed proportionally to II (Janssen 2002).
-    h2 = profile.height_cm ** 2
+    h2 = profile.height_cm**2
     ii = {
         "ra": h2 / inputs.ra_z20,
         "la": h2 / inputs.la_z20,
@@ -162,28 +157,28 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     seg_fat = {k: _r(fat_mass_kg * v / fd_total) for k, v in fat_density.items()}
 
     return {
-        "bmi":                   bmi,
-        "fat_mass_kg":           fat_mass_kg,
-        "lean_mass_kg":          lean_mass_kg,
-        "fat_free_weight_kg":    fat_free_weight_kg,
-        "skeletal_muscle_kg":    skeletal_muscle_kg,
-        "body_water_pct":        body_water_pct,
-        "protein_kg":            protein_kg,
-        "inorganic_salt_kg":     inorganic_salt_kg,
-        "bmr_kcal":              bmr_kcal,
-        "visceral_fat_grade":    visceral_fat_grade,
-        "subcutaneous_fat_pct":  subcutaneous_fat_pct,
-        "body_age":              body_age,
-        "whr_estimate":          whr_estimate,
-        "smi":                   smi,
-        "ra_muscle_kg":          seg_lean["ra"],
-        "la_muscle_kg":          seg_lean["la"],
-        "rl_muscle_kg":          seg_lean["rl"],
-        "ll_muscle_kg":          seg_lean["ll"],
-        "trunk_muscle_kg":       seg_lean["trunk"],
-        "ra_fat_kg":             seg_fat["ra"],
-        "la_fat_kg":             seg_fat["la"],
-        "rl_fat_kg":             seg_fat["rl"],
-        "ll_fat_kg":             seg_fat["ll"],
-        "trunk_fat_kg":          seg_fat["trunk"],
+        "bmi": bmi,
+        "fat_mass_kg": fat_mass_kg,
+        "lean_mass_kg": lean_mass_kg,
+        "fat_free_weight_kg": fat_free_weight_kg,
+        "skeletal_muscle_kg": skeletal_muscle_kg,
+        "body_water_pct": body_water_pct,
+        "protein_kg": protein_kg,
+        "inorganic_salt_kg": inorganic_salt_kg,
+        "bmr_kcal": bmr_kcal,
+        "visceral_fat_grade": visceral_fat_grade,
+        "subcutaneous_fat_pct": subcutaneous_fat_pct,
+        "body_age": body_age,
+        "whr_estimate": whr_estimate,
+        "smi": smi,
+        "ra_muscle_kg": seg_lean["ra"],
+        "la_muscle_kg": seg_lean["la"],
+        "rl_muscle_kg": seg_lean["rl"],
+        "ll_muscle_kg": seg_lean["ll"],
+        "trunk_muscle_kg": seg_lean["trunk"],
+        "ra_fat_kg": seg_fat["ra"],
+        "la_fat_kg": seg_fat["la"],
+        "rl_fat_kg": seg_fat["rl"],
+        "ll_fat_kg": seg_fat["ll"],
+        "trunk_fat_kg": seg_fat["trunk"],
     }

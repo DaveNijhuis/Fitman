@@ -16,44 +16,45 @@ router = APIRouter(prefix="/api/measurements", tags=["measurements"])
 
 class _MeasurementFields(BaseModel):
     """All stored measurement fields — shared by input and output schemas."""
+
     recorded_at: datetime | None = None
-    weight_kg:   float | None = None
-    height_cm:   float | None = None
-    notes:       str | None = None
-    body_fat_pct:         float | None = None
-    bmi:                  float | None = None
-    fat_mass_kg:          float | None = None
-    lean_mass_kg:         float | None = None
-    skeletal_muscle_kg:   float | None = None
-    fat_free_weight_kg:   float | None = None
-    body_water_pct:       float | None = None
-    protein_kg:           float | None = None
-    inorganic_salt_kg:    float | None = None
-    bmr_kcal:             float | None = None
-    visceral_fat_grade:   float | None = None
+    weight_kg: float | None = None
+    height_cm: float | None = None
+    notes: str | None = None
+    body_fat_pct: float | None = None
+    bmi: float | None = None
+    fat_mass_kg: float | None = None
+    lean_mass_kg: float | None = None
+    skeletal_muscle_kg: float | None = None
+    fat_free_weight_kg: float | None = None
+    body_water_pct: float | None = None
+    protein_kg: float | None = None
+    inorganic_salt_kg: float | None = None
+    bmr_kcal: float | None = None
+    visceral_fat_grade: float | None = None
     subcutaneous_fat_pct: float | None = None
-    body_age:             int | None = None
-    whr_estimate:         float | None = None
-    smi:                  float | None = None
-    ra_fat_kg:    float | None = None
-    la_fat_kg:    float | None = None
+    body_age: int | None = None
+    whr_estimate: float | None = None
+    smi: float | None = None
+    ra_fat_kg: float | None = None
+    la_fat_kg: float | None = None
     trunk_fat_kg: float | None = None
-    rl_fat_kg:    float | None = None
-    ll_fat_kg:    float | None = None
-    ra_muscle_kg:    float | None = None
-    la_muscle_kg:    float | None = None
+    rl_fat_kg: float | None = None
+    ll_fat_kg: float | None = None
+    ra_muscle_kg: float | None = None
+    la_muscle_kg: float | None = None
     trunk_muscle_kg: float | None = None
-    rl_muscle_kg:    float | None = None
-    ll_muscle_kg:    float | None = None
-    ra_z20:    float | None = None
-    la_z20:    float | None = None
-    rl_z20:    float | None = None
-    ll_z20:    float | None = None
+    rl_muscle_kg: float | None = None
+    ll_muscle_kg: float | None = None
+    ra_z20: float | None = None
+    la_z20: float | None = None
+    rl_z20: float | None = None
+    ll_z20: float | None = None
     trunk_z20: float | None = None
-    ra_z100:    float | None = None
-    la_z100:    float | None = None
-    rl_z100:    float | None = None
-    ll_z100:    float | None = None
+    ra_z100: float | None = None
+    la_z100: float | None = None
+    rl_z100: float | None = None
+    ll_z100: float | None = None
     trunk_z100: float | None = None
 
 
@@ -74,16 +75,29 @@ def _apply_formulae(measurement: BodyMeasurement, age: int, sex: int) -> None:
     """If all required inputs are present, calculate and fill derived fields."""
     height = measurement.height_cm or float(os.getenv("SCALE_HEIGHT_CM", "0"))
 
-    required = [age, height, measurement.weight_kg, measurement.body_fat_pct,
-                measurement.ra_z20, measurement.la_z20, measurement.rl_z20,
-                measurement.ll_z20, measurement.trunk_z20,
-                measurement.ra_z100, measurement.la_z100, measurement.rl_z100,
-                measurement.ll_z100, measurement.trunk_z100]
+    required = [
+        age,
+        height,
+        measurement.weight_kg,
+        measurement.body_fat_pct,
+        measurement.ra_z20,
+        measurement.la_z20,
+        measurement.rl_z20,
+        measurement.ll_z20,
+        measurement.trunk_z20,
+        measurement.ra_z100,
+        measurement.la_z100,
+        measurement.rl_z100,
+        measurement.ll_z100,
+        measurement.trunk_z100,
+    ]
     if not all(required):
         return
 
     profile = UserProfile(
-        age=age, height_cm=float(height), sex=sex,
+        age=age,
+        height_cm=float(height),
+        sex=sex,
         weight_kg=cast(float, measurement.weight_kg),
     )
     inputs = ImpedanceInputs(
@@ -130,11 +144,7 @@ def list_measurements(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_user),
 ):
-    return (
-        db.query(BodyMeasurement)
-        .order_by(BodyMeasurement.recorded_at.desc())
-        .all()
-    )
+    return db.query(BodyMeasurement).order_by(BodyMeasurement.recorded_at.desc()).all()
 
 
 @router.delete("/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -145,6 +155,8 @@ def delete_measurement(
 ):
     measurement = db.get(BodyMeasurement, measurement_id)
     if not measurement:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found"
+        )
     db.delete(measurement)
     db.commit()

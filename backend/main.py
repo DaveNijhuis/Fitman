@@ -19,18 +19,12 @@ from seed import seed_exercises
 
 load_dotenv(find_dotenv())
 
-_REQUIRED = ["SECRET_KEY", "ADMIN_USERNAME", "ADMIN_PASSWORD"]
+_REQUIRED = ["SECRET_KEY"]
 _missing = [v for v in _REQUIRED if not os.getenv(v)]
 if _missing:
     print(f"ERROR: Missing required environment variables: {', '.join(_missing)}")
     print("Copy .env.example to .env and fill in the values.")
     sys.exit(1)
-
-_pwd = os.getenv("ADMIN_PASSWORD", "")
-if not (_pwd.startswith("$2b$") or _pwd.startswith("$2a$")):
-    print("WARNING: ADMIN_PASSWORD is stored as plaintext. Hash it with bcrypt for better security:")
-    print("  python -c \"import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt()).decode())\"")
-    print("  Then update ADMIN_PASSWORD in your .env with the output.")
 
 
 @asynccontextmanager
@@ -45,7 +39,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Fitman API", lifespan=lifespan)
 
-origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")]
+origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+]
 
 app.add_middleware(
     CORSMiddleware,

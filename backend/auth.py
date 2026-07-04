@@ -5,25 +5,48 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models.user import User
 
 ALGORITHM = "HS256"
 
 bearer = HTTPBearer()
 
 
-def create_access_token(username: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=int(os.getenv("JWT_EXPIRE_DAYS", "7")))
-    return jwt.encode({"sub": username, "exp": expire}, os.getenv("SECRET_KEY"), algorithm=ALGORITHM)
+def create_access_token(user_id: int) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(
+        days=int(os.getenv("JWT_EXPIRE_DAYS", "7"))
+    )
+    return jwt.encode(
+        {"sub": str(user_id), "exp": expire},
+        os.getenv("SECRET_KEY"),
+        algorithm=ALGORITHM,
+    )
 
 
 def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer)],
-) -> str:
+    db: Session = Depends(get_db),
+) -> User:
     try:
-        payload = jwt.decode(credentials.credentials, os.getenv("SECRET_KEY"), algorithms=[ALGORITHM])
-        username: str | None = payload.get("sub")
-        if username is None:
+        payload = jwt.decode(
+            credentials.credentials, os.getenv("SECRET_KEY"), algorithms=[ALGORITHM]
+        )
+        user_id_str: str | None = payload.get("sub")
+        if user_id_str is None:
             raise ValueError
+        user_id = int(user_id_str)
     except (jwt.InvalidTokenError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    return username
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+    return user

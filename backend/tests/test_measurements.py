@@ -74,4 +74,4 @@ def test_delete_nonexistent_measurement(client: TestClient):
 def test_measurement_without_token():
     from main import app
     c = TestClient(app)
-    assert c.get("/api/measurements").status_code == 403
+    assert c.get("/api/measurements").status_code == 401

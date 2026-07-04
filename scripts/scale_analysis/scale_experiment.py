@@ -18,7 +18,6 @@ Run compare at the end:
 import argparse
 import asyncio
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from bleak import BleakClient, BleakScanner
@@ -26,8 +25,8 @@ from bleak import BleakClient, BleakScanner
 RESULTS_FILE = Path(__file__).parent / "scale_experiment_results.json"
 
 DEVICE_PREFIX = "e.volve"
-SCAN_TIMEOUT  = 30
-STABLE_COUNT  = 8
+SCAN_TIMEOUT = 30
+STABLE_COUNT = 8
 
 CHAR_FFB1 = "0000ffb1-0000-1000-8000-00805f9b34fb"
 CHAR_FFB2 = "0000ffb2-0000-1000-8000-00805f9b34fb"
@@ -54,12 +53,12 @@ def decode_body_fat(data: bytes) -> float:
 
 def unknown_bytes(data: bytes) -> dict:
     return {
-        "b24":    data[24],
+        "b24": data[24],
         "b34_35": list(data[34:36]),
-        "b36":    data[36],
-        "b37":    data[37],
+        "b36": data[36],
+        "b37": data[37],
         "b38_39": list(data[38:40]),
-        "b41":    data[41],
+        "b41": data[41],
     }
 
 
@@ -108,7 +107,9 @@ async def capture_one(height: int, age: int, sex: int, label: str) -> dict | Non
         await asyncio.sleep(0.5)
 
         cmd = build_profile(height, age, sex)
-        print(f"Sending profile: height={height}cm age={age} sex={'M' if sex==1 else 'F'}")
+        print(
+            f"Sending profile: height={height}cm age={age} sex={'M' if sex == 1 else 'F'}"
+        )
         print(f"Command: {' '.join(f'{b:02X}' for b in cmd)}")
         await client.write_gatt_char(CHAR_FFB1, cmd, response=False)
 
@@ -127,19 +128,19 @@ async def capture_one(height: int, age: int, sex: int, label: str) -> dict | Non
     print(f"\n  Weight:    {weight} kg")
     print(f"  Body fat:  {fat}%")
     print(f"  Full FFB3: {' '.join(f'{b:02X}' for b in data)}")
-    print(f"\n  Unknown bytes:")
+    print("\n  Unknown bytes:")
     ub = unknown_bytes(data)
     for k, v in ub.items():
         print(f"    {k}: {v}")
 
     return {
-        "label":    label,
-        "time":     datetime.now().isoformat(),
-        "profile":  {"height_cm": height, "age": age, "sex": sex},
+        "label": label,
+        "time": datetime.now().isoformat(),
+        "profile": {"height_cm": height, "age": age, "sex": sex},
         "weight_kg": weight,
         "body_fat_pct": fat,
         "ffb3_hex": data.hex(),
-        "ffb3":     list(data),
+        "ffb3": list(data),
         "unknowns": ub,
     }
 
@@ -166,8 +167,8 @@ def compare_results() -> None:
 
     # Show known bytes
     known = [
-        ("weight_kg",     lambda r: f"{r['weight_kg']} kg"),
-        ("body_fat_%",    lambda r: f"{r['body_fat_pct']}%"),
+        ("weight_kg", lambda r: f"{r['weight_kg']} kg"),
+        ("body_fat_%", lambda r: f"{r['body_fat_pct']}%"),
     ]
     for name, fn in known:
         print(f"  {name:<18}", end="")
@@ -214,8 +215,8 @@ async def main(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--height", type=int, default=194)
-    parser.add_argument("--age",    type=int, default=34)
-    parser.add_argument("--sex",    type=str, default="male")
-    parser.add_argument("--label",  type=str, default="test")
+    parser.add_argument("--age", type=int, default=34)
+    parser.add_argument("--sex", type=str, default="male")
+    parser.add_argument("--label", type=str, default="test")
     parser.add_argument("--compare", action="store_true")
     asyncio.run(main(parser.parse_args()))

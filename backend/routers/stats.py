@@ -55,20 +55,27 @@ def home_stats(
     prev_end = (date.fromisoformat(week_end) - timedelta(weeks=1)).isoformat()
 
     # Streak — all completed sessions ever
-    all_sessions = db.query(WorkoutSession).filter(WorkoutSession.ended_at.isnot(None)).all()
+    all_sessions = (
+        db.query(WorkoutSession).filter(WorkoutSession.ended_at.isnot(None)).all()
+    )
     trained_dates = {s.started_at.date().isoformat() for s in all_sessions}
     streak = _compute_streak(trained_dates)
 
     # This week's completed sessions
     week_sessions = [
-        s for s in all_sessions
+        s
+        for s in all_sessions
         if week_start <= s.started_at.date().isoformat() <= week_end
     ]
     week_workouts = len(week_sessions)
 
     # This week's volume and duration
     week_session_ids = {s.id for s in week_sessions}
-    week_logs = db.query(Log).filter(Log.session_id.in_(week_session_ids)).all() if week_session_ids else []
+    week_logs = (
+        db.query(Log).filter(Log.session_id.in_(week_session_ids)).all()
+        if week_session_ids
+        else []
+    )
     week_volume = round(sum(log.weight * log.reps for log in week_logs), 1)
 
     week_minutes = 0
@@ -78,11 +85,14 @@ def home_stats(
 
     # Previous week volume (for delta)
     prev_sessions = [
-        s for s in all_sessions
+        s
+        for s in all_sessions
         if prev_start <= s.started_at.date().isoformat() <= prev_end
     ]
     prev_ids = {s.id for s in prev_sessions}
-    prev_logs = db.query(Log).filter(Log.session_id.in_(prev_ids)).all() if prev_ids else []
+    prev_logs = (
+        db.query(Log).filter(Log.session_id.in_(prev_ids)).all() if prev_ids else []
+    )
     prev_week_volume = round(sum(log.weight * log.reps for log in prev_logs), 1)
 
     return HomeStats(

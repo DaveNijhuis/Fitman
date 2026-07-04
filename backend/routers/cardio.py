@@ -45,7 +45,9 @@ def log_cardio(
     _: str = Depends(get_current_user),
 ):
     if body.activity not in ACTIVITIES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown activity")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown activity"
+        )
 
     now = body.logged_at or datetime.now(timezone.utc)
 
@@ -72,11 +74,7 @@ def list_cardio(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_user),
 ):
-    return (
-        db.query(CardioLog)
-        .order_by(CardioLog.logged_at.desc())
-        .all()
-    )
+    return db.query(CardioLog).order_by(CardioLog.logged_at.desc()).all()
 
 
 @router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -87,7 +85,9 @@ def delete_cardio(
 ):
     log = db.get(CardioLog, log_id)
     if not log:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found"
+        )
     session = db.get(CardioSession, log.session_id)
     db.delete(log)
     if session:

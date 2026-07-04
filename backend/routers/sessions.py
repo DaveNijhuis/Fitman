@@ -49,7 +49,9 @@ def start_session(
     _: str = Depends(get_current_user),
 ):
     if body.session not in SESSIONS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
+        )
     workout = WorkoutSession(
         session=body.session,
         started_at=datetime.now(timezone.utc),
@@ -74,14 +76,16 @@ def list_sessions(
     result = []
     for w in workouts:
         logs = db.query(Log).filter(Log.session_id == w.id).all()
-        result.append(WorkoutSessionSummary(
-            id=w.id,
-            session=w.session,
-            started_at=w.started_at,
-            ended_at=w.ended_at,
-            set_count=len(logs),
-            volume_kg=sum(log.weight * log.reps for log in logs),
-        ))
+        result.append(
+            WorkoutSessionSummary(
+                id=w.id,
+                session=w.session,
+                started_at=w.started_at,
+                ended_at=w.ended_at,
+                set_count=len(logs),
+                volume_kg=sum(log.weight * log.reps for log in logs),
+            )
+        )
     return result
 
 
@@ -92,7 +96,9 @@ def get_session_logs(
     _: str = Depends(get_current_user),
 ):
     if not db.get(WorkoutSession, session_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
     rows = (
         db.query(Log, Exercise)
         .join(Exercise, Log.exercise_id == Exercise.id)
@@ -121,9 +127,13 @@ def end_session(
 ):
     workout = db.get(WorkoutSession, session_id)
     if not workout:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
     if workout.ended_at:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Session already ended")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Session already ended"
+        )
     workout.ended_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(workout)

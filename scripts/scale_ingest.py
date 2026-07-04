@@ -36,18 +36,18 @@ load_dotenv(find_dotenv())
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-API_URL  = os.getenv("FITMAN_API_URL", "http://localhost:8000")
+API_URL = os.getenv("FITMAN_API_URL", "http://localhost:8000")
 USERNAME = os.getenv("ADMIN_USERNAME", "")
 PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
-SCALE_AGE       = int(os.getenv("SCALE_AGE", "0"))
+SCALE_AGE = int(os.getenv("SCALE_AGE", "0"))
 SCALE_HEIGHT_CM = int(os.getenv("SCALE_HEIGHT_CM", "0"))
-SCALE_SEX       = int(os.getenv("SCALE_SEX", "1"))  # 1=male, 0=female
+SCALE_SEX = int(os.getenv("SCALE_SEX", "1"))  # 1=male, 0=female
 
-DEVICE_PREFIX   = "e.volve"
-SCAN_TIMEOUT    = 15
+DEVICE_PREFIX = "e.volve"
+SCAN_TIMEOUT = 15
 MEASURE_TIMEOUT = 90
-IDLE_TIMEOUT    = 12
+IDLE_TIMEOUT = 12
 
 CHAR_FFB1 = "0000ffb1-0000-1000-8000-00805f9b34fb"
 CHAR_FFB2 = "0000ffb2-0000-1000-8000-00805f9b34fb"
@@ -56,29 +56,30 @@ CHAR_FFB3 = "0000ffb3-0000-1000-8000-00805f9b34fb"
 
 # ── Packet decoding ───────────────────────────────────────────────────────────
 
+
 def decode_ffb3(data: bytes) -> dict:
     """Decode 43-byte FFB3 body composition packet into measurement fields."""
     if len(data) != 43:
         return {}
     return {
-        "weight_kg":    round((data[8] * 256 + data[9] + 65536) / 1000, 3),
+        "weight_kg": round((data[8] * 256 + data[9] + 65536) / 1000, 3),
         "body_fat_pct": int.from_bytes(data[40:42], "big") / 10,
-        "ra_z20":       int.from_bytes(data[16:18], "little") / 10,
-        "la_z20":       int.from_bytes(data[18:20], "little") / 10,
-        "rl_z20":       int.from_bytes(data[20:22], "little") / 10,
-        "ll_z20":       int.from_bytes(data[22:24], "little") / 10,
-        "trunk_z20":    float(data[24]),
-        "ra_z100":      int.from_bytes(data[26:28], "little") / 10,
-        "la_z100":      int.from_bytes(data[28:30], "little") / 10,
-        "rl_z100":      int.from_bytes(data[30:32], "little") / 10,
-        "ll_z100":      int.from_bytes(data[32:34], "little") / 10,
-        "trunk_z100":   float(data[35]),
+        "ra_z20": int.from_bytes(data[16:18], "little") / 10,
+        "la_z20": int.from_bytes(data[18:20], "little") / 10,
+        "rl_z20": int.from_bytes(data[20:22], "little") / 10,
+        "ll_z20": int.from_bytes(data[22:24], "little") / 10,
+        "trunk_z20": float(data[24]),
+        "ra_z100": int.from_bytes(data[26:28], "little") / 10,
+        "la_z100": int.from_bytes(data[28:30], "little") / 10,
+        "rl_z100": int.from_bytes(data[30:32], "little") / 10,
+        "ll_z100": int.from_bytes(data[32:34], "little") / 10,
+        "trunk_z100": float(data[35]),
     }
 
 
 def build_user_profile() -> bytes:
     h_high = (SCALE_HEIGHT_CM >> 8) & 0xFF
-    h_low  = SCALE_HEIGHT_CM & 0xFF
+    h_low = SCALE_HEIGHT_CM & 0xFF
     body = bytes([0xFE, 0x00, 0x00, SCALE_AGE, h_high, h_low, SCALE_SEX])
     checksum = 0
     for b in body:
@@ -87,6 +88,7 @@ def build_user_profile() -> bytes:
 
 
 # ── API ───────────────────────────────────────────────────────────────────────
+
 
 async def get_token(client: httpx.AsyncClient) -> str:
     resp = await client.post(
@@ -108,6 +110,7 @@ async def post_measurement(client: httpx.AsyncClient, token: str, data: dict) ->
 
 
 # ── BLE ───────────────────────────────────────────────────────────────────────
+
 
 async def main() -> None:
     _validate_config()

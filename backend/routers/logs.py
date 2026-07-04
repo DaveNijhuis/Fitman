@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -15,8 +15,8 @@ router = APIRouter(prefix="/api/logs", tags=["logs"])
 class LogRequest(BaseModel):
     exercise_id: int
     session_id: int
-    weight: float
-    reps: int
+    weight: float = Field(ge=0)
+    reps: int = Field(gt=0)
 
 
 class LogOut(BaseModel):
@@ -37,9 +37,13 @@ def log_set(
     _: str = Depends(get_current_user),
 ):
     if not db.get(Exercise, body.exercise_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"
+        )
     if not db.get(WorkoutSession, body.session_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
     log = Log(
         exercise_id=body.exercise_id,
         session_id=body.session_id,

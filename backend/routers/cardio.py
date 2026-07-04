@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models.cardio import CardioLog, CardioSession
+from models.cardio import CardioEntry
 
 router = APIRouter(prefix="/api/cardio", tags=["cardio"])
 
@@ -21,11 +21,10 @@ class CardioIn(BaseModel):
     logged_at: datetime | None = None
 
 
-class CardioOut(BaseModel):
+class CardioEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    session_id: int
     activity: str
     distance_m: float | None
     duration_s: int | None
@@ -38,7 +37,7 @@ def list_activities(_: str = Depends(get_current_user)) -> list[str]:
     return ACTIVITIES
 
 
-@router.post("", response_model=CardioOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CardioEntryOut, status_code=status.HTTP_201_CREATED)
 def log_cardio(
     body: CardioIn,
     db: Session = Depends(get_db),
@@ -49,47 +48,37 @@ def log_cardio(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown activity"
         )
 
-    now = body.logged_at or datetime.now(timezone.utc)
-
-    session = CardioSession(started_at=now, ended_at=now)
-    db.add(session)
-    db.flush()
-
-    log = CardioLog(
-        session_id=session.id,
+    entry = CardioEntry(
         activity=body.activity,
         distance_m=body.distance_m,
         duration_s=body.duration_s,
         notes=body.notes,
-        logged_at=now,
+        logged_at=body.logged_at or datetime.now(timezone.utc),
     )
-    db.add(log)
+    db.add(entry)
     db.commit()
-    db.refresh(log)
-    return log
+    db.refresh(entry)
+    return entry
 
 
-@router.get("", response_model=list[CardioOut])
+@router.get("", response_model=list[CardioEntryOut])
 def list_cardio(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_user),
 ):
-    return db.query(CardioLog).order_by(CardioLog.logged_at.desc()).all()
+    return db.query(CardioEntry).order_by(CardioEntry.logged_at.desc()).all()
 
 
-@router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cardio(
-    log_id: int,
+    entry_id: int,
     db: Session = Depends(get_db),
     _: str = Depends(get_current_user),
 ):
-    log = db.get(CardioLog, log_id)
-    if not log:
+    entry = db.get(CardioEntry, entry_id)
+    if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found"
         )
-    session = db.get(CardioSession, log.session_id)
-    db.delete(log)
-    if session:
-        db.delete(session)
+    db.delete(entry)
     db.commit()

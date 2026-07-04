@@ -147,14 +147,8 @@ logs
 ### Cardio
 
 ```
-cardio_sessions
-  id          INTEGER PRIMARY KEY
-  started_at  TEXT NOT NULL
-  ended_at    TEXT
-
-cardio_logs
+cardio_entries
   id           INTEGER PRIMARY KEY
-  session_id   INTEGER REFERENCES cardio_sessions(id)
   activity     TEXT NOT NULL          -- "Run" | "Walk" | "Bike" | "Swim" | "Row" | "Other"
   distance_m   REAL                   -- metres (null if not tracked)
   duration_s   INTEGER                -- seconds (null if not tracked)

@@ -147,7 +147,8 @@ docker compose -f docker-compose.prod.yml up -d
 cd backend
 uv venv .venv --python 3.11
 source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install -r requirements.txt -r requirements-dev.txt
+pre-commit install
 alembic upgrade head
 fastapi dev main.py
 
@@ -160,6 +161,8 @@ npm run dev
 The frontend dev server runs on `http://localhost:5173` and proxies `/api` requests to the backend automatically.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full project structure and API reference.
+
+See [TESTING.md](TESTING.md) for the test suite structure, TDD workflow, and CI pipeline.
 
 See [SCALE.md](SCALE.md) for the smart scale BLE protocol, packet decoding, and body composition calculation methodology.
 

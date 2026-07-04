@@ -86,3 +86,56 @@ def test_measurement_without_token():
 
     c = TestClient(app)
     assert c.get("/api/measurements").status_code == 401
+
+
+# ── BIA formula application (Issue #127) ─────────────────────────────────────
+
+
+def test_bia_formulae_applied_when_all_inputs_provided(client: TestClient):
+    """Full BIA payload with user_age + user_sex must trigger calculate_all
+    and populate derived fields (bmi, fat_mass_kg, lean_mass_kg, etc.)."""
+    token = _token(client)
+    payload = {
+        "weight_kg": 80.0,
+        "height_cm": 180.0,
+        "body_fat_pct": 18.2,
+        "user_age": 30,
+        "user_sex": 1,
+        "ra_z20": 312.5,
+        "la_z20": 308.0,
+        "rl_z20": 210.0,
+        "ll_z20": 208.5,
+        "trunk_z20": 42.0,
+        "ra_z100": 290.0,
+        "la_z100": 287.0,
+        "rl_z100": 195.0,
+        "ll_z100": 193.0,
+        "trunk_z100": 38.0,
+    }
+    resp = client.post(
+        "/api/measurements",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["bmi"] is not None
+    assert data["fat_mass_kg"] is not None
+    assert data["lean_mass_kg"] is not None
+    assert data["bmr_kcal"] is not None
+    expected_bmi = round(80.0 / (1.80**2), 1)
+    assert abs(data["bmi"] - expected_bmi) < 0.5
+
+
+def test_bia_formulae_skipped_when_inputs_incomplete(client: TestClient):
+    """Payload missing impedance data must leave derived fields as None."""
+    token = _token(client)
+    resp = client.post(
+        "/api/measurements",
+        json={"weight_kg": 80.0, "body_fat_pct": 18.2, "user_age": 30, "user_sex": 1},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["bmi"] is None
+    assert data["fat_mass_kg"] is None

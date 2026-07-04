@@ -39,7 +39,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Fitman API", lifespan=lifespan)
 
-origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")]
+origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+]
 
 app.add_middleware(
     CORSMiddleware,

@@ -19,16 +19,16 @@ from bleak import BleakClient, BleakScanner
 
 LOG_FILE = Path(__file__).parent / "scale_packets.txt"
 
-DEVICE_PREFIX  = "e.volve"
-SCAN_TIMEOUT   = 15
+DEVICE_PREFIX = "e.volve"
+SCAN_TIMEOUT = 15
 MEASURE_TIMEOUT = 90
-IDLE_TIMEOUT   = 12
+IDLE_TIMEOUT = 12
 
 # User profile
 USER_HEIGHT_CM = 194
-USER_AGE       = 34
-USER_SEX       = 1   # 1 = male
-USER_UNIT      = 0   # 0 = kg
+USER_AGE = 34
+USER_SEX = 1  # 1 = male
+USER_UNIT = 0  # 0 = kg
 
 CHAR_FFB1 = "0000ffb1-0000-1000-8000-00805f9b34fb"
 CHAR_FFB2 = "0000ffb2-0000-1000-8000-00805f9b34fb"
@@ -51,7 +51,11 @@ def log_packet(label: str, data: bytes) -> None:
     ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     hex_str = " ".join(f"{b:02X}" for b in data)
     interesting = len(data) > 20
-    marker = "  *** BODY COMP ***" if len(data) == 43 else ("  *** INTERESTING ***" if interesting else "")
+    marker = (
+        "  *** BODY COMP ***"
+        if len(data) == 43
+        else ("  *** INTERESTING ***" if interesting else "")
+    )
     emit(f"[{ts}] {label}{marker}")
     emit(f"         HEX: {hex_str}")
     emit(f"         LEN: {len(data)} bytes")
@@ -61,12 +65,13 @@ def log_packet(label: str, data: bytes) -> None:
 def make_handler(label: str):
     def handler(_, data: bytes):
         log_packet(label, data)
+
     return handler
 
 
 def build_user_profile() -> bytes:
     h_high = (USER_HEIGHT_CM >> 8) & 0xFF
-    h_low  = USER_HEIGHT_CM & 0xFF
+    h_low = USER_HEIGHT_CM & 0xFF
     body = bytes([0xFE, USER_UNIT, 0x00, USER_AGE, h_high, h_low, USER_SEX])
     checksum = 0
     for b in body:
@@ -117,7 +122,9 @@ async def main() -> None:
         print("━" * 50)
         print("NOW: step on the scale BAREFOOT and HOLD THE HANDLE.")
         print("Stand completely still until it beeps with the full result.")
-        print(f"Waiting up to {MEASURE_TIMEOUT}s (stops {IDLE_TIMEOUT}s after last packet).")
+        print(
+            f"Waiting up to {MEASURE_TIMEOUT}s (stops {IDLE_TIMEOUT}s after last packet)."
+        )
         print("━" * 50)
         print()
 

@@ -18,13 +18,15 @@ Base.metadata.create_all(engine)
 
 # Seed a test user directly in the DB
 _db = SessionLocal()
-_db.add(User(
-    username="testuser",
-    hashed_password=bcrypt.hashpw(b"testpass", bcrypt.gensalt(rounds=4)).decode(),
-    is_active=True,
-    is_admin=True,
-    created_at=datetime.now(timezone.utc),
-))
+_db.add(
+    User(
+        username="testuser",
+        hashed_password=bcrypt.hashpw(b"testpass", bcrypt.gensalt(rounds=4)).decode(),
+        is_active=True,
+        is_admin=True,
+        created_at=datetime.now(timezone.utc),
+    )
+)
 _db.commit()
 _db.close()
 

@@ -46,7 +46,9 @@ def setup_required(db: Session = Depends(get_db)):
     return SetupRequired(required=db.query(User).count() == 0)
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     """Create the first user. Returns 409 if any users already exist (use admin panel instead)."""
     if db.query(User).count() > 0:
@@ -55,7 +57,9 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
             detail="Setup already complete. Use the admin panel to add more users.",
         )
     if db.query(User).filter(User.username == body.username).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
+        )
 
     user = User(
         username=body.username,
@@ -74,6 +78,12 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == body.username).first()
-    if not user or not user.is_active or not _verify_password(body.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if (
+        not user
+        or not user.is_active
+        or not _verify_password(body.password, user.hashed_password)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
     return TokenResponse(access_token=create_access_token(user.id))

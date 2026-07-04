@@ -37,9 +37,13 @@ def log_set(
     _: str = Depends(get_current_user),
 ):
     if not db.get(Exercise, body.exercise_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"
+        )
     if not db.get(WorkoutSession, body.session_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
     log = Log(
         exercise_id=body.exercise_id,
         session_id=body.session_id,

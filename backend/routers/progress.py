@@ -21,6 +21,7 @@ def epley_1rm(weight: float, reps: int) -> float:
 
 # ── Strength ──────────────────────────────────────────────────────────────────
 
+
 class StrengthPoint(BaseModel):
     date: str
     estimated_1rm: float
@@ -40,7 +41,9 @@ def strength_progression(
 ):
     exercise = db.get(Exercise, exercise_id)
     if not exercise:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"
+        )
 
     logs = (
         db.query(Log)
@@ -63,6 +66,7 @@ def strength_progression(
 
 # ── Volume ────────────────────────────────────────────────────────────────────
 
+
 class VolumePoint(BaseModel):
     week: str
     volume_kg: float
@@ -78,10 +82,13 @@ def volume_over_time(
     for log in logs:
         week = log.logged_at.strftime("%Y-W%V")
         weekly[week] += log.weight * log.reps
-    return [VolumePoint(week=w, volume_kg=round(v, 2)) for w, v in sorted(weekly.items())]
+    return [
+        VolumePoint(week=w, volume_kg=round(v, 2)) for w, v in sorted(weekly.items())
+    ]
 
 
 # ── Consistency ───────────────────────────────────────────────────────────────
+
 
 class ConsistencyDay(BaseModel):
     date: str
@@ -103,7 +110,9 @@ def consistency(
     cutoff = datetime.now(timezone.utc) - timedelta(weeks=17)
     sessions = (
         db.query(WorkoutSession)
-        .filter(WorkoutSession.started_at >= cutoff, WorkoutSession.ended_at.isnot(None))
+        .filter(
+            WorkoutSession.started_at >= cutoff, WorkoutSession.ended_at.isnot(None)
+        )
         .all()
     )
 
@@ -123,12 +132,14 @@ def consistency(
         for d in range(7):
             date_str = (week_start + timedelta(days=d)).strftime("%Y-%m-%d")
             if date_str in trained_data:
-                days.append(ConsistencyDay(
-                    date=date_str,
-                    trained=True,
-                    session=trained_data[date_str]["session"],
-                    volume_kg=trained_data[date_str]["volume_kg"],
-                ))
+                days.append(
+                    ConsistencyDay(
+                        date=date_str,
+                        trained=True,
+                        session=trained_data[date_str]["session"],
+                        volume_kg=trained_data[date_str]["volume_kg"],
+                    )
+                )
             else:
                 days.append(ConsistencyDay(date=date_str, trained=False))
         weeks.append(ConsistencyWeek(week=week_start.strftime("%Y-W%V"), days=days))
@@ -136,6 +147,7 @@ def consistency(
 
 
 # ── Balance ───────────────────────────────────────────────────────────────────
+
 
 class MuscleBalance(BaseModel):
     muscle: str
@@ -166,12 +178,16 @@ def muscle_balance(
         return []
 
     return sorted(
-        [MuscleBalance(muscle=m, percentage=round(v / total * 100, 1)) for m, v in muscle_volume.items()],
+        [
+            MuscleBalance(muscle=m, percentage=round(v / total * 100, 1))
+            for m, v in muscle_volume.items()
+        ],
         key=lambda x: -x.percentage,
     )
 
 
 # ── Personal Records ──────────────────────────────────────────────────────────
+
 
 class PersonalRecord(BaseModel):
     exercise_id: int
@@ -194,12 +210,14 @@ def personal_records(
         if not logs:
             continue
         best = max(logs, key=lambda log: epley_1rm(log.weight, log.reps))
-        prs.append(PersonalRecord(
-            exercise_id=exercise.id,
-            exercise_name=exercise.name,
-            weight=best.weight,
-            reps=best.reps,
-            estimated_1rm=round(epley_1rm(best.weight, best.reps), 2),
-            date=best.logged_at.date().isoformat(),
-        ))
+        prs.append(
+            PersonalRecord(
+                exercise_id=exercise.id,
+                exercise_name=exercise.name,
+                weight=best.weight,
+                reps=best.reps,
+                estimated_1rm=round(epley_1rm(best.weight, best.reps), 2),
+                date=best.logged_at.date().isoformat(),
+            )
+        )
     return prs

@@ -12,7 +12,7 @@ def _auth(client: TestClient) -> dict:
     return {"Authorization": f"Bearer {_token(client)}"}
 
 
-def _post_run(client: TestClient) -> dict:
+def _post_run(client: TestClient):
     resp = client.post(
         "/api/cardio",
         json={"activity": "Run", "distance_m": 5000.0, "duration_s": 1800},

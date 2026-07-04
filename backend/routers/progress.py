@@ -154,7 +154,9 @@ def muscle_balance(
         if not exercise.muscles:
             continue
         vol = log.weight * log.reps
-        muscles = [m.strip() for m in exercise.muscles.split(",")]
+        muscles = [m.strip() for m in exercise.muscles.split(",") if m.strip()]
+        if not muscles:
+            continue
         per_muscle = vol / len(muscles)
         for muscle in muscles:
             muscle_volume[muscle] += per_muscle

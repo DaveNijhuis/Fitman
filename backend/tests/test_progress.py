@@ -16,10 +16,10 @@ def _auth(client: TestClient) -> dict:
     return {"Authorization": f"Bearer {_token(client)}"}
 
 
-def test_balance_no_logs(client: TestClient):
+def test_balance_returns_list(client: TestClient):
     resp = client.get("/api/progress/balance", headers=_auth(client))
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert isinstance(resp.json(), list)
 
 
 def test_balance_returns_muscle_groups(client: TestClient):

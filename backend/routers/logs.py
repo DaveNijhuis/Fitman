@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -15,8 +15,8 @@ router = APIRouter(prefix="/api/logs", tags=["logs"])
 class LogRequest(BaseModel):
     exercise_id: int
     session_id: int
-    weight: float
-    reps: int
+    weight: float = Field(ge=0)
+    reps: int = Field(gt=0)
 
 
 class LogOut(BaseModel):

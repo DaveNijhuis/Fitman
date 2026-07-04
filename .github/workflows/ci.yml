@@ -28,10 +28,16 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+      - name: Cache uv package store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ hashFiles('backend/requirements.txt', 'backend/requirements-dev.txt') }}
+          restore-keys: uv-
       - name: Install dependencies
         run: |
-          python3 -m venv .venv
-          .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+          uv venv .venv
+          uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
       - name: Lint (ruff)
         run: .venv/bin/ruff check .
       - name: Type check (mypy)

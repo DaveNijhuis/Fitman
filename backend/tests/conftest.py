@@ -20,7 +20,7 @@ Base.metadata.create_all(engine)
 _db = SessionLocal()
 _db.add(User(
     username="testuser",
-    hashed_password=bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode(),
+    hashed_password=bcrypt.hashpw(b"testpass", bcrypt.gensalt(rounds=4)).decode(),
     is_active=True,
     is_admin=True,
     created_at=datetime.now(timezone.utc),

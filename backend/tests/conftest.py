@@ -5,11 +5,12 @@ import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 
-# Must be set before the app is imported so main.py startup checks pass
 os.environ.setdefault(
     "SECRET_KEY", "test-secret-key-for-ci-only-not-for-production-use"
 )
-os.environ.setdefault("DATA_DIR", "/tmp/fitman_test")
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql://fitman:fitman@localhost:5432/fitman_test"
+)
 
 from database import Base, SessionLocal, engine  # noqa: E402
 from main import app  # noqa: E402

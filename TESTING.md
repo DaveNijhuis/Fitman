@@ -12,9 +12,19 @@ The test is reviewed and agreed before any implementation code is written. This 
 
 ## Running the tests
 
+Tests run against a real PostgreSQL database. Start one first if you don't have it running:
+
+```bash
+docker run -d --name fitman-postgres \
+  -e POSTGRES_DB=fitman_test -e POSTGRES_USER=fitman -e POSTGRES_PASSWORD=fitman \
+  -p 5432:5432 postgres:16
+```
+
+Then run the suite:
+
 ```bash
 cd backend
-.venv/bin/pytest
+DATABASE_URL=postgresql://fitman:fitman@localhost:5432/fitman_test .venv/bin/pytest
 ```
 
 Run with verbose output:
@@ -52,6 +62,8 @@ All tests live in `backend/tests/`. The suite uses a single in-memory SQLite dat
 | `test_sessions.py` | Full workout session flow: start → log sets → end → list → get logs; edge cases (unknown session, already ended, 404); N+1 query regression guard (asserts ≤2 SELECT statements on list endpoint) |
 | `test_stats.py` | Home stats structure, streak calculation (unit + UTC correctness), week bounds (UTC correctness) |
 
+| `test_postgresql.py` | PostgreSQL migration structural tests: engine dialect is postgresql, no TZDateTime custom type in any model |
+
 ## conftest.py
 
 A single `session`-scoped `TestClient` is shared across all tests. The database is created fresh at the start of the test run (`Base.metadata.drop_all` + `create_all`) and seeded with:
@@ -60,6 +72,8 @@ A single `session`-scoped `TestClient` is shared across all tests. The database 
 - The full exercise library (via `seed.py`)
 
 Because the database is shared across tests, individual tests must not rely on the database being empty. Tests that need specific data insert it directly via `SessionLocal`.
+
+`DATABASE_URL` must be set in the environment before the test session starts. `conftest.py` defaults to `postgresql://fitman:fitman@localhost:5432/fitman_test` if the variable is not set.
 
 ## Pre-commit hooks
 

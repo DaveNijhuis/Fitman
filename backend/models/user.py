@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from database import Base, TZDateTime
+from database import Base
 
 
 class User(Base):
@@ -19,5 +19,7 @@ class User(Base):
     height_cm: Mapped[float | None] = mapped_column(Float)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
-    consent_given_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    consent_given_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

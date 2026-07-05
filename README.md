@@ -27,7 +27,7 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 |---|---|
 | Backend API | Python 3.11 + FastAPI |
 | Frontend | React 18 + TypeScript + Tailwind CSS |
-| Database | SQLite (via SQLAlchemy) |
+| Database | PostgreSQL 16 (via SQLAlchemy) |
 | Auth | JWT |
 | Infra | Docker Compose + nginx + Tailscale |
 
@@ -102,16 +102,29 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml down
 ```
 
+### Migrating from SQLite (M18 → M19 upgrade)
+
+If you ran a previous version of Fitman backed by SQLite, your data is in a `fitman.db` file. PostgreSQL is not compatible with SQLite backups directly — you need to export and re-import your data.
+
+**Option A — Fresh start (recommended for personal use)**
+
+1. Note down any data you want to keep manually
+2. Deploy the new version: `docker compose -f docker-compose.prod.yml up -d --build`
+3. Visit `/setup` to create a new admin account
+
+**Option B — Data migration**
+
+1. Export your data via the old app: `GET /api/gdpr/export` (returns JSON)
+2. Bring up the new PostgreSQL-backed version
+3. Re-import your workout history via the API or manually
+
 ### Backups
 
-Run a backup manually at any time (safe while the app is live):
+Back up the database with `pg_dump` — safe to run while the app is live:
 
 ```bash
-chmod +x scripts/backup.sh
-./scripts/backup.sh
+docker exec fitman-postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y%m%d_%H%M%S).sql
 ```
-
-Backups are saved to `backups/fitman_YYYYMMDD_HHMMSS.db`. The script keeps the last 7 and deletes older ones automatically.
 
 **Set up a daily automatic backup with cron:**
 
@@ -122,20 +135,17 @@ crontab -e
 Add this line to run every day at 3am:
 
 ```
-0 3 * * * /path/to/Fitman/scripts/backup.sh >> /path/to/Fitman/backups/backup.log 2>&1
+0 3 * * * docker exec fitman-postgres pg_dump -U fitman fitman > /path/to/Fitman/backups/fitman_$(date +\%Y\%m\%d_\%H\%M\%S).sql
 ```
 
 **Restoring from a backup:**
 
 ```bash
-# 1. Stop the app
-docker compose -f docker-compose.prod.yml down
+# 1. Stop the backend (keep postgres running)
+docker compose -f docker-compose.prod.yml stop backend frontend
 
-# 2. Copy the backup into the Docker volume
-docker run --rm \
-  -v fitman_db_data:/data \
-  -v $(pwd)/backups:/backups \
-  alpine cp /backups/fitman_YYYYMMDD_HHMMSS.db /data/fitman.db
+# 2. Restore the dump
+docker exec -i fitman-postgres psql -U fitman fitman < backups/fitman_YYYYMMDD_HHMMSS.sql
 
 # 3. Start the app again
 docker compose -f docker-compose.prod.yml up -d
@@ -146,14 +156,19 @@ docker compose -f docker-compose.prod.yml up -d
 ## Development setup
 
 ```bash
+# Start PostgreSQL for local development (requires Docker)
+docker run -d --name fitman-postgres \
+  -e POSTGRES_DB=fitman -e POSTGRES_USER=fitman -e POSTGRES_PASSWORD=fitman \
+  -p 5432:5432 postgres:16
+
 # Backend — run from the backend/ directory
 cd backend
 uv venv .venv --python 3.11
 source .venv/bin/activate
 uv pip install -r requirements.txt -r requirements-dev.txt
 pre-commit install
-alembic upgrade head
-fastapi dev main.py
+DATABASE_URL=postgresql://fitman:fitman@localhost:5432/fitman alembic upgrade head
+DATABASE_URL=postgresql://fitman:fitman@localhost:5432/fitman fastapi dev main.py
 
 # Frontend — run from the frontend/ directory
 cd frontend

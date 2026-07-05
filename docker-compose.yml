@@ -1,12 +1,28 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: fitman
+      POSTGRES_USER: fitman
+      POSTGRES_PASSWORD: fitman
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitman"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build: ./backend
     ports:
       - "8000:8000"
-    volumes:
-      - db_data:/app/data
     env_file:
       - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

@@ -59,10 +59,19 @@ export default function Sidebar() {
           {active ? <Play size={18} strokeWidth={2.2} fill="#fff" /> : <Plus size={18} strokeWidth={2.2} />}
           {active ? `Resume ${active.session}` : 'Start workout'}
         </button>
-        <button className="flex items-center gap-3 px-3 py-[10px] rounded-xl text-[var(--color-muted)] font-semibold text-[14.5px] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] transition-colors">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-[10px] rounded-xl font-semibold text-[14.5px] transition-colors ${
+              isActive
+                ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
+                : 'text-[var(--color-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]'
+            }`
+          }
+        >
           <Settings size={20} />
           Settings
-        </button>
+        </NavLink>
       </div>
     </aside>
   )

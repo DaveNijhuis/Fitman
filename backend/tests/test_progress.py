@@ -96,6 +96,7 @@ def test_balance_skips_exercise_with_null_muscles(client: TestClient):
     db.refresh(null_ex)
 
     session_obj = WorkoutSession(
+        user_id=1,
         session="Push A",
         started_at=datetime.now(timezone.utc),
         ended_at=datetime.now(timezone.utc),
@@ -138,6 +139,7 @@ def test_balance_skips_exercise_with_malformed_muscles(client: TestClient):
     db.refresh(bad_ex)
 
     session_obj = WorkoutSession(
+        user_id=1,
         session="Push A",
         started_at=datetime.now(timezone.utc),
         ended_at=datetime.now(timezone.utc),

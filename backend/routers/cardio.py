@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.cardio import CardioEntry
+from models.user import User
 
 router = APIRouter(prefix="/api/cardio", tags=["cardio"])
 
@@ -33,7 +34,7 @@ class CardioEntryOut(BaseModel):
 
 
 @router.get("/activities")
-def list_activities(_: str = Depends(get_current_user)) -> list[str]:
+def list_activities(_: User = Depends(get_current_user)) -> list[str]:
     return ACTIVITIES
 
 
@@ -41,7 +42,7 @@ def list_activities(_: str = Depends(get_current_user)) -> list[str]:
 def log_cardio(
     body: CardioIn,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     if body.activity not in ACTIVITIES:
         raise HTTPException(
@@ -49,6 +50,7 @@ def log_cardio(
         )
 
     entry = CardioEntry(
+        user_id=current_user.id,
         activity=body.activity,
         distance_m=body.distance_m,
         duration_s=body.duration_s,
@@ -64,19 +66,24 @@ def log_cardio(
 @router.get("", response_model=list[CardioEntryOut])
 def list_cardio(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return db.query(CardioEntry).order_by(CardioEntry.logged_at.desc()).all()
+    return (
+        db.query(CardioEntry)
+        .filter(CardioEntry.user_id == current_user.id)
+        .order_by(CardioEntry.logged_at.desc())
+        .all()
+    )
 
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cardio(
     entry_id: int,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     entry = db.get(CardioEntry, entry_id)
-    if not entry:
+    if not entry or entry.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found"
         )

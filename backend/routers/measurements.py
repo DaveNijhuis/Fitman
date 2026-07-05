@@ -10,6 +10,7 @@ from auth import get_current_user
 from database import get_db
 from formulas import ImpedanceInputs, UserProfile, calculate_all
 from models.measurement import BodyMeasurement
+from models.user import User
 
 router = APIRouter(prefix="/api/measurements", tags=["measurements"])
 
@@ -122,13 +123,14 @@ def _apply_formulae(measurement: BodyMeasurement, age: int, sex: int) -> None:
 def log_measurement(
     body: MeasurementIn,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     data = body.model_dump()
     age = data.pop("user_age") or int(os.getenv("SCALE_AGE", "0"))
     sex_val = data.pop("user_sex")
     sex = sex_val if sex_val is not None else int(os.getenv("SCALE_SEX", "1"))
     data["recorded_at"] = data["recorded_at"] or datetime.now(timezone.utc)
+    data["user_id"] = current_user.id
     measurement = BodyMeasurement(**data)
     db.add(measurement)
     db.commit()
@@ -142,19 +144,24 @@ def log_measurement(
 @router.get("", response_model=list[MeasurementOut])
 def list_measurements(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return db.query(BodyMeasurement).order_by(BodyMeasurement.recorded_at.desc()).all()
+    return (
+        db.query(BodyMeasurement)
+        .filter(BodyMeasurement.user_id == current_user.id)
+        .order_by(BodyMeasurement.recorded_at.desc())
+        .all()
+    )
 
 
 @router.delete("/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_measurement(
     measurement_id: int,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     measurement = db.get(BodyMeasurement, measurement_id)
-    if not measurement:
+    if not measurement or measurement.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Measurement not found"
         )

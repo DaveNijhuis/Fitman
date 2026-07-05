@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.exercise import Exercise
+from models.user import User
 from models.workout import Log, WorkoutSession
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
@@ -34,13 +35,14 @@ class LogOut(BaseModel):
 def log_set(
     body: LogRequest,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     if not db.get(Exercise, body.exercise_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"
         )
-    if not db.get(WorkoutSession, body.session_id):
+    workout = db.get(WorkoutSession, body.session_id)
+    if not workout or workout.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
@@ -61,11 +63,14 @@ def log_set(
 def get_last_set(
     exercise_id: int,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     return (
         db.query(Log)
-        .filter(Log.exercise_id == exercise_id)
+        .join(WorkoutSession, Log.session_id == WorkoutSession.id)
+        .filter(
+            Log.exercise_id == exercise_id, WorkoutSession.user_id == current_user.id
+        )
         .order_by(Log.logged_at.desc())
         .first()
     )
@@ -76,11 +81,14 @@ def get_logs(
     exercise_id: int,
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     return (
         db.query(Log)
-        .filter(Log.exercise_id == exercise_id)
+        .join(WorkoutSession, Log.session_id == WorkoutSession.id)
+        .filter(
+            Log.exercise_id == exercise_id, WorkoutSession.user_id == current_user.id
+        )
         .order_by(Log.logged_at.desc())
         .limit(limit)
         .all()

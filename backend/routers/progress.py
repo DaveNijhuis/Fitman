@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.exercise import Exercise
+from models.user import User
 from models.workout import Log, WorkoutSession
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
@@ -17,6 +18,14 @@ def epley_1rm(weight: float, reps: int) -> float:
     if reps == 1:
         return weight
     return weight * (1 + reps / 30)
+
+
+def _user_logs(db: Session, user_id: int):
+    return (
+        db.query(Log)
+        .join(WorkoutSession, Log.session_id == WorkoutSession.id)
+        .filter(WorkoutSession.user_id == user_id)
+    )
 
 
 # ── Strength ──────────────────────────────────────────────────────────────────
@@ -37,7 +46,7 @@ class StrengthData(BaseModel):
 def strength_progression(
     exercise_id: int = Query(...),
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     exercise = db.get(Exercise, exercise_id)
     if not exercise:
@@ -46,7 +55,7 @@ def strength_progression(
         )
 
     logs = (
-        db.query(Log)
+        _user_logs(db, current_user.id)
         .filter(Log.exercise_id == exercise_id)
         .order_by(Log.logged_at)
         .all()
@@ -75,9 +84,9 @@ class VolumePoint(BaseModel):
 @router.get("/volume", response_model=list[VolumePoint])
 def volume_over_time(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    logs = db.query(Log).order_by(Log.logged_at).all()
+    logs = _user_logs(db, current_user.id).order_by(Log.logged_at).all()
     weekly: dict[str, float] = defaultdict(float)
     for log in logs:
         week = log.logged_at.strftime("%Y-W%V")
@@ -105,13 +114,15 @@ class ConsistencyWeek(BaseModel):
 @router.get("/consistency", response_model=list[ConsistencyWeek])
 def consistency(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     cutoff = datetime.now(timezone.utc) - timedelta(weeks=17)
     sessions = (
         db.query(WorkoutSession)
         .filter(
-            WorkoutSession.started_at >= cutoff, WorkoutSession.ended_at.isnot(None)
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.started_at >= cutoff,
+            WorkoutSession.ended_at.isnot(None),
         )
         .all()
     )
@@ -157,9 +168,15 @@ class MuscleBalance(BaseModel):
 @router.get("/balance", response_model=list[MuscleBalance])
 def muscle_balance(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    rows = db.query(Log, Exercise).join(Exercise, Log.exercise_id == Exercise.id).all()
+    rows = (
+        db.query(Log, Exercise)
+        .join(Exercise, Log.exercise_id == Exercise.id)
+        .join(WorkoutSession, Log.session_id == WorkoutSession.id)
+        .filter(WorkoutSession.user_id == current_user.id)
+        .all()
+    )
     muscle_volume: dict[str, float] = defaultdict(float)
     total = 0.0
     for log, exercise in rows:
@@ -201,12 +218,14 @@ class PersonalRecord(BaseModel):
 @router.get("/prs", response_model=list[PersonalRecord])
 def personal_records(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     exercises = db.query(Exercise).order_by(Exercise.name).all()
     prs = []
     for exercise in exercises:
-        logs = db.query(Log).filter(Log.exercise_id == exercise.id).all()
+        logs = (
+            _user_logs(db, current_user.id).filter(Log.exercise_id == exercise.id).all()
+        )
         if not logs:
             continue
         best = max(logs, key=lambda log: epley_1rm(log.weight, log.reps))

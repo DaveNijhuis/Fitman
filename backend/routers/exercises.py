@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.exercise import Exercise
+from models.user import User
 
 router = APIRouter(prefix="/api/exercises", tags=["exercises"])
 
@@ -24,7 +25,7 @@ class ExerciseOut(BaseModel):
 
 
 @router.get("/sessions")
-def list_sessions(_: str = Depends(get_current_user)) -> list[str]:
+def list_sessions(_: User = Depends(get_current_user)) -> list[str]:
     return SESSIONS
 
 
@@ -33,7 +34,7 @@ def list_exercises(
     session: str | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    _: User = Depends(get_current_user),
 ) -> list[ExerciseOut]:
     if session is not None and session not in SESSIONS:
         raise HTTPException(
@@ -56,7 +57,7 @@ def list_exercises(
 def get_exercise(
     exercise_id: int,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    _: User = Depends(get_current_user),
 ) -> ExerciseOut:
     exercise = db.get(Exercise, exercise_id)
     if not exercise:

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -69,29 +70,32 @@ def list_sessions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    workouts = (
-        db.query(WorkoutSession)
+    rows = (
+        db.query(
+            WorkoutSession,
+            func.count(Log.id).label("set_count"),
+            func.coalesce(func.sum(Log.weight * Log.reps), 0.0).label("volume_kg"),
+        )
+        .outerjoin(Log, Log.session_id == WorkoutSession.id)
         .filter(
             WorkoutSession.user_id == current_user.id,
             WorkoutSession.ended_at.isnot(None),
         )
+        .group_by(WorkoutSession.id)
         .order_by(WorkoutSession.started_at.desc())
         .all()
     )
-    result = []
-    for w in workouts:
-        logs = db.query(Log).filter(Log.session_id == w.id).all()
-        result.append(
-            WorkoutSessionSummary(
-                id=w.id,
-                session=w.session,
-                started_at=w.started_at,
-                ended_at=w.ended_at,
-                set_count=len(logs),
-                volume_kg=sum(log.weight * log.reps for log in logs),
-            )
+    return [
+        WorkoutSessionSummary(
+            id=w.id,
+            session=w.session,
+            started_at=w.started_at,
+            ended_at=w.ended_at,
+            set_count=set_count,
+            volume_kg=float(volume_kg),
         )
-    return result
+        for w, set_count, volume_kg in rows
+    ]
 
 
 @router.get("/{session_id}/logs", response_model=list[SessionLogEntry])

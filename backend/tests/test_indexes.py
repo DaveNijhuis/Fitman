@@ -11,7 +11,10 @@ from database import engine
 
 def _indexed_columns(table: str) -> set[str]:
     return {
-        col for idx in inspect(engine).get_indexes(table) for col in idx["column_names"]
+        col
+        for idx in inspect(engine).get_indexes(table)
+        for col in idx["column_names"]
+        if col is not None
     }
 
 

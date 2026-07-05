@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -29,6 +30,7 @@ class RegisterRequest(BaseModel):
     username: str
     password: str = Field(min_length=8)
     display_name: str | None = None
+    consent_given: Literal[True]
 
 
 class TokenResponse(BaseModel):
@@ -68,6 +70,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         is_active=True,
         is_admin=True,  # first user is always admin
         created_at=datetime.now(timezone.utc),
+        consent_given_at=datetime.now(timezone.utc),
     )
     db.add(user)
     db.commit()

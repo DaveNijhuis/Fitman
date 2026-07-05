@@ -36,7 +36,7 @@ All tests live in `backend/tests/`. The suite uses a single in-memory SQLite dat
 | File | What it covers |
 |---|---|
 | `test_admin.py` | Admin user management: list users, create, disable/enable, delete (with data cascade); 403 for non-admins, self-disable/delete blocked |
-| `test_auth.py` | Password hashing, login, registration validation (min length), JWT-protected endpoints, password change (wrong current → 400, short new → 422, success) |
+| `test_auth.py` | Password hashing, login, registration validation (min length, consent required), JWT-protected endpoints, password change (wrong current → 400, short new → 422, success) |
 | `test_cardio.py` | Cardio entry logging, list, delete, activity validation, schema contract (no `session_id`) |
 | `test_exercises.py` | Exercise list (session + search filters), exercise by ID, sessions list |
 | `test_gdpr.py` | Right to erasure (401, 204, cascade delete); data export (401, structure, no password hash, Content-Disposition header, workout sessions included) |

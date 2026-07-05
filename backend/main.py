@@ -7,11 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import SessionLocal
+from routers import admin as admin_router
 from routers import auth as auth_router
 from routers import cardio as cardio_router
 from routers import exercises as exercises_router
 from routers import logs as logs_router
 from routers import measurements as measurements_router
+from routers import profile as profile_router
 from routers import progress as progress_router
 from routers import sessions as sessions_router
 from routers import stats as stats_router
@@ -52,6 +54,7 @@ app.add_middleware(
 )
 
 
+app.include_router(admin_router.router)
 app.include_router(auth_router.router)
 app.include_router(exercises_router.router)
 app.include_router(sessions_router.router)
@@ -59,6 +62,7 @@ app.include_router(logs_router.router)
 app.include_router(progress_router.router)
 app.include_router(measurements_router.router)
 app.include_router(cardio_router.router)
+app.include_router(profile_router.router)
 app.include_router(stats_router.router)
 
 

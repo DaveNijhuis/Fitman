@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.exercise import Exercise
+from models.user import User
 from models.workout import Log, WorkoutSession
 from routers.exercises import SESSIONS
 
@@ -46,13 +47,14 @@ class SessionLogEntry(BaseModel):
 def start_session(
     body: StartSessionRequest,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     if body.session not in SESSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
         )
     workout = WorkoutSession(
+        user_id=current_user.id,
         session=body.session,
         started_at=datetime.now(timezone.utc),
     )
@@ -65,11 +67,14 @@ def start_session(
 @router.get("", response_model=list[WorkoutSessionSummary])
 def list_sessions(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     workouts = (
         db.query(WorkoutSession)
-        .filter(WorkoutSession.ended_at.isnot(None))
+        .filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.ended_at.isnot(None),
+        )
         .order_by(WorkoutSession.started_at.desc())
         .all()
     )
@@ -93,9 +98,10 @@ def list_sessions(
 def get_session_logs(
     session_id: int,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    if not db.get(WorkoutSession, session_id):
+    workout = db.get(WorkoutSession, session_id)
+    if not workout or workout.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
@@ -123,10 +129,10 @@ def get_session_logs(
 def end_session(
     session_id: int,
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     workout = db.get(WorkoutSession, session_id)
-    if not workout:
+    if not workout or workout.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )

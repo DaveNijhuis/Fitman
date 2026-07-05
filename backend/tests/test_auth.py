@@ -1,6 +1,10 @@
+from datetime import datetime, timezone
+
 import bcrypt
 from fastapi.testclient import TestClient
 
+from database import SessionLocal
+from models.user import User
 from routers.auth import _verify_password
 
 # ── Unit tests ────────────────────────────────────────────────────────────────
@@ -108,3 +112,88 @@ def test_register_accepts_minimum_length_password(client: TestClient):
         "/api/auth/register", json={"username": "newuser", "password": "12345678"}
     )
     assert resp.status_code == 409
+
+
+# ── Change password (Issue #106) ──────────────────────────────────────────────
+
+
+def _make_user(username: str, password: str) -> None:
+    db = SessionLocal()
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4)).decode()
+    db.add(
+        User(
+            username=username,
+            hashed_password=hashed,
+            is_active=True,
+            is_admin=False,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+    db.close()
+
+
+def _login(client: TestClient, username: str, password: str) -> dict:
+    token = client.post(
+        "/api/auth/login", json={"username": username, "password": password}
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_change_password_requires_auth(client: TestClient):
+    resp = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "testpass", "new_password": "newpass1234"},
+    )
+    assert resp.status_code == 401
+
+
+def test_change_password_rejects_wrong_current(client: TestClient):
+    resp = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "wrongpassword", "new_password": "newpass1234"},
+        headers=_login(client, "testuser", "testpass"),
+    )
+    assert resp.status_code == 400
+
+
+def test_change_password_rejects_short_new_password(client: TestClient):
+    resp = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "testpass", "new_password": "short"},
+        headers=_login(client, "testuser", "testpass"),
+    )
+    assert resp.status_code == 422
+
+
+def test_change_password_success(client: TestClient):
+    _make_user("pw_change_user", "oldpass1234")
+    resp = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "oldpass1234", "new_password": "newpass5678"},
+        headers=_login(client, "pw_change_user", "oldpass1234"),
+    )
+    assert resp.status_code == 200
+    assert (
+        client.post(
+            "/api/auth/login",
+            json={"username": "pw_change_user", "password": "newpass5678"},
+        ).status_code
+        == 200
+    )
+
+
+def test_change_password_old_password_rejected_after_change(client: TestClient):
+    _make_user("pw_old_user", "oldpass1234")
+    client.post(
+        "/api/auth/change-password",
+        json={"current_password": "oldpass1234", "new_password": "newpass5678"},
+        headers=_login(client, "pw_old_user", "oldpass1234"),
+    )
+    assert (
+        client.post(
+            "/api/auth/login",
+            json={"username": "pw_old_user", "password": "oldpass1234"},
+        ).status_code
+        == 401
+    )

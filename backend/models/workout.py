@@ -10,6 +10,9 @@ class WorkoutSession(Base):
     __tablename__ = "workout_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
     session: Mapped[str] = mapped_column(String, nullable=False)
     started_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
     ended_at: Mapped[datetime | None] = mapped_column(TZDateTime)

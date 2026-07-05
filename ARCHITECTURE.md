@@ -262,6 +262,9 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | `JWT_EXPIRE_DAYS` | | `7` | Token validity in days |
 | `DATA_DIR` | | `./data` | SQLite file location (`/app/data` in Docker) |
 | `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins |
+| `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size |
+| `DB_MAX_OVERFLOW` | | `10` | Max connections above pool size before blocking |
+| `DB_POOL_TIMEOUT` | | `30` | Seconds to wait for a connection before raising an error |
 
 User credentials are stored in the database. On first launch, visit `/setup` to create the admin account. `ADMIN_USERNAME` and `ADMIN_PASSWORD` are no longer used.
 

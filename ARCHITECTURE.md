@@ -15,8 +15,8 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
                          │   │   proxy)    │   └───────┬───────┘  │
                          │   └─────────────┘           │           │
                          │                     ┌───────▼───────┐  │
-                         │                     │   SQLite DB   │  │
-                         │                     │  fitman.db    │  │
+                         │                     │  PostgreSQL   │  │
+                         │                     │  Port 5432    │  │
                          │                     └───────────────┘  │
                          └─────────────────────────────────────────┘
 ```
@@ -27,7 +27,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 
 - Serves a REST JSON API consumed by the frontend
 - Handles authentication (JWT tokens)
-- Reads and writes all data to SQLite via SQLAlchemy
+- Reads and writes all data to PostgreSQL via SQLAlchemy
 - Runs database migrations automatically on startup via Alembic
 - Runs on port `8000` inside Docker (internal only — not exposed to the host)
 
@@ -39,11 +39,12 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - In production: built to static files and served by nginx
 - In development: Vite dev server on port `5173` with `/api` proxy to backend
 
-### Database — SQLite
+### Database — PostgreSQL 16
 
-- Single file (`fitman.db`) stored in a Docker volume (`db_data`)
-- Easy to back up: just copy the file
-- Sufficient for a single-user app — no separate database server needed
+- Runs as a `postgres:16` Docker service with a named volume (`db_data`)
+- Supports concurrent writes — required for multi-user deployment
+- Accessed by the backend via `DATABASE_URL` in `.env`
+- Schema managed by Alembic; migrations run automatically on container start
 
 ## Directory structure
 
@@ -88,8 +89,8 @@ Fitman/
 │   ├── Dockerfile           # Dev only: Vite dev server
 │   └── package.json
 │
-├── docker-compose.yml       # Development: Vite dev server + backend
-├── docker-compose.prod.yml  # Production: nginx static build + backend
+├── docker-compose.yml       # Development: Vite dev server + backend + postgres
+├── docker-compose.prod.yml  # Production: nginx static build + backend + postgres
 ├── .env                     # Secrets and config — never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
@@ -114,8 +115,8 @@ users
   height_cm       REAL
   is_active       BOOLEAN NOT NULL DEFAULT 1
   is_admin        BOOLEAN NOT NULL DEFAULT 0
-  created_at      TEXT NOT NULL
-  consent_given_at TEXT                   -- ISO timestamp; NULL for users created before #138
+  created_at      TIMESTAMPTZ NOT NULL
+  consent_given_at TIMESTAMPTZ             -- NULL for users created before #138
 ```
 
 ### Strength training
@@ -133,8 +134,8 @@ exercises
 workout_sessions
   id          INTEGER PRIMARY KEY
   session     TEXT NOT NULL          -- "Push A" | "Pull A" | "Legs A"
-  started_at  TEXT NOT NULL
-  ended_at    TEXT                   -- null while in progress
+  started_at  TIMESTAMPTZ NOT NULL
+  ended_at    TIMESTAMPTZ             -- null while in progress
 
 logs
   id          INTEGER PRIMARY KEY
@@ -142,7 +143,7 @@ logs
   session_id  INTEGER REFERENCES workout_sessions(id)
   weight      REAL NOT NULL          -- kg (0 for bodyweight exercises)
   reps        INTEGER NOT NULL
-  logged_at   TEXT NOT NULL
+  logged_at   TIMESTAMPTZ NOT NULL
 ```
 
 ### Cardio
@@ -154,7 +155,7 @@ cardio_entries
   distance_m   REAL                   -- metres (null if not tracked)
   duration_s   INTEGER                -- seconds (null if not tracked)
   notes        TEXT
-  logged_at    TEXT NOT NULL
+  logged_at    TIMESTAMPTZ NOT NULL
 ```
 
 ### Body measurements
@@ -162,7 +163,7 @@ cardio_entries
 ```
 body_measurements
   id                  INTEGER PRIMARY KEY
-  recorded_at         TEXT NOT NULL
+  recorded_at         TIMESTAMPTZ NOT NULL
   weight_kg           REAL
   height_cm           REAL
   notes               TEXT
@@ -259,8 +260,8 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SECRET_KEY` | ✅ | — | Random string for signing JWT tokens. Changing it invalidates all sessions. |
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string, e.g. `postgresql://fitman:fitman@postgres:5432/fitman` |
 | `JWT_EXPIRE_DAYS` | | `7` | Token validity in days |
-| `DATA_DIR` | | `./data` | SQLite file location (`/app/data` in Docker) |
 | `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins |
 | `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size |
 | `DB_MAX_OVERFLOW` | | `10` | Max connections above pool size before blocking |
@@ -314,10 +315,9 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 
 | Option | Assessment |
 |---|---|
-| Filesystem / volume encryption | Recommended. Encrypts the entire SQLite file transparently. Zero app code changes. Protects against disk theft or backup exfiltration. |
-| SQLCipher (encrypted SQLite) | Requires rebuilding pysqlite against libsqlcipher. Fragile in Docker, significant build complexity for marginal gain over filesystem encryption. |
-| Column-level encryption (`cryptography` lib) | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
-| PostgreSQL TDE / pgcrypto | Relevant if migrating to PostgreSQL (M19). Revisit then. |
+| Filesystem / volume encryption | Recommended. Encrypts the PostgreSQL data volume transparently. Zero app code changes. Protects against disk theft or backup exfiltration. |
+| pgcrypto / column-level encryption | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
+| Column-level encryption (`cryptography` lib) | Same trade-offs as pgcrypto with more application complexity. Not recommended. |
 
 **Key management (filesystem approach):** Use Linux LUKS or macOS FileVault on the host machine, or encrypt the Docker volume via the host's block device. The `SECRET_KEY` in `.env` remains the only application-level secret and should not be committed to version control.
 

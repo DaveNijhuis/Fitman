@@ -46,9 +46,7 @@ jobs:
         run: .venv/bin/pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=80
         env:
           SECRET_KEY: ci-test-secret-key-for-ci-only-not-for-production
-          ADMIN_USERNAME: testuser
-          ADMIN_PASSWORD: testpass
-          DATA_DIR: /tmp/fitman_test
+          DATABASE_URL: postgresql://fitman:fitman@localhost:5432/fitman_test
 
   docker:
     name: Docker production build
@@ -60,7 +58,6 @@ jobs:
       - name: Create stub .env for build
         run: |
           echo "SECRET_KEY=ci_placeholder_key" >> .env
-          echo "ADMIN_USERNAME=ci" >> .env
-          echo "ADMIN_PASSWORD=ci" >> .env
+          echo "DATABASE_URL=postgresql://fitman:fitman@postgres:5432/fitman" >> .env
       - name: Build production images
         run: docker compose -f docker-compose.prod.yml build

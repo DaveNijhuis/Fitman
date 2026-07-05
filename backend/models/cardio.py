@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from database import Base, TZDateTime
+from database import Base
 
 
 class CardioEntry(Base):
@@ -17,4 +17,4 @@ class CardioEntry(Base):
     distance_m: Mapped[float | None] = mapped_column(Float)
     duration_s: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(String)
-    logged_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

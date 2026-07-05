@@ -115,6 +115,7 @@ users
   is_active       BOOLEAN NOT NULL DEFAULT 1
   is_admin        BOOLEAN NOT NULL DEFAULT 0
   created_at      TEXT NOT NULL
+  consent_given_at TEXT                   -- ISO timestamp; NULL for users created before #138
 ```
 
 ### Strength training
@@ -242,6 +243,10 @@ DELETE /api/cardio/{id}                  Delete a cardio entry
 POST   /api/measurements                  Log a measurement { weight_kg, body_fat_pct, ... }
 GET    /api/measurements                  All measurements (newest first)
 DELETE /api/measurements/{id}            Delete a measurement
+
+# GDPR
+DELETE /api/gdpr/erase                   Delete own account and all associated data (GDPR Article 17)
+GET    /api/gdpr/export                  Download all own data as JSON (GDPR Article 20)
 
 # System
 GET    /health                            Health check

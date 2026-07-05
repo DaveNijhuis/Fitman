@@ -171,6 +171,15 @@ See [SCALE.md](SCALE.md) for the smart scale BLE protocol, packet decoding, and 
 
 > ⚠️ **Medical disclaimer:** Body composition metrics beyond raw weight are estimates from BIA formulas for personal informational use only. The developers are not medical professionals. Do not use these values for medical diagnosis or treatment.
 
+## Privacy notice
+
+If you share this app with others on your Tailscale network, users should know:
+
+- **What is stored:** workout sessions, sets, cardio entries, body measurements (weight, body fat %, BIA impedance readings), and profile fields (display name, birth year, sex, height)
+- **Where it is stored:** exclusively on your self-hosted server — no data is sent to any third party
+- **User rights:** each user can export all their data (`GET /api/gdpr/export`) or permanently delete their account and all associated data (`DELETE /api/gdpr/erase`) at any time
+- **Encryption:** data is stored in a SQLite database file; protect it with filesystem-level encryption on the host (see [ARCHITECTURE.md](ARCHITECTURE.md) for the full decision)
+
 ## Branch strategy
 
 | Branch | Purpose |

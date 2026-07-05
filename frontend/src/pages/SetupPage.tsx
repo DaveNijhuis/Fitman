@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { register } from '../api/auth'
+import { ONBOARDING_FLAG } from './OnboardingPage'
 
 export default function SetupPage() {
   const [username, setUsername]       = useState('')
@@ -26,8 +27,8 @@ export default function SetupPage() {
     setLoading(true)
     try {
       await register(username, password, displayName, consentGiven)
-      // Full reload so App re-checks setup-required and enters normal routing
-      window.location.href = '/'
+      localStorage.setItem(ONBOARDING_FLAG, '1')
+      window.location.href = '/onboarding'
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {

@@ -48,6 +48,7 @@ export default function SettingsPage() {
   // GDPR
   const [exporting, setExporting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [gdprErr, setGdprErr] = useState<string | null>(null)
 
@@ -288,17 +289,30 @@ export default function SettingsPage() {
                   This will permanently delete your account, all workout sessions, measurements, and logs. This cannot be undone.
                 </p>
               </div>
+              <div>
+                <label className="text-xs font-semibold text-red-700 block mb-1.5">
+                  Type <span className="font-mono">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  className="w-full px-3 py-2 rounded-xl border border-red-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-red-400 font-mono"
+                  autoComplete="off"
+                />
+              </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setConfirmDelete(false)}
+                  onClick={() => { setConfirmDelete(false); setDeleteConfirmText('') }}
                   className="flex-1 py-2 rounded-xl border border-[var(--color-border)] text-sm font-semibold text-[var(--color-muted)] hover:bg-[var(--color-bg)] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleErase}
-                  disabled={deleting}
-                  className="flex-1 py-2 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-40"
+                  disabled={deleting || deleteConfirmText !== 'DELETE'}
+                  className="flex-1 py-2 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-40 transition-opacity"
                 >
                   {deleting ? 'Deleting…' : 'Yes, delete everything'}
                 </button>

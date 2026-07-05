@@ -20,3 +20,4 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
+    consent_given_at: Mapped[datetime | None] = mapped_column(TZDateTime)

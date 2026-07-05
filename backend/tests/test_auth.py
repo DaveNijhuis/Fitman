@@ -31,7 +31,8 @@ def test_setup_not_required_when_user_exists(client: TestClient):
 
 def test_register_fails_when_user_exists(client: TestClient):
     resp = client.post(
-        "/api/auth/register", json={"username": "newuser", "password": "pass1234"}
+        "/api/auth/register",
+        json={"username": "newuser", "password": "pass1234", "consent_given": True},
     )
     assert resp.status_code == 409
 
@@ -109,7 +110,8 @@ def test_register_accepts_minimum_length_password(client: TestClient):
     """Boundary: 8-char password must pass Pydantic validation.
     Setup already complete so DB returns 409 — but not 422, proving validation passed."""
     resp = client.post(
-        "/api/auth/register", json={"username": "newuser", "password": "12345678"}
+        "/api/auth/register",
+        json={"username": "newuser", "password": "12345678", "consent_given": True},
     )
     assert resp.status_code == 409
 
@@ -197,3 +199,50 @@ def test_change_password_old_password_rejected_after_change(client: TestClient):
         ).status_code
         == 401
     )
+
+
+# ── Consent at registration (Issue #138) ─────────────────────────────────────
+
+
+def test_register_without_consent_returns_422(client: TestClient):
+    """consent_given field missing entirely — Pydantic must reject it."""
+    resp = client.post(
+        "/api/auth/register", json={"username": "consent_user", "password": "pass1234"}
+    )
+    assert resp.status_code == 422
+
+
+def test_register_with_consent_false_returns_422(client: TestClient):
+    """consent_given=False must be rejected — only True is accepted."""
+    resp = client.post(
+        "/api/auth/register",
+        json={
+            "username": "consent_user",
+            "password": "pass1234",
+            "consent_given": False,
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_register_with_consent_true_passes_validation(client: TestClient):
+    """consent_given=True passes validation. DB returns 409 (user already exists)
+    which proves the payload was valid and consent was accepted."""
+    resp = client.post(
+        "/api/auth/register",
+        json={
+            "username": "consent_user",
+            "password": "pass1234",
+            "consent_given": True,
+        },
+    )
+    assert resp.status_code == 409
+
+
+def test_consent_given_at_column_exists(client: TestClient):
+    """The consent_given_at column must exist on the User model after migration."""
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == "testuser").first()
+    assert user is not None
+    assert hasattr(user, "consent_given_at")
+    db.close()

@@ -115,6 +115,7 @@ users
   is_active       BOOLEAN NOT NULL DEFAULT 1
   is_admin        BOOLEAN NOT NULL DEFAULT 0
   created_at      TEXT NOT NULL
+  consent_given_at TEXT                   -- ISO timestamp; NULL for users created before #138
 ```
 
 ### Strength training
@@ -243,6 +244,10 @@ POST   /api/measurements                  Log a measurement { weight_kg, body_fa
 GET    /api/measurements                  All measurements (newest first)
 DELETE /api/measurements/{id}            Delete a measurement
 
+# GDPR
+DELETE /api/gdpr/erase                   Delete own account and all associated data (GDPR Article 17)
+GET    /api/gdpr/export                  Download all own data as JSON (GDPR Article 20)
+
 # System
 GET    /health                            Health check
 ```
@@ -297,6 +302,25 @@ On every container start, `entrypoint.sh` runs `alembic upgrade head` before sta
 The user model stores `birth_year` (integer) rather than a full date-of-birth. Full DOB is PII; birth year alone is not identifying on its own. Age is computed dynamically (`current_year - birth_year`) so it never goes stale. The ±1-year imprecision (birthday not yet passed this calendar year) is within the noise margin of the BIA formulae that consume it.
 
 Symmetric encryption of the full DOB was considered but deferred — it adds key-management complexity that is disproportionate to the threat model of a self-hosted, Tailscale-only app. This can be revisited in the M15 GDPR & data-security milestone if the threat model changes.
+
+### Encryption at rest — filesystem-level, not application-level
+
+GDPR Article 32 requires "appropriate technical and organisational measures" to protect personal data. For Fitman's current scope (self-hosted, single-user or small household, accessed exclusively over Tailscale), the appropriate measure is **filesystem-level encryption on the host** rather than application-level column encryption.
+
+**Options evaluated:**
+
+| Option | Assessment |
+|---|---|
+| Filesystem / volume encryption | Recommended. Encrypts the entire SQLite file transparently. Zero app code changes. Protects against disk theft or backup exfiltration. |
+| SQLCipher (encrypted SQLite) | Requires rebuilding pysqlite against libsqlcipher. Fragile in Docker, significant build complexity for marginal gain over filesystem encryption. |
+| Column-level encryption (`cryptography` lib) | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
+| PostgreSQL TDE / pgcrypto | Relevant if migrating to PostgreSQL (M19). Revisit then. |
+
+**Key management (filesystem approach):** Use Linux LUKS or macOS FileVault on the host machine, or encrypt the Docker volume via the host's block device. The `SECRET_KEY` in `.env` remains the only application-level secret and should not be committed to version control.
+
+**Backup note:** Encrypted backups are only as strong as the decryption key. Store backups on an encrypted medium and never in the same location as the key.
+
+**Revisit trigger:** If Fitman is ever deployed as a shared multi-user service (beyond household use), column-level encryption for health measurements should be implemented to comply with GDPR Article 32 in a multi-tenant context.
 
 ## Hosting & access
 

@@ -39,11 +39,12 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - In production: built to static files and served by nginx
 - In development: Vite dev server on port `5173` with `/api` proxy to backend
 
-### Database — SQLite
+### Database — PostgreSQL 16
 
-- Single file (`fitman.db`) stored in a Docker volume (`db_data`)
-- Easy to back up: just copy the file
-- Sufficient for a single-user app — no separate database server needed
+- Runs as a `postgres:16` Docker service with a named volume (`db_data`)
+- Supports concurrent writes — required for multi-user deployment
+- Accessed by the backend via `DATABASE_URL` in `.env`
+- Schema managed by Alembic; migrations run automatically on container start
 
 ## Directory structure
 
@@ -88,8 +89,8 @@ Fitman/
 │   ├── Dockerfile           # Dev only: Vite dev server
 │   └── package.json
 │
-├── docker-compose.yml       # Development: Vite dev server + backend
-├── docker-compose.prod.yml  # Production: nginx static build + backend
+├── docker-compose.yml       # Development: Vite dev server + backend + postgres
+├── docker-compose.prod.yml  # Production: nginx static build + backend + postgres
 ├── .env                     # Secrets and config — never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
@@ -259,8 +260,8 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SECRET_KEY` | ✅ | — | Random string for signing JWT tokens. Changing it invalidates all sessions. |
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string, e.g. `postgresql://fitman:fitman@postgres:5432/fitman` |
 | `JWT_EXPIRE_DAYS` | | `7` | Token validity in days |
-| `DATA_DIR` | | `./data` | SQLite file location (`/app/data` in Docker) |
 | `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins |
 | `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size |
 | `DB_MAX_OVERFLOW` | | `10` | Max connections above pool size before blocking |

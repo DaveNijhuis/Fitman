@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import Base, TZDateTime
+from database import Base
 
 
 class WorkoutSession(Base):
@@ -14,8 +14,10 @@ class WorkoutSession(Base):
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
     session: Mapped[str] = mapped_column(String, nullable=False)
-    started_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
-    ended_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     logs: Mapped[list["Log"]] = relationship("Log", back_populates="workout_session")
 
@@ -32,7 +34,7 @@ class Log(Base):
     )
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     reps: Mapped[int] = mapped_column(Integer, nullable=False)
-    logged_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     workout_session: Mapped["WorkoutSession"] = relationship(
         "WorkoutSession", back_populates="logs"

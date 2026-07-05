@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from database import Base, TZDateTime
+from database import Base
 
 
 class BodyMeasurement(Base):
@@ -13,7 +13,9 @@ class BodyMeasurement(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
-    recorded_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
     # ── Basic ──────────────────────────────────────────────────────────────────
     weight_kg: Mapped[float | None] = mapped_column(Float)

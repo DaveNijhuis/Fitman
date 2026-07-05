@@ -58,3 +58,7 @@ export function endSession(sessionId: number): Promise<WorkoutSession> {
     method: 'PATCH',
   })
 }
+
+export function discardSession(sessionId: number): Promise<void> {
+  return request<void>(`/api/sessions/${sessionId}`, { method: 'DELETE' })
+}

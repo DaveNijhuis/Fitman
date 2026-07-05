@@ -12,6 +12,9 @@ import WorkoutDetailPage from './pages/WorkoutDetailPage'
 import ProgressPage from './pages/ProgressPage'
 import LibraryPage from './pages/LibraryPage'
 import CardioPage from './pages/CardioPage'
+import SettingsPage from './pages/SettingsPage'
+import AdminPage from './pages/AdminPage'
+import OnboardingPage, { ONBOARDING_FLAG } from './pages/OnboardingPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!Boolean(getToken())) return <Navigate to="/login" replace />
@@ -53,7 +56,10 @@ export default function App() {
         <Route path="/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
         <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} />
         <Route path="/cardio" element={<ProtectedRoute><CardioPage /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to={Boolean(getToken()) ? '/' : '/login'} replace />} />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+        <Route path="/onboarding" element={getToken() ? <OnboardingPage /> : <Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to={Boolean(getToken()) ? (localStorage.getItem(ONBOARDING_FLAG) ? '/onboarding' : '/') : '/login'} replace />} />
       </Routes>
     </BrowserRouter>
   )

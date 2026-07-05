@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Dumbbell, Activity, Flame, Zap, Clock } from 'lucide-react'
+import { Dumbbell, Activity, Flame, Zap, Clock, Play } from 'lucide-react'
 import { getSessions } from '../api/exercises'
-import { startSession, saveActiveWorkout } from '../api/workoutSessions'
+import { startSession, saveActiveWorkout, getActiveWorkout } from '../api/workoutSessions'
 import { getHomeStats, type HomeStats } from '../api/stats'
 
 const SESSION_META: Record<string, { focus: string }> = {
@@ -49,10 +49,14 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<string[]>([])
   const [starting, setStarting] = useState<string | null>(null)
   const [stats, setStats] = useState<HomeStats | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  const activeWorkout = getActiveWorkout()
 
   useEffect(() => {
-    getSessions().then(setSessions)
-    getHomeStats().then(setStats)
+    Promise.all([getSessions(), getHomeStats()])
+      .then(([s, h]) => { setSessions(s); setStats(h) })
+      .catch(() => setLoadError(true))
   }, [])
 
   async function handleStart(session: string) {
@@ -81,6 +85,12 @@ export default function HomePage() {
       </header>
 
       <main className="px-4 space-y-4">
+
+        {loadError && (
+          <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            Could not load data — please check your connection and try again.
+          </p>
+        )}
 
         {/* Stats grid */}
         {stats && (
@@ -119,10 +129,59 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Session cards */}
-        <div
-          className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex items-center justify-between"
-        >
+        {/* Quick start / Resume */}
+        {sessions.length > 0 && (
+          activeWorkout ? (
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-[var(--color-border)]">
+                <p className="font-semibold text-[var(--color-text)]">Active workout</p>
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">You have a session in progress</p>
+              </div>
+              <button
+                onClick={() => navigate(`/workout/${activeWorkout.id}`, { state: { session: activeWorkout.session, sessionId: activeWorkout.id } })}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-bg)] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[var(--color-accent-soft)] flex items-center justify-center shrink-0">
+                  <Play size={16} className="text-[var(--color-accent)]" fill="var(--color-accent)" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-semibold text-[var(--color-text)]">{activeWorkout.session}</p>
+                  <p className="text-xs text-[var(--color-muted)]">In progress</p>
+                </div>
+                <span className="text-xs font-semibold text-[var(--color-accent)] shrink-0">Resume →</span>
+              </button>
+            </div>
+          ) : (
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-[var(--color-border)]">
+                <p className="font-semibold text-[var(--color-text)]">Quick start</p>
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">Tap a session or use the + button</p>
+              </div>
+              {sessions.map(session => (
+                <button
+                  key={session}
+                  onClick={() => handleStart(session)}
+                  disabled={starting !== null}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-[var(--color-accent-soft)] flex items-center justify-center shrink-0">
+                    <Dumbbell size={16} className="text-[var(--color-accent)]" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-[var(--color-text)]">{session}</p>
+                    <p className="text-xs text-[var(--color-muted)]">{SESSION_META[session]?.focus}</p>
+                  </div>
+                  <span className="text-xs font-semibold text-[var(--color-accent)] shrink-0">
+                    {starting === session ? 'Starting…' : 'Start →'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Cardio */}
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)] bg-opacity-10 flex items-center justify-center">
               <Activity size={18} className="text-[var(--color-accent)]" />
@@ -139,32 +198,6 @@ export default function HomePage() {
             Log
           </button>
         </div>
-
-        {sessions.map(session => (
-          <div
-            key={session}
-            className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)] bg-opacity-10 flex items-center justify-center">
-                <Dumbbell size={18} className="text-[var(--color-accent)]" />
-              </div>
-              <div>
-                <p className="font-semibold text-[var(--color-text)]">{session}</p>
-                <p className="text-sm text-[var(--color-muted)]">
-                  {SESSION_META[session]?.focus}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => handleStart(session)}
-              disabled={starting !== null}
-              className="px-4 py-2 bg-[var(--color-accent)] text-white text-sm font-semibold rounded-xl disabled:opacity-50"
-            >
-              {starting === session ? '…' : 'Start'}
-            </button>
-          </div>
-        ))}
 
       </main>
     </div>

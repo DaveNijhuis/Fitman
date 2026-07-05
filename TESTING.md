@@ -59,7 +59,7 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_measurements.py` | Body measurement CRUD, auth enforcement, full BIA formula application with impedance inputs |
 | `test_profile.py` | GET /api/profile structure and auth, PATCH updates (display_name, birth_year, sex, height_cm), unknown fields ignored, BIA falls back to profile height |
 | `test_progress.py` | Muscle balance, `epley_1rm` unit tests, strength progression (structure + daily best), volume over time, consistency heatmap, personal records |
-| `test_sessions.py` | Full workout session flow: start → log sets → end → list → get logs; edge cases (unknown session, already ended, 404); N+1 query regression guard (asserts ≤2 SELECT statements on list endpoint) |
+| `test_sessions.py` | Full workout session flow: start → log sets → end → list → get logs; edge cases (unknown session, already ended, 404); N+1 query regression guard (asserts ≤2 SELECT statements on list endpoint); discard session (204 happy path, log cascade, cross-user 404, already-ended 400) |
 | `test_stats.py` | Home stats structure, streak calculation (unit + UTC correctness), week bounds (UTC correctness) |
 
 | `test_postgresql.py` | PostgreSQL migration structural tests: engine dialect is postgresql, no TZDateTime custom type in any model |

@@ -1,4 +1,36 @@
+from datetime import datetime, timezone
+
+import bcrypt
 from fastapi.testclient import TestClient
+
+from database import SessionLocal
+from models.user import User
+
+
+def _create_user_b() -> None:
+    db = SessionLocal()
+    if not db.query(User).filter(User.username == "userb_sessions").first():
+        db.add(
+            User(
+                username="userb_sessions",
+                hashed_password=bcrypt.hashpw(
+                    b"passwordB1", bcrypt.gensalt(rounds=4)
+                ).decode(),
+                is_active=True,
+                is_admin=False,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+    db.close()
+
+
+def _auth_b(client: TestClient) -> dict:
+    _create_user_b()
+    token = client.post(
+        "/api/auth/login", json={"username": "userb_sessions", "password": "passwordB1"}
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _token(client: TestClient) -> str:
@@ -171,6 +203,47 @@ def test_list_sessions_single_query(client: TestClient):
 
     assert resp.status_code == 200
     assert query_count <= 2, f"N+1 detected: {query_count} SELECT queries (expected ≤2)"
+
+
+# ── Discard session ───────────────────────────────────────────────────────────
+
+
+def test_delete_active_session_returns_204(client: TestClient):
+    session = _start(client)
+    resp = client.delete(f"/api/sessions/{session['id']}", headers=_auth(client))
+    assert resp.status_code == 204
+    # Session and its logs must be gone
+    logs_resp = client.get(f"/api/sessions/{session['id']}/logs", headers=_auth(client))
+    assert logs_resp.status_code == 404
+
+
+def test_delete_active_session_removes_logs(client: TestClient):
+    exercise_id = _first_exercise_id(client)
+    session = _start(client)
+    _log_set(client, session["id"], exercise_id)
+    _log_set(client, session["id"], exercise_id)
+    resp = client.delete(f"/api/sessions/{session['id']}", headers=_auth(client))
+    assert resp.status_code == 204
+    # Logs endpoint returns 404 (session gone)
+    assert (
+        client.get(
+            f"/api/sessions/{session['id']}/logs", headers=_auth(client)
+        ).status_code
+        == 404
+    )
+
+
+def test_delete_other_users_session_returns_404(client: TestClient):
+    session = _start(client)
+    resp = client.delete(f"/api/sessions/{session['id']}", headers=_auth_b(client))
+    assert resp.status_code == 404
+
+
+def test_delete_ended_session_returns_400(client: TestClient):
+    session = _start(client)
+    client.patch(f"/api/sessions/{session['id']}/end", headers=_auth(client))
+    resp = client.delete(f"/api/sessions/{session['id']}", headers=_auth(client))
+    assert resp.status_code == 400
 
 
 # ── Full flow ─────────────────────────────────────────────────────────────────

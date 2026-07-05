@@ -22,7 +22,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(error.detail ?? 'Request failed')
+    const detail = Array.isArray(error.detail)
+      ? error.detail.map((e: { msg: string }) => e.msg).join(', ')
+      : (error.detail ?? 'Request failed')
+    throw new Error(detail)
   }
 
   if (res.status === 204) return undefined as T

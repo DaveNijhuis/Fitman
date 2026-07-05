@@ -57,14 +57,17 @@ Fitman/
 │   ├── seed.py              # Initial exercise data
 │   ├── entrypoint.sh        # Docker entrypoint: runs migrations then uvicorn
 │   ├── routers/             # API route handlers
-│   │   ├── auth.py          # POST /api/auth/login
+│   │   ├── auth.py          # POST /api/auth/login, /register, /change-password
 │   │   ├── exercises.py     # GET /api/exercises
 │   │   ├── sessions.py      # Workout session management
 │   │   ├── logs.py          # Set logging
 │   │   ├── progress.py      # Progress calculations
 │   │   ├── measurements.py  # Body measurements
 │   │   ├── cardio.py        # Cardio logging
-│   │   └── stats.py         # Home dashboard stats
+│   │   ├── stats.py         # Home dashboard stats
+│   │   ├── profile.py       # GET/PATCH /api/profile
+│   │   ├── admin.py         # Admin user management
+│   │   └── gdpr.py          # Data export and account erasure
 │   ├── models/              # SQLAlchemy database models
 │   │   ├── exercise.py
 │   │   ├── workout.py
@@ -202,7 +205,7 @@ POST   /api/auth/login                   Returns JWT token
 POST   /api/auth/change-password         Change own password (requires current_password + new_password)
 
 # Profile
-GET    /api/profile                       Current user's profile (username, email, display_name, birth_year, sex, height_cm)
+GET    /api/profile                       Current user's profile (username, email, display_name, birth_year, sex, height_cm, is_admin)
 PATCH  /api/profile                       Update profile fields
 
 # Admin
@@ -218,6 +221,7 @@ GET    /api/exercises/{id}               Single exercise by ID
 
 # Strength logging
 POST   /api/sessions                      Start a workout session
+DELETE /api/sessions/{id}                Discard an in-progress session and all its logs (active sessions only)
 PATCH  /api/sessions/{id}/end            End a workout session
 GET    /api/sessions                      List completed sessions with volume + set count
 GET    /api/sessions/{id}/logs           All logs for a session
@@ -275,11 +279,12 @@ The backend refuses to start if `SECRET_KEY` is missing.
 
 1. **First launch**: frontend detects empty DB via `GET /api/auth/setup-required` and redirects to `/setup`
 2. User registers via `POST /api/auth/register` — first user is automatically admin
-3. Subsequent logins: `POST /api/auth/login` with username + password
-4. Backend verifies against bcrypt hash stored in the `users` table, returns a JWT
-5. Frontend stores the token in localStorage and sends it as `Authorization: Bearer <token>` on every request
-6. JWT payload contains `user_id` as `sub`; `get_current_user` validates the token and fetches the user from DB
-7. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again
+3. **Onboarding**: after registration, `fitman_onboarding_pending` is set in localStorage; the frontend redirects to `/onboarding` for a one-time profile setup step, then clears the flag and proceeds to home
+4. Subsequent logins: `POST /api/auth/login` with username + password
+5. Backend verifies against bcrypt hash stored in the `users` table, returns a JWT
+6. Frontend stores the token in localStorage and sends it as `Authorization: Bearer <token>` on every request
+7. JWT payload contains `user_id` as `sub`; `get_current_user` validates the token and fetches the user from DB
+8. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again
 
 Since Tailscale already restricts who can reach the server, JWT here primarily prevents accidents rather than acting as the sole security layer.
 

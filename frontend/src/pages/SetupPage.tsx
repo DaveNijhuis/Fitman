@@ -6,6 +6,7 @@ export default function SetupPage() {
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword]       = useState('')
   const [confirm, setConfirm]         = useState('')
+  const [consentGiven, setConsentGiven] = useState(false)
   const [error, setError]             = useState('')
   const [loading, setLoading]         = useState(false)
 
@@ -24,7 +25,7 @@ export default function SetupPage() {
 
     setLoading(true)
     try {
-      await register(username, password, displayName)
+      await register(username, password, displayName, consentGiven)
       // Full reload so App re-checks setup-required and enters normal routing
       window.location.href = '/'
     } catch (err) {
@@ -102,11 +103,23 @@ export default function SetupPage() {
             />
           </div>
 
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentGiven}
+              onChange={e => setConsentGiven(e.target.checked)}
+              className="mt-0.5 accent-[var(--color-accent)]"
+            />
+            <span className="text-sm text-[var(--color-muted)]">
+              I understand my workout data, body measurements, and profile are stored on this server. No data is sent to any third party.
+            </span>
+          </label>
+
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !consentGiven}
             className="w-full py-2 px-4 bg-[var(--color-accent)] text-white font-semibold rounded-lg disabled:opacity-50"
           >
             {loading ? 'Creating account…' : 'Create account'}

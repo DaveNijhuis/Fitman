@@ -41,7 +41,7 @@ Run a single file:
 
 ## Test structure
 
-All tests live in `backend/tests/`. The suite uses a single in-memory SQLite database (see `conftest.py`) seeded with one test user and the full exercise library.
+All tests live in `backend/tests/`. The suite runs against a real PostgreSQL database (see `conftest.py`) seeded with one test user and the full exercise library.
 
 | File | What it covers |
 |---|---|
@@ -49,7 +49,7 @@ All tests live in `backend/tests/`. The suite uses a single in-memory SQLite dat
 | `test_admin.py` | Admin user management: list users, create, disable/enable, delete (with data cascade); 403 for non-admins, self-disable/delete blocked |
 | `test_auth.py` | Password hashing, login, registration validation (min length, consent required), JWT-protected endpoints, password change (wrong current → 400, short new → 422, success) |
 | `test_cardio.py` | Cardio entry logging, list, delete, activity validation, schema contract (no `session_id`) |
-| `test_database_pool.py` | Connection pool configuration: verifies DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_TIMEOUT env vars are read and applied; default values; uses a temp file-based SQLite URL (not :memory:) to exercise QueuePool |
+| `test_database_pool.py` | Connection pool configuration: verifies DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_TIMEOUT env vars are read and applied; default values; uses `DATABASE_URL` from the environment (PostgreSQL) |
 | `test_entrypoint.py` | entrypoint.sh behaviour: non-zero exit and clear error message to stderr when migration fails; uvicorn not invoked on failure, invoked on success |
 | `test_exercises.py` | Exercise list (session + search filters), exercise by ID, sessions list |
 | `test_gdpr.py` | Right to erasure (401, 204, cascade delete); data export (401, structure, no password hash, Content-Disposition header, workout sessions included) |

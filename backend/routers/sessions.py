@@ -129,6 +129,26 @@ def get_session_logs(
     ]
 
 
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    workout = db.get(WorkoutSession, session_id)
+    if not workout or workout.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+    if workout.ended_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Session already ended"
+        )
+    db.query(Log).filter(Log.session_id == session_id).delete()
+    db.delete(workout)
+    db.commit()
+
+
 @router.patch("/{session_id}/end", response_model=WorkoutSessionOut)
 def end_session(
     session_id: int,

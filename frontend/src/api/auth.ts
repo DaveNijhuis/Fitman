@@ -10,10 +10,10 @@ export async function checkSetupRequired(): Promise<boolean> {
   return data.required
 }
 
-export async function register(username: string, password: string, displayName?: string): Promise<void> {
+export async function register(username: string, password: string, displayName?: string, consentGiven = false): Promise<void> {
   const data = await request<TokenResponse>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password, display_name: displayName || undefined }),
+    body: JSON.stringify({ username, password, display_name: displayName || undefined, consent_given: consentGiven }),
   })
   saveToken(data.access_token)
 }

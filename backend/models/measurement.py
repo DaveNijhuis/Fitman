@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Float, Integer, String
+from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base, TZDateTime
@@ -10,6 +10,9 @@ class BodyMeasurement(Base):
     __tablename__ = "body_measurements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
     recorded_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
 
     # ── Basic ──────────────────────────────────────────────────────────────────

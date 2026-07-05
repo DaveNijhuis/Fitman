@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from models.user import User
 from models.workout import Log, WorkoutSession
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -51,21 +52,24 @@ class HomeStats(BaseModel):
 @router.get("/home", response_model=HomeStats)
 def home_stats(
     db: Session = Depends(get_db),
-    _: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     week_start, week_end = _iso_week_bounds()
 
     prev_start = (date.fromisoformat(week_start) - timedelta(weeks=1)).isoformat()
     prev_end = (date.fromisoformat(week_end) - timedelta(weeks=1)).isoformat()
 
-    # Streak — all completed sessions ever
     all_sessions = (
-        db.query(WorkoutSession).filter(WorkoutSession.ended_at.isnot(None)).all()
+        db.query(WorkoutSession)
+        .filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.ended_at.isnot(None),
+        )
+        .all()
     )
     trained_dates = {s.started_at.date().isoformat() for s in all_sessions}
     streak = _compute_streak(trained_dates)
 
-    # This week's completed sessions
     week_sessions = [
         s
         for s in all_sessions
@@ -73,7 +77,6 @@ def home_stats(
     ]
     week_workouts = len(week_sessions)
 
-    # This week's volume and duration
     week_session_ids = {s.id for s in week_sessions}
     week_logs = (
         db.query(Log).filter(Log.session_id.in_(week_session_ids)).all()
@@ -87,7 +90,6 @@ def home_stats(
         if s.ended_at:
             week_minutes += int((s.ended_at - s.started_at).total_seconds() / 60)
 
-    # Previous week volume (for delta)
     prev_sessions = [
         s
         for s in all_sessions

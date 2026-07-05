@@ -120,14 +120,11 @@ If you ran a previous version of Fitman backed by SQLite, your data is in a `fit
 
 ### Backups
 
-Run a backup manually at any time (safe while the app is live):
+Back up the database with `pg_dump` — safe to run while the app is live:
 
 ```bash
-chmod +x scripts/backup.sh
-./scripts/backup.sh
+docker exec fitman-postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y%m%d_%H%M%S).sql
 ```
-
-Backups are saved to `backups/fitman_YYYYMMDD_HHMMSS.db`. The script keeps the last 7 and deletes older ones automatically.
 
 **Set up a daily automatic backup with cron:**
 
@@ -138,20 +135,17 @@ crontab -e
 Add this line to run every day at 3am:
 
 ```
-0 3 * * * /path/to/Fitman/scripts/backup.sh >> /path/to/Fitman/backups/backup.log 2>&1
+0 3 * * * docker exec fitman-postgres pg_dump -U fitman fitman > /path/to/Fitman/backups/fitman_$(date +\%Y\%m\%d_\%H\%M\%S).sql
 ```
 
 **Restoring from a backup:**
 
 ```bash
-# 1. Stop the app
-docker compose -f docker-compose.prod.yml down
+# 1. Stop the backend (keep postgres running)
+docker compose -f docker-compose.prod.yml stop backend frontend
 
-# 2. Copy the backup into the Docker volume
-docker run --rm \
-  -v fitman_db_data:/data \
-  -v $(pwd)/backups:/backups \
-  alpine cp /backups/fitman_YYYYMMDD_HHMMSS.db /data/fitman.db
+# 2. Restore the dump
+docker exec -i fitman-postgres psql -U fitman fitman < backups/fitman_YYYYMMDD_HHMMSS.sql
 
 # 3. Start the app again
 docker compose -f docker-compose.prod.yml up -d

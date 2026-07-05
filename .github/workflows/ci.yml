@@ -23,20 +23,6 @@ jobs:
   backend:
     name: Backend quality
     runs-on: self-hosted
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: fitman_test
-          POSTGRES_USER: fitman
-          POSTGRES_PASSWORD: fitman
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     defaults:
       run:
         working-directory: backend

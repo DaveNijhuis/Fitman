@@ -315,10 +315,9 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 
 | Option | Assessment |
 |---|---|
-| Filesystem / volume encryption | Recommended. Encrypts the entire SQLite file transparently. Zero app code changes. Protects against disk theft or backup exfiltration. |
-| SQLCipher (encrypted SQLite) | Requires rebuilding pysqlite against libsqlcipher. Fragile in Docker, significant build complexity for marginal gain over filesystem encryption. |
-| Column-level encryption (`cryptography` lib) | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
-| PostgreSQL TDE / pgcrypto | Relevant if migrating to PostgreSQL (M19). Revisit then. |
+| Filesystem / volume encryption | Recommended. Encrypts the PostgreSQL data volume transparently. Zero app code changes. Protects against disk theft or backup exfiltration. |
+| pgcrypto / column-level encryption | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
+| Column-level encryption (`cryptography` lib) | Same trade-offs as pgcrypto with more application complexity. Not recommended. |
 
 **Key management (filesystem approach):** Use Linux LUKS or macOS FileVault on the host machine, or encrypt the Docker volume via the host's block device. The `SECRET_KEY` in `.env` remains the only application-level secret and should not be committed to version control.
 

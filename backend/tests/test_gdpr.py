@@ -130,3 +130,68 @@ def test_erase_deletes_measurement_data(client: TestClient):
     )
     db.close()
     assert measurements == 0
+
+
+# ── GET /api/gdpr/export ──────────────────────────────────────────────────────
+
+
+def test_export_requires_auth(client: TestClient):
+    assert client.get("/api/gdpr/export").status_code == 401
+
+
+def test_export_returns_200(client: TestClient):
+    assert (
+        client.get(
+            "/api/gdpr/export", headers=_login(client, "testuser", "testpass")
+        ).status_code
+        == 200
+    )
+
+
+def test_export_has_correct_structure(client: TestClient):
+    data = client.get(
+        "/api/gdpr/export", headers=_login(client, "testuser", "testpass")
+    ).json()
+    for key in (
+        "exported_at",
+        "user",
+        "workout_sessions",
+        "logs",
+        "cardio",
+        "body_measurements",
+    ):
+        assert key in data
+
+
+def test_export_excludes_password_hash(client: TestClient):
+    data = client.get(
+        "/api/gdpr/export", headers=_login(client, "testuser", "testpass")
+    ).json()
+    assert "hashed_password" not in data["user"]
+
+
+def test_export_includes_username(client: TestClient):
+    data = client.get(
+        "/api/gdpr/export", headers=_login(client, "testuser", "testpass")
+    ).json()
+    assert data["user"]["username"] == "testuser"
+
+
+def test_export_sets_content_disposition(client: TestClient):
+    resp = client.get(
+        "/api/gdpr/export", headers=_login(client, "testuser", "testpass")
+    )
+    assert "attachment" in resp.headers.get("content-disposition", "")
+    assert "fitman-export.json" in resp.headers.get("content-disposition", "")
+
+
+def test_export_includes_workout_sessions(client: TestClient):
+    _make_user("export_data_user")
+    headers = _login(client, "export_data_user")
+    session = client.post(
+        "/api/sessions", json={"session": "Push A"}, headers=headers
+    ).json()
+    client.patch(f"/api/sessions/{session['id']}/end", headers=headers)
+    data = client.get("/api/gdpr/export", headers=headers).json()
+    assert isinstance(data["workout_sessions"], list)
+    assert any(s["id"] == session["id"] for s in data["workout_sessions"])

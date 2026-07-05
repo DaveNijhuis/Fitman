@@ -39,7 +39,7 @@ All tests live in `backend/tests/`. The suite uses a single in-memory SQLite dat
 | `test_auth.py` | Password hashing, login, registration validation (min length), JWT-protected endpoints, password change (wrong current → 400, short new → 422, success) |
 | `test_cardio.py` | Cardio entry logging, list, delete, activity validation, schema contract (no `session_id`) |
 | `test_exercises.py` | Exercise list (session + search filters), exercise by ID, sessions list |
-| `test_gdpr.py` | Right to erasure: 401 without token, 204 on success, user deleted (login fails), workout/cardio/measurement data cascade deleted |
+| `test_gdpr.py` | Right to erasure (401, 204, cascade delete); data export (401, structure, no password hash, Content-Disposition header, workout sessions included) |
 | `test_formulas.py` | Body composition formula calculations (BMI, fat mass, lean mass, BMR, segmental values) — pure unit tests, no HTTP |
 | `test_isolation.py` | Per-user data isolation: user B cannot read user A's sessions, cardio, or measurements |
 | `test_logs.py` | Set logging validation (`weight >= 0`, `reps > 0`), POST edge cases (bad IDs), GET last log, GET log list |

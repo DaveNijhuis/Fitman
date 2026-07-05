@@ -12,6 +12,7 @@ from routers import cardio as cardio_router
 from routers import exercises as exercises_router
 from routers import logs as logs_router
 from routers import measurements as measurements_router
+from routers import profile as profile_router
 from routers import progress as progress_router
 from routers import sessions as sessions_router
 from routers import stats as stats_router
@@ -59,6 +60,7 @@ app.include_router(logs_router.router)
 app.include_router(progress_router.router)
 app.include_router(measurements_router.router)
 app.include_router(cardio_router.router)
+app.include_router(profile_router.router)
 app.include_router(stats_router.router)
 
 

@@ -14,6 +14,8 @@ from models.user import User
 
 router = APIRouter(prefix="/api/measurements", tags=["measurements"])
 
+_SEX_MAP = {"male": 1, "female": 0}
+
 
 class _MeasurementFields(BaseModel):
     """All stored measurement fields — shared by input and output schemas."""
@@ -126,12 +128,31 @@ def log_measurement(
     current_user: User = Depends(get_current_user),
 ):
     data = body.model_dump()
-    age = data.pop("user_age") or int(os.getenv("SCALE_AGE", "0"))
-    sex_val = data.pop("user_sex")
-    sex = sex_val if sex_val is not None else int(os.getenv("SCALE_SEX", "1"))
+    age_from_request = data.pop("user_age")
+    sex_from_request = data.pop("user_sex")
     data["recorded_at"] = data["recorded_at"] or datetime.now(timezone.utc)
     data["user_id"] = current_user.id
     measurement = BodyMeasurement(**data)
+
+    # Profile fallback for height
+    if measurement.height_cm is None and current_user.height_cm:
+        measurement.height_cm = current_user.height_cm
+
+    # Age: request → profile birth_year → env
+    if age_from_request:
+        age = age_from_request
+    elif current_user.birth_year:
+        age = datetime.now(timezone.utc).year - current_user.birth_year
+    else:
+        age = int(os.getenv("SCALE_AGE", "0"))
+
+    # Sex: request → profile sex → env
+    if sex_from_request is not None:
+        sex = sex_from_request
+    elif current_user.sex in _SEX_MAP:
+        sex = _SEX_MAP[current_user.sex]
+    else:
+        sex = int(os.getenv("SCALE_SEX", "1"))
     db.add(measurement)
     db.commit()
     db.refresh(measurement)

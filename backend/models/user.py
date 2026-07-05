@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from sqlalchemy import Boolean, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -14,7 +14,7 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String, unique=True)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String)
-    date_of_birth: Mapped[date | None] = mapped_column(String)  # stored as ISO string
+    birth_year: Mapped[int | None] = mapped_column(Integer)
     sex: Mapped[str | None] = mapped_column(String)  # 'male' | 'female' | 'other'
     height_cm: Mapped[float | None] = mapped_column(Float)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

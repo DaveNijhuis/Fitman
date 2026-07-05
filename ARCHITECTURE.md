@@ -109,7 +109,7 @@ users
   email           TEXT UNIQUE
   hashed_password TEXT NOT NULL         -- bcrypt hash
   display_name    TEXT
-  date_of_birth   TEXT                  -- ISO date string; age calculated dynamically
+  birth_year      INTEGER               -- year only (not full DOB); age calculated as current_year - birth_year
   sex             TEXT                  -- "male" | "female" | "other"
   height_cm       REAL
   is_active       BOOLEAN NOT NULL DEFAULT 1
@@ -278,6 +278,14 @@ docker compose -f docker-compose.prod.yml up -d
 In production, only nginx (port 80) is exposed to the host. The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
 
 On every container start, `entrypoint.sh` runs `alembic upgrade head` before starting uvicorn, so database migrations apply automatically on deploy.
+
+## Design decisions
+
+### `birth_year` instead of `date_of_birth`
+
+The user model stores `birth_year` (integer) rather than a full date-of-birth. Full DOB is PII; birth year alone is not identifying on its own. Age is computed dynamically (`current_year - birth_year`) so it never goes stale. The ±1-year imprecision (birthday not yet passed this calendar year) is within the noise margin of the BIA formulae that consume it.
+
+Symmetric encryption of the full DOB was considered but deferred — it adds key-management complexity that is disproportionate to the threat model of a self-hosted, Tailscale-only app. This can be revisited in the M15 GDPR & data-security milestone if the threat model changes.
 
 ## Hosting & access
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import create_access_token
+from auth import create_access_token, get_current_user
 from database import get_db
 from models.user import User
 
@@ -73,6 +73,27 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return TokenResponse(access_token=create_access_token(user.id))
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+def change_password(
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not _verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+    current_user.hashed_password = _hash_password(body.new_password)
+    db.commit()
+    return {"detail": "Password updated"}
 
 
 @router.post("/login", response_model=TokenResponse)

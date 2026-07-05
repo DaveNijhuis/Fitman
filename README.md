@@ -17,6 +17,9 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 - **Body measurements** — manually log weight and body fat % over time with trend charts
 - **Exercise library** — browse and search all exercises with muscle and equipment info
 - **Workout history** — review past sessions with full set-by-set detail
+- **User profile** — set display name, birth year, sex, and height; profile fields are used as fallback inputs for BIA body composition formulas
+- **Multi-user support** — admin can invite users, enable/disable accounts, and delete users with full data cascade; each user's data is fully isolated
+- **Password management** — users can change their own password from settings; admin can set a temporary password when creating accounts
 
 ## Tech stack
 

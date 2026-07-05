@@ -197,6 +197,17 @@ body_measurements
 GET    /api/auth/setup-required          Returns {required: true} if no users exist yet
 POST   /api/auth/register                Create first admin user (only available on empty DB)
 POST   /api/auth/login                   Returns JWT token
+POST   /api/auth/change-password         Change own password (requires current_password + new_password)
+
+# Profile
+GET    /api/profile                       Current user's profile (username, email, display_name, birth_year, sex, height_cm)
+PATCH  /api/profile                       Update profile fields
+
+# Admin
+GET    /api/admin/users                  List all users (admin only)
+POST   /api/admin/users                  Create a new user (admin only)
+PATCH  /api/admin/users/{id}            Enable or disable a user account (admin only)
+DELETE /api/admin/users/{id}            Delete a user and all their data (admin only)
 
 # Exercises
 GET    /api/exercises/sessions            List session names (Push A, Pull A, Legs A)

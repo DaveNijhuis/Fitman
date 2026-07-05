@@ -35,17 +35,17 @@ All tests live in `backend/tests/`. The suite uses a single in-memory SQLite dat
 
 | File | What it covers |
 |---|---|
-| `test_auth.py` | Password hashing, login, registration validation (min length), JWT-protected endpoints |
+| `test_admin.py` | Admin user management: list users, create, disable/enable, delete (with data cascade); 403 for non-admins, self-disable/delete blocked |
+| `test_auth.py` | Password hashing, login, registration validation (min length), JWT-protected endpoints, password change (wrong current → 400, short new → 422, success) |
 | `test_cardio.py` | Cardio entry logging, list, delete, activity validation, schema contract (no `session_id`) |
 | `test_exercises.py` | Exercise list (session + search filters), exercise by ID, sessions list |
 | `test_formulas.py` | Body composition formula calculations (BMI, fat mass, lean mass, BMR, segmental values) — pure unit tests, no HTTP |
+| `test_isolation.py` | Per-user data isolation: user B cannot read user A's sessions, cardio, or measurements |
 | `test_logs.py` | Set logging validation (`weight >= 0`, `reps > 0`), POST edge cases (bad IDs), GET last log, GET log list |
 | `test_measurements.py` | Body measurement CRUD, auth enforcement, full BIA formula application with impedance inputs |
+| `test_profile.py` | GET /api/profile structure and auth, PATCH updates (display_name, birth_year, sex, height_cm), unknown fields ignored, BIA falls back to profile height |
 | `test_progress.py` | Muscle balance, `epley_1rm` unit tests, strength progression (structure + daily best), volume over time, consistency heatmap, personal records |
 | `test_sessions.py` | Full workout session flow: start → log sets → end → list → get logs; edge cases (unknown session, already ended, 404) |
-| `test_admin.py` | Admin user management: list users, create, disable/enable, delete (with data cascade); 403 for non-admins, self-disable/delete blocked |
-| `test_isolation.py` | Per-user data isolation: user B cannot read user A's sessions, cardio, or measurements |
-| `test_profile.py` | GET /api/profile structure and auth, PATCH updates (display_name, birth_year, sex, height_cm), unknown fields ignored, BIA falls back to profile height |
 | `test_stats.py` | Home stats structure, streak calculation (unit + UTC correctness), week bounds (UTC correctness) |
 
 ## conftest.py

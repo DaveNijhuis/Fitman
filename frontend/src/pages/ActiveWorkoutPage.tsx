@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, Check, Clock, Dumbbell } from 'lucide-react'
 import { getExercises, type Exercise } from '../api/exercises'
 import { getLastSet, logSet, type LogEntry } from '../api/logs'
-import { endSession, clearActiveWorkout, getActiveWorkout, getSessionLogs, type SessionLogEntry } from '../api/workoutSessions'
+import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSessionLogs, type SessionLogEntry } from '../api/workoutSessions'
 import FinishWorkoutSheet from '../components/FinishWorkoutSheet'
 
 interface SetRow {
@@ -199,6 +199,12 @@ export default function ActiveWorkoutPage() {
     }
   }
 
+  async function handleDiscard() {
+    await discardSession(id)
+    clearActiveWorkout()
+    navigate('/')
+  }
+
   return (
     <div className="pb-10">
 
@@ -389,6 +395,7 @@ export default function ActiveWorkoutPage() {
           exercises={exercises}
           sessionLogs={sessionLogs}
           onConfirm={handleConfirmFinish}
+          onDiscard={handleDiscard}
           onCancel={() => setShowSummary(false)}
           loading={finishing}
         />

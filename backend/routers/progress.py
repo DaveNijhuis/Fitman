@@ -220,23 +220,33 @@ def personal_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    exercises = db.query(Exercise).order_by(Exercise.name).all()
-    prs = []
-    for exercise in exercises:
-        logs = (
-            _user_logs(db, current_user.id).filter(Log.exercise_id == exercise.id).all()
-        )
-        if not logs:
-            continue
-        best = max(logs, key=lambda log: epley_1rm(log.weight, log.reps))
-        prs.append(
+    rows = (
+        db.query(Log, Exercise)
+        .join(Exercise, Log.exercise_id == Exercise.id)
+        .join(WorkoutSession, Log.session_id == WorkoutSession.id)
+        .filter(WorkoutSession.user_id == current_user.id)
+        .all()
+    )
+
+    best: dict[int, tuple[Log, Exercise]] = {}
+    for log, exercise in rows:
+        e1rm = epley_1rm(log.weight, log.reps)
+        if exercise.id not in best or e1rm > epley_1rm(
+            best[exercise.id][0].weight, best[exercise.id][0].reps
+        ):
+            best[exercise.id] = (log, exercise)
+
+    return sorted(
+        [
             PersonalRecord(
                 exercise_id=exercise.id,
                 exercise_name=exercise.name,
-                weight=best.weight,
-                reps=best.reps,
-                estimated_1rm=round(epley_1rm(best.weight, best.reps), 2),
-                date=best.logged_at.date().isoformat(),
+                weight=log.weight,
+                reps=log.reps,
+                estimated_1rm=round(epley_1rm(log.weight, log.reps), 2),
+                date=log.logged_at.date().isoformat(),
             )
-        )
-    return prs
+            for log, exercise in best.values()
+        ],
+        key=lambda pr: pr.exercise_name,
+    )

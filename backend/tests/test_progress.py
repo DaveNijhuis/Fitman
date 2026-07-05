@@ -300,3 +300,42 @@ def test_prs_picks_best_set_per_exercise(client: TestClient):
     assert match["estimated_1rm"] >= 100.0
     assert "exercise_name" in match
     assert "date" in match
+
+
+# ── N+1 regression (#130) ─────────────────────────────────────────────────────
+
+
+def test_prs_single_query(client: TestClient):
+    """GET /api/progress/prs must not fire one query per exercise (N+1).
+
+    The current implementation fetches all exercises then calls _user_logs per
+    exercise in a loop.  With 30 exercises in the seed library the handler fires
+    31+ SELECT statements.  The fix uses a single joined query, so total SELECT
+    count must be ≤3 (auth + one aggregated join).
+    """
+    from sqlalchemy import event
+
+    from database import engine
+
+    headers = _auth(client)
+
+    # Seed logs across three exercises so N+1 is observable
+    exercises = client.get("/api/exercises?session=Push+A", headers=headers).json()
+    for ex in exercises[:3]:
+        _log_and_end(client, ex["id"], 60.0, 8)
+
+    query_count = 0
+
+    def _count(conn, cursor, statement, parameters, context, executemany):
+        nonlocal query_count
+        if statement.strip().upper().startswith("SELECT"):
+            query_count += 1
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        resp = client.get("/api/progress/prs", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert resp.status_code == 200
+    assert query_count <= 3, f"N+1 detected: {query_count} SELECT queries (expected ≤3)"

@@ -18,6 +18,7 @@ class ProfileOut(BaseModel):
     birth_year: int | None
     sex: str | None
     height_cm: float | None
+    is_admin: bool
 
 
 class ProfilePatch(BaseModel):

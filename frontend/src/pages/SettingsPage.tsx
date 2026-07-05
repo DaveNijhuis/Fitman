@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Trash2, AlertTriangle } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Download, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { getProfile, updateProfile, changePassword, type Profile } from '../api/profile'
 import { exportData, eraseAccount } from '../api/gdpr'
 import { logout } from '../api/auth'
@@ -146,6 +146,20 @@ export default function SettingsPage() {
       </header>
 
       <main className="px-4 space-y-6">
+
+        {/* Admin panel link — only for admins */}
+        {profile?.is_admin && (
+          <Link
+            to="/admin"
+            className="flex items-center justify-between px-4 py-3 bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck size={18} className="text-[var(--color-accent)]" />
+              <span className="text-sm font-semibold text-[var(--color-text)]">Admin panel</span>
+            </div>
+            <span className="text-xs text-[var(--color-muted)]">Manage users →</span>
+          </Link>
+        )}
 
         {/* Profile */}
         <Section title="Profile">

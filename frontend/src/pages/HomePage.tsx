@@ -49,10 +49,12 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<string[]>([])
   const [starting, setStarting] = useState<string | null>(null)
   const [stats, setStats] = useState<HomeStats | null>(null)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
-    getSessions().then(setSessions)
-    getHomeStats().then(setStats)
+    Promise.all([getSessions(), getHomeStats()])
+      .then(([s, h]) => { setSessions(s); setStats(h) })
+      .catch(() => setLoadError(true))
   }, [])
 
   async function handleStart(session: string) {
@@ -81,6 +83,12 @@ export default function HomePage() {
       </header>
 
       <main className="px-4 space-y-4">
+
+        {loadError && (
+          <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            Could not load data — please check your connection and try again.
+          </p>
+        )}
 
         {/* Stats grid */}
         {stats && (

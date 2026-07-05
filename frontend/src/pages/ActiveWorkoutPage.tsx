@@ -67,6 +67,8 @@ export default function ActiveWorkoutPage() {
   const [lastSets, setLastSets] = useState<Record<number, LogEntry | null>>({})
   const [sets, setSets] = useState<Record<number, SetRow[]>>({})
   const [rest, setRest] = useState(0)
+  const [exercisesLoading, setExercisesLoading] = useState(true)
+  const [setLogError, setSetLogError] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
@@ -88,45 +90,48 @@ export default function ActiveWorkoutPage() {
   // Load exercises, previous sets, and any already-completed sets for this session
   useEffect(() => {
     if (!session) { navigate('/'); return }
-    Promise.all([getExercises(session), getSessionLogs(id)]).then(([exs, currentLogs]) => {
-      setExercises(exs)
+    Promise.all([getExercises(session), getSessionLogs(id)])
+      .then(([exs, currentLogs]) => {
+        setExercises(exs)
 
-      const logsByExercise: Record<number, SessionLogEntry[]> = {}
-      for (const log of currentLogs) {
-        ;(logsByExercise[log.exercise_id] ??= []).push(log)
-      }
+        const logsByExercise: Record<number, SessionLogEntry[]> = {}
+        for (const log of currentLogs) {
+          ;(logsByExercise[log.exercise_id] ??= []).push(log)
+        }
 
-      Promise.all(exs.map(e => getLastSet(e.id))).then(results => {
-        const lastMap: Record<number, LogEntry | null> = {}
-        const setsMap: Record<number, SetRow[]> = {}
-        exs.forEach((e, i) => {
-          const last = results[i]
-          lastMap[e.id] = last
+        return Promise.all(exs.map(e => getLastSet(e.id))).then(results => {
+          const lastMap: Record<number, LogEntry | null> = {}
+          const setsMap: Record<number, SetRow[]> = {}
+          exs.forEach((e, i) => {
+            const last = results[i]
+            lastMap[e.id] = last
 
-          const doneLogs = logsByExercise[e.id] ?? []
-          const doneRows: SetRow[] = doneLogs.map(log => ({
-            weight: String(log.weight),
-            reps: String(log.reps),
-            done: true,
-            logEntry: log as unknown as LogEntry,
-          }))
+            const doneLogs = logsByExercise[e.id] ?? []
+            const doneRows: SetRow[] = doneLogs.map(log => ({
+              weight: String(log.weight),
+              reps: String(log.reps),
+              done: true,
+              logEntry: log as unknown as LogEntry,
+            }))
 
-          const lastDone = doneLogs[doneLogs.length - 1]
-          const prefill = lastDone
-            ? { weight: String(lastDone.weight), reps: String(lastDone.reps) }
-            : { weight: last ? String(last.weight) : '', reps: last ? String(last.reps) : '' }
+            const lastDone = doneLogs[doneLogs.length - 1]
+            const prefill = lastDone
+              ? { weight: String(lastDone.weight), reps: String(lastDone.reps) }
+              : { weight: last ? String(last.weight) : '', reps: last ? String(last.reps) : '' }
 
-          const emptyCount = Math.max(3, doneLogs.length + 1) - doneRows.length
-          const emptyRows: SetRow[] = Array.from({ length: emptyCount }, () => ({
-            ...prefill, done: false, logEntry: null,
-          }))
+            const emptyCount = Math.max(3, doneLogs.length + 1) - doneRows.length
+            const emptyRows: SetRow[] = Array.from({ length: emptyCount }, () => ({
+              ...prefill, done: false, logEntry: null,
+            }))
 
-          setsMap[e.id] = [...doneRows, ...emptyRows]
+            setsMap[e.id] = [...doneRows, ...emptyRows]
+          })
+          setLastSets(lastMap)
+          setSets(setsMap)
         })
-        setLastSets(lastMap)
-        setSets(setsMap)
       })
-    })
+      .catch(() => {})
+      .finally(() => setExercisesLoading(false))
   }, [session])
 
   function updateSet(exerciseId: number, si: number, field: 'weight' | 'reps', value: string) {
@@ -151,7 +156,10 @@ export default function ActiveWorkoutPage() {
         return { ...prev, [exerciseId]: exSets }
       })
       setRest(90)
-    } catch { /* leave undone on failure */ }
+    } catch {
+      setSetLogError('Set not saved — please retry.')
+      setTimeout(() => setSetLogError(null), 4000)
+    }
   }
 
   function addSet(exerciseId: number) {
@@ -250,7 +258,18 @@ export default function ActiveWorkoutPage() {
           </div>
         )}
 
+        {setLogError && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-[14px] bg-red-50 border border-red-200 text-red-600 text-sm font-semibold">
+            {setLogError}
+          </div>
+        )}
+
         {/* Exercise cards — 2-col on desktop */}
+        {exercisesLoading ? (
+          <div className="flex items-center justify-center py-16 text-sm text-[var(--color-muted)] font-semibold">
+            Loading exercises…
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-[14px]">
           {exercises.map(ex => {
             const exSets = sets[ex.id] ?? []
@@ -352,6 +371,7 @@ export default function ActiveWorkoutPage() {
             )
           })}
         </div>
+        )}
 
         {/* Bottom finish button */}
         <button

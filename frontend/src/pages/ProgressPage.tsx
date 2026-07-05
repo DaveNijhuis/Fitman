@@ -83,6 +83,7 @@ export default function ProgressPage() {
   const [consistency, setConsistency] = useState<ConsistencyWeek[]>([])
   const [balance, setBalance] = useState<MuscleBalance[]>([])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
+  const [loadError, setLoadError] = useState(false)
   const [showLogForm, setShowLogForm] = useState(false)
   const [weightInput, setWeightInput] = useState('')
   const [fatInput, setFatInput] = useState('')
@@ -90,18 +91,24 @@ export default function ProgressPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getPRs().then(data => {
-      setPRs(data)
-      if (data.length > 0) setSelectedExerciseId(data[0].exercise_id)
-    })
-    getVolume().then(setVolume)
-    getConsistency().then(setConsistency)
-    getBalance().then(setBalance)
-    getMeasurements().then(setMeasurements)
+    Promise.all([getPRs(), getVolume(), getConsistency(), getBalance(), getMeasurements()])
+      .then(([prsData, vol, cons, bal, meas]) => {
+        setPRs(prsData)
+        if (prsData.length > 0) setSelectedExerciseId(prsData[0].exercise_id)
+        setVolume(vol)
+        setConsistency(cons)
+        setBalance(bal)
+        setMeasurements(meas)
+      })
+      .catch(() => setLoadError(true))
   }, [])
 
   useEffect(() => {
-    if (selectedExerciseId !== null) getStrengthProgression(selectedExerciseId).then(setStrengthData)
+    if (selectedExerciseId !== null) {
+      getStrengthProgression(selectedExerciseId)
+        .then(setStrengthData)
+        .catch(() => {})
+    }
   }, [selectedExerciseId])
 
   // Range filter
@@ -180,6 +187,12 @@ export default function ProgressPage() {
       </header>
 
       <main className="px-4 pt-4 space-y-4">
+
+        {loadError && (
+          <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            Could not load data — please check your connection and try again.
+          </p>
+        )}
 
         {/* Strength */}
         <Card className="!p-[22px]">

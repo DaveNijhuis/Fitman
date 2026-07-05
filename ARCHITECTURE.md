@@ -298,6 +298,25 @@ The user model stores `birth_year` (integer) rather than a full date-of-birth. F
 
 Symmetric encryption of the full DOB was considered but deferred — it adds key-management complexity that is disproportionate to the threat model of a self-hosted, Tailscale-only app. This can be revisited in the M15 GDPR & data-security milestone if the threat model changes.
 
+### Encryption at rest — filesystem-level, not application-level
+
+GDPR Article 32 requires "appropriate technical and organisational measures" to protect personal data. For Fitman's current scope (self-hosted, single-user or small household, accessed exclusively over Tailscale), the appropriate measure is **filesystem-level encryption on the host** rather than application-level column encryption.
+
+**Options evaluated:**
+
+| Option | Assessment |
+|---|---|
+| Filesystem / volume encryption | Recommended. Encrypts the entire SQLite file transparently. Zero app code changes. Protects against disk theft or backup exfiltration. |
+| SQLCipher (encrypted SQLite) | Requires rebuilding pysqlite against libsqlcipher. Fragile in Docker, significant build complexity for marginal gain over filesystem encryption. |
+| Column-level encryption (`cryptography` lib) | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
+| PostgreSQL TDE / pgcrypto | Relevant if migrating to PostgreSQL (M19). Revisit then. |
+
+**Key management (filesystem approach):** Use Linux LUKS or macOS FileVault on the host machine, or encrypt the Docker volume via the host's block device. The `SECRET_KEY` in `.env` remains the only application-level secret and should not be committed to version control.
+
+**Backup note:** Encrypted backups are only as strong as the decryption key. Store backups on an encrypted medium and never in the same location as the key.
+
+**Revisit trigger:** If Fitman is ever deployed as a shared multi-user service (beyond household use), column-level encryption for health measurements should be implemented to comply with GDPR Article 32 in a multi-tenant context.
+
 ## Hosting & access
 
 - The server runs Docker Compose continuously (`docker compose -f docker-compose.prod.yml up -d`)

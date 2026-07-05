@@ -1,6 +1,15 @@
 # Fitman
 
 [![CI](https://github.com/Dave-Nijhuis/Fitman/actions/workflows/ci.yml/badge.svg)](https://github.com/Dave-Nijhuis/Fitman/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-170%20passing-brightgreen)](TESTING.md)
 
 A self-hosted fitness tracking app. Log workouts, track progress, own your data.
 
@@ -20,6 +29,8 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 - **User profile** — set display name, birth year, sex, and height; profile fields are used as fallback inputs for BIA body composition formulas
 - **Multi-user support** — admin can invite users, enable/disable accounts, and delete users with full data cascade; each user's data is fully isolated
 - **Password management** — users can change their own password from settings; admin can set a temporary password when creating accounts
+- **FAB navigation** — floating action button opens a speed-dial: Start workout (or Continue workout when a session is active) and Settings; the persistent header gear icon has been replaced by this menu
+- **Session discard** — cancel an in-progress workout and permanently delete all logged sets via the Finish sheet; a 2-second countdown prevents accidental taps
 
 ## Tech stack
 

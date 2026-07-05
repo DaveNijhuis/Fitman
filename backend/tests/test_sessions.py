@@ -132,6 +132,47 @@ def test_get_session_logs_nonexistent_session_returns_404(client: TestClient):
     assert resp.status_code == 404
 
 
+# ── N+1 regression (#129) ────────────────────────────────────────────────────
+
+
+def test_list_sessions_single_query(client: TestClient):
+    """GET /api/sessions must not fire a query per session (N+1 anti-pattern).
+
+    Seeds 5 completed sessions then counts SELECT statements issued during the
+    list request.  The current N+1 implementation fires 1 (sessions fetch) +
+    5 (one logs query per session) = 6 queries inside the handler, which exceeds
+    the budget of ≤2 (auth + one aggregated join).
+    """
+    from sqlalchemy import event
+
+    from database import engine
+
+    exercise_id = _first_exercise_id(client)
+    headers = _auth(client)
+
+    for _ in range(5):
+        s = _start(client)
+        _log_set(client, s["id"], exercise_id)
+        _log_set(client, s["id"], exercise_id)
+        client.patch(f"/api/sessions/{s['id']}/end", headers=headers)
+
+    query_count = 0
+
+    def _count(conn, cursor, statement, parameters, context, executemany):
+        nonlocal query_count
+        if statement.strip().upper().startswith("SELECT"):
+            query_count += 1
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        resp = client.get("/api/sessions", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert resp.status_code == 200
+    assert query_count <= 2, f"N+1 detected: {query_count} SELECT queries (expected ≤2)"
+
+
 # ── Full flow ─────────────────────────────────────────────────────────────────
 
 

@@ -11,7 +11,7 @@ class BodyMeasurement(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("users.id"), nullable=False, index=True
     )
     recorded_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
 

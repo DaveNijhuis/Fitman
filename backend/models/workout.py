@@ -11,7 +11,7 @@ class WorkoutSession(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("users.id"), nullable=False, index=True
     )
     session: Mapped[str] = mapped_column(String, nullable=False)
     started_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
@@ -25,10 +25,10 @@ class Log(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     exercise_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("exercises.id"), nullable=False
+        Integer, ForeignKey("exercises.id"), nullable=False, index=True
     )
     session_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("workout_sessions.id"), nullable=False
+        Integer, ForeignKey("workout_sessions.id"), nullable=False, index=True
     )
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     reps: Mapped[int] = mapped_column(Integer, nullable=False)

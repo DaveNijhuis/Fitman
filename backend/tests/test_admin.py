@@ -202,6 +202,7 @@ def test_enable_user_restores_login(client: TestClient):
 def test_admin_cannot_disable_self(client: TestClient):
     db = SessionLocal()
     testuser = db.query(User).filter(User.username == "testuser").first()
+    assert testuser is not None
     user_id = testuser.id
     db.close()
     resp = client.patch(
@@ -267,6 +268,7 @@ def test_delete_user_removes_their_data(client: TestClient):
 def test_admin_cannot_delete_self(client: TestClient):
     db = SessionLocal()
     testuser = db.query(User).filter(User.username == "testuser").first()
+    assert testuser is not None
     user_id = testuser.id
     db.close()
     resp = client.delete(f"/api/admin/users/{user_id}", headers=_admin_headers(client))

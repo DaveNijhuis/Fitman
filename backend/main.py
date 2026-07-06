@@ -5,11 +5,14 @@ import uuid
 from contextlib import asynccontextmanager
 
 from dotenv import find_dotenv, load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from database import SessionLocal
+from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
 from routers import cardio as cardio_router
@@ -90,5 +93,13 @@ app.include_router(stats_router.router)
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ok"}
+    except Exception:
+        logger.exception("Health check: database unavailable")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "detail": "database unavailable"},
+        )

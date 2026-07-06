@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timezone
 from typing import cast
@@ -11,6 +12,8 @@ from database import get_db
 from formulas import ImpedanceInputs, UserProfile, calculate_all
 from models.measurement import BodyMeasurement
 from models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/measurements", tags=["measurements"])
 

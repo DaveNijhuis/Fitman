@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -10,6 +11,8 @@ from database import get_db
 from models.exercise import Exercise
 from models.user import User
 from models.workout import Log, WorkoutSession
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
 

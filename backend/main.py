@@ -1,10 +1,13 @@
+import logging
 import os
 import sys
+import uuid
 from contextlib import asynccontextmanager
 
 from dotenv import find_dotenv, load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import SessionLocal
 from routers import admin as admin_router
@@ -21,6 +24,14 @@ from routers import stats as stats_router
 from seed import seed_exercises
 
 load_dotenv(find_dotenv())
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
 
 _REQUIRED = ["SECRET_KEY"]
 _missing = [v for v in _REQUIRED if not os.getenv(v)]
@@ -40,12 +51,22 @@ async def lifespan(app: FastAPI):
     yield
 
 
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
 app = FastAPI(title="Fitman API", lifespan=lifespan)
 
 origins = [
     o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 ]
 
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

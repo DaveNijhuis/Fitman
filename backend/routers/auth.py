@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 from auth import create_access_token, get_current_user
 from database import get_db
 from models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

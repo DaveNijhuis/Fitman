@@ -33,11 +33,16 @@ def _auth_b(client: TestClient) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+_token_cache: dict[str, str] = {}
+
+
 def _token(client: TestClient) -> str:
-    resp = client.post(
-        "/api/auth/login", json={"username": "testuser", "password": "testpass"}
-    )
-    return resp.json()["access_token"]
+    if "testuser" not in _token_cache:
+        resp = client.post(
+            "/api/auth/login", json={"username": "testuser", "password": "testpass"}
+        )
+        _token_cache["testuser"] = resp.json()["access_token"]
+    return _token_cache["testuser"]
 
 
 def _auth(client: TestClient) -> dict:

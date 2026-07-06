@@ -13,6 +13,7 @@ os.environ.setdefault(
 )
 
 from database import Base, SessionLocal, engine  # noqa: E402
+from limiter import limiter  # noqa: E402
 from main import app  # noqa: E402
 from models.user import User  # noqa: E402
 
@@ -32,6 +33,11 @@ _db.add(
 )
 _db.commit()
 _db.close()
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    limiter.reset()
 
 
 @pytest.fixture(scope="session")

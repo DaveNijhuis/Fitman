@@ -61,8 +61,9 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_progress.py` | Muscle balance, `epley_1rm` unit tests, strength progression (structure + daily best), volume over time, consistency heatmap, personal records |
 | `test_sessions.py` | Full workout session flow: start → log sets → end → list → get logs; edge cases (unknown session, already ended, 404); N+1 query regression guard (asserts ≤2 SELECT statements on list endpoint); discard session (204 happy path, log cascade, cross-user 404, already-ended 400) |
 | `test_stats.py` | Home stats structure, streak calculation (unit + UTC correctness), week bounds (UTC correctness) |
-
 | `test_postgresql.py` | PostgreSQL migration structural tests: engine dialect is postgresql, no TZDateTime custom type in any model |
+| `test_middleware.py` | Request ID middleware: `X-Request-ID` header present on all responses, value is a valid UUID4, unique per request |
+| `test_health.py` | `GET /health` returns 200 under normal conditions; returns 503 with `{"status": "error"}` when the database is unreachable (tested via dependency override) |
 
 ## conftest.py
 

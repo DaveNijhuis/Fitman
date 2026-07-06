@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +10,8 @@ from database import get_db
 from models.exercise import Exercise
 from models.user import User
 from models.workout import Log, WorkoutSession
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 

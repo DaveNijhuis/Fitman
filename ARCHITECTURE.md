@@ -29,6 +29,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Handles authentication (JWT tokens)
 - Reads and writes all data to PostgreSQL via SQLAlchemy
 - Runs database migrations automatically on startup via Alembic
+- Attaches a `X-Request-ID` UUID header to every response for log tracing
 - Runs on port `8000` inside Docker (internal only — not exposed to the host)
 
 ### Frontend — React + TypeScript
@@ -254,7 +255,7 @@ DELETE /api/gdpr/erase                   Delete own account and all associated d
 GET    /api/gdpr/export                  Download all own data as JSON (GDPR Article 20)
 
 # System
-GET    /health                            Health check
+GET    /health                            200 {"status": "ok"} if DB is reachable; 503 {"status": "error"} if not
 ```
 
 ## Environment variables

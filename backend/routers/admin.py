@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 import bcrypt
@@ -11,6 +12,8 @@ from models.cardio import CardioEntry
 from models.measurement import BodyMeasurement
 from models.user import User
 from models.workout import Log, WorkoutSession
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

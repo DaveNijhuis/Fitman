@@ -8,11 +8,14 @@ from dotenv import find_dotenv, load_dotenv
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import SessionLocal, get_db
+from limiter import limiter
 from routers import admin as admin_router
 from routers import auth as auth_router
 from routers import cardio as cardio_router
@@ -64,6 +67,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title="Fitman API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 origins = [
     o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")

@@ -3,12 +3,13 @@ from datetime import datetime, timezone
 from typing import Literal
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from auth import create_access_token, get_current_user
 from database import get_db
+from limiter import limiter
 from models.user import User
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,8 @@ def change_password(
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == body.username).first()
     if (
         not user

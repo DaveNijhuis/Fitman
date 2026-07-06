@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +9,8 @@ from auth import get_current_user
 from database import get_db
 from models.cardio import CardioEntry
 from models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/cardio", tags=["cardio"])
 

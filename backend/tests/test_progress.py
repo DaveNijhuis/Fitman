@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -300,6 +300,65 @@ def test_prs_picks_best_set_per_exercise(client: TestClient):
     assert match["estimated_1rm"] >= 100.0
     assert "exercise_name" in match
     assert "date" in match
+
+
+# ── N+1 regression (#178) ────────────────────────────────────────────────────
+
+
+def test_consistency_single_query(client: TestClient):
+    """GET /api/progress/consistency must not fire one query per session (N+1).
+
+    Seeds 5 completed sessions with logs directly in the DB, then counts
+    SELECT statements during the consistency request. The current implementation
+    fires 1 (sessions fetch) + 5 (one logs query per session) = 6 queries.
+    The fix aggregates volume in SQL so the total must be ≤2 (auth + one query).
+    """
+    from sqlalchemy import event
+
+    from database import SessionLocal, engine
+
+    db = SessionLocal()
+    ex = db.query(Exercise).filter(Exercise.session == "Push A").first()
+    assert ex is not None
+    exercise_id = ex.id
+    now = datetime.now(timezone.utc)
+    for i in range(5):
+        s = WorkoutSession(
+            user_id=1,
+            session="Push A",
+            started_at=now - timedelta(days=i + 2),
+            ended_at=now - timedelta(days=i + 1),
+        )
+        db.add(s)
+        db.flush()
+        db.add(
+            Log(
+                session_id=s.id,
+                exercise_id=exercise_id,
+                weight=50.0,
+                reps=8,
+                logged_at=now - timedelta(days=i + 2),
+            )
+        )
+    db.commit()
+    db.close()
+
+    headers = _auth(client)
+    query_count = 0
+
+    def _count(conn, cursor, statement, parameters, context, executemany):
+        nonlocal query_count
+        if statement.strip().upper().startswith("SELECT"):
+            query_count += 1
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        resp = client.get("/api/progress/consistency", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert resp.status_code == 200
+    assert query_count <= 2, f"N+1 detected: {query_count} SELECT queries (expected ≤2)"
 
 
 # ── N+1 regression (#130) ─────────────────────────────────────────────────────

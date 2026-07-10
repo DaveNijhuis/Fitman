@@ -88,6 +88,47 @@ def test_streak_uses_utc_not_local_date():
         assert streak == 1
 
 
+# ── Memory regression (#179) ──────────────────────────────────────────────────
+
+
+def test_home_stats_sessions_query_has_date_bound(client: TestClient):
+    """GET /api/stats/home must not issue an unbounded sessions SELECT.
+
+    The pre-fix implementation loads every completed session for the user
+    into memory and filters by date in Python.  The fix pushes all date
+    filtering into SQL so no query touches the full history.
+
+    Asserts that every workout_sessions SELECT issued during the request
+    contains a started_at bound in its WHERE clause.
+    """
+    from sqlalchemy import event
+
+    from database import engine
+
+    unbounded: list[str] = []
+
+    def _inspect(conn, cursor, statement, *args):
+        lower = statement.lower()
+        if (
+            "workout_session" in lower
+            and lower.lstrip().startswith("select")
+            and "started_at >=" not in lower
+            and "started_at <" not in lower
+        ):
+            unbounded.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _inspect)
+    try:
+        resp = client.get("/api/stats/home", headers=_auth(client))
+    finally:
+        event.remove(engine, "before_cursor_execute", _inspect)
+
+    assert resp.status_code == 200
+    assert not unbounded, (
+        f"Unbounded sessions query (no date filter):\n{unbounded[0][:300]}"
+    )
+
+
 # ── Unit tests for _iso_week_bounds ───────────────────────────────────────────
 
 

@@ -64,6 +64,9 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_postgresql.py` | PostgreSQL migration structural tests: engine dialect is postgresql, no TZDateTime custom type in any model |
 | `test_middleware.py` | Request ID middleware: `X-Request-ID` header present on all responses, value is a valid UUID4, unique per request |
 | `test_health.py` | `GET /health` returns 200 under normal conditions; returns 503 with `{"status": "error"}` when the database is unreachable (tested via dependency override) |
+| `test_ratelimit.py` | Login rate limiting: 6th request within a minute returns 429; health endpoint is not rate-limited |
+| `test_nginx_conf.py` | Static parse of `frontend/nginx.conf`: asserts all five security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, `Permissions-Policy`) are present |
+| `test_dockerignore.py` | Static parse of `backend/.dockerignore`: asserts `.env`, `.venv`, `tests/`, `__pycache__/`, and `requirements-dev.txt` are excluded from the Docker build context |
 
 ## conftest.py
 
@@ -73,6 +76,8 @@ A single `session`-scoped `TestClient` is shared across all tests. The database 
 - The full exercise library (via `seed.py`)
 
 Because the database is shared across tests, individual tests must not rely on the database being empty. Tests that need specific data insert it directly via `SessionLocal`.
+
+An `autouse=True` function-scoped fixture calls `limiter.reset()` before every test, clearing the in-memory rate limit counters so tests do not leak state across each other.
 
 `DATABASE_URL` must be set in the environment before the test session starts. `conftest.py` defaults to `postgresql://fitman:fitman@localhost:5432/fitman_test` if the variable is not set.
 

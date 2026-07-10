@@ -30,6 +30,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Reads and writes all data to PostgreSQL via SQLAlchemy
 - Runs database migrations automatically on startup via Alembic
 - Attaches a `X-Request-ID` UUID header to every response for log tracing
+- Rate-limits the login endpoint to 5 requests per minute per IP (SlowAPI)
 - Runs on port `8000` inside Docker (internal only — not exposed to the host)
 
 ### Frontend — React + TypeScript
@@ -38,6 +39,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Communicates with the backend via nginx proxy (no direct connection to port 8000)
 - Tailwind CSS v4 for styling
 - In production: built to static files and served by nginx
+- nginx adds five HTTP security headers on every response: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy`
 - In development: Vite dev server on port `5173` with `/api` proxy to backend
 
 ### Database — PostgreSQL 16
@@ -78,6 +80,7 @@ Fitman/
 │   │   └── versions/        # One file per schema change
 │   ├── alembic.ini
 │   ├── Dockerfile
+│   ├── .dockerignore        # Excludes .env, .venv, tests/, __pycache__, dev deps from image
 │   ├── requirements.txt
 │   ├── requirements-dev.txt # Dev/CI dependencies (pytest, ruff, mypy)
 │   ├── pyproject.toml       # Ruff and mypy configuration

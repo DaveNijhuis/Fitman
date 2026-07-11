@@ -1,12 +1,11 @@
 import logging
 from datetime import datetime, timezone
 
-import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, hash_password
 from database import get_db
 from models.cardio import CardioEntry
 from models.measurement import BodyMeasurement
@@ -24,10 +23,6 @@ def _require_admin(current_user: User = Depends(get_current_user)) -> User:
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     return current_user
-
-
-def _hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 class UserOut(BaseModel):
@@ -75,7 +70,7 @@ def create_user(
         )
     user = User(
         username=body.username,
-        hashed_password=_hash_password(body.password),
+        hashed_password=hash_password(body.password),
         email=body.email,
         display_name=body.display_name,
         is_active=True,

@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 import bcrypt
 from fastapi.testclient import TestClient
 
+from auth import verify_password as _verify_password
 from database import SessionLocal
 from models.user import User
-from routers.auth import _verify_password
 
 # ── Unit tests ────────────────────────────────────────────────────────────────
 

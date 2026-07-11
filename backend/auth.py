@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,6 +12,15 @@ from database import get_db
 from models.user import User
 
 ALGORITHM = "HS256"
+
+
+def hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
+
 
 bearer = HTTPBearer()
 

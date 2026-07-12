@@ -71,6 +71,70 @@ def test_patch_profile_ignores_unknown_fields(client: TestClient):
     assert resp.status_code == 200
 
 
+# ── Input validation (#181) ───────────────────────────────────────────────────
+
+
+def test_patch_sex_invalid_value_returns_422(client: TestClient):
+    resp = client.patch("/api/profile", json={"sex": "banana"}, headers=_auth(client))
+    assert resp.status_code == 422
+
+
+def test_patch_sex_empty_string_returns_422(client: TestClient):
+    resp = client.patch("/api/profile", json={"sex": ""}, headers=_auth(client))
+    assert resp.status_code == 422
+
+
+def test_patch_sex_accepts_all_valid_values(client: TestClient):
+    headers = _auth(client)
+    for value in ("male", "female", "other"):
+        resp = client.patch("/api/profile", json={"sex": value}, headers=headers)
+        assert resp.status_code == 200, (
+            f"Expected 200 for sex={value!r}, got {resp.status_code}"
+        )
+        assert resp.json()["sex"] == value
+
+
+def test_patch_birth_year_below_minimum_returns_422(client: TestClient):
+    resp = client.patch(
+        "/api/profile", json={"birth_year": 1899}, headers=_auth(client)
+    )
+    assert resp.status_code == 422
+
+
+def test_patch_birth_year_negative_returns_422(client: TestClient):
+    resp = client.patch("/api/profile", json={"birth_year": -1}, headers=_auth(client))
+    assert resp.status_code == 422
+
+
+def test_patch_birth_year_future_returns_422(client: TestClient):
+    from datetime import datetime
+
+    future_year = datetime.now().year + 1
+    resp = client.patch(
+        "/api/profile", json={"birth_year": future_year}, headers=_auth(client)
+    )
+    assert resp.status_code == 422
+
+
+def test_patch_birth_year_minimum_boundary_valid(client: TestClient):
+    resp = client.patch(
+        "/api/profile", json={"birth_year": 1900}, headers=_auth(client)
+    )
+    assert resp.status_code == 200
+    assert resp.json()["birth_year"] == 1900
+
+
+def test_patch_birth_year_current_year_valid(client: TestClient):
+    from datetime import datetime
+
+    current_year = datetime.now().year
+    resp = client.patch(
+        "/api/profile", json={"birth_year": current_year}, headers=_auth(client)
+    )
+    assert resp.status_code == 200
+    assert resp.json()["birth_year"] == current_year
+
+
 # ── Profile fields used as BIA fallback ───────────────────────────────────────
 
 

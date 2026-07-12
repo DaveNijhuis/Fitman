@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { getToken } from './api/client'
 import { checkSetupRequired } from './api/auth'
+import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import SetupPage from './pages/SetupPage'
@@ -18,7 +19,7 @@ import OnboardingPage, { ONBOARDING_FLAG } from './pages/OnboardingPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!getToken()) return <Navigate to="/login" replace />
-  return <Layout>{children}</Layout>
+  return <Layout><ErrorBoundary>{children}</ErrorBoundary></Layout>
 }
 
 export default function App() {

@@ -57,7 +57,7 @@ def _seed_data(user_id: int) -> None:
     db.add(
         CardioEntry(
             user_id=user_id,
-            activity="run",
+            activity="Run",
             duration_s=1800,
             logged_at=datetime.now(timezone.utc),
         )
@@ -195,3 +195,28 @@ def test_export_includes_workout_sessions(client: TestClient):
     data = client.get("/api/gdpr/export", headers=headers).json()
     assert isinstance(data["workout_sessions"], list)
     assert any(s["id"] == session["id"] for s in data["workout_sessions"])
+
+
+# ── Fixture data integrity (#183) ─────────────────────────────────────────────
+
+
+def test_seed_data_cardio_activity_is_valid(client: TestClient):
+    """_seed_data must seed a valid title-case activity, not a raw lowercase string.
+
+    CardioEntry is inserted directly into the DB so the API validation in
+    POST /api/cardio is bypassed. If the activity value is wrong it silently
+    persists and pollutes GDPR exports with invalid data.
+    """
+    from routers.cardio import ACTIVITIES
+
+    user_id = _make_user("seed_activity_check")
+    _seed_data(user_id)
+
+    db = SessionLocal()
+    entry = db.query(CardioEntry).filter(CardioEntry.user_id == user_id).first()
+    db.close()
+
+    assert entry is not None
+    assert entry.activity in ACTIVITIES, (
+        f"Seeded activity {entry.activity!r} is not a valid value; expected one of {ACTIVITIES}"
+    )

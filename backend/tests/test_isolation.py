@@ -95,3 +95,35 @@ def test_user_b_cannot_see_user_a_measurements(client: TestClient):
         e["id"] for e in client.get("/api/measurements", headers=_auth_b(client)).json()
     ]
     assert m["id"] not in ids
+
+
+# ── Log isolation (exercise_id filter) ───────────────────────────────────────
+
+
+def test_user_b_cannot_see_user_a_logs_via_exercise_filter(client: TestClient):
+    """User A logs a set; User B querying the same exercise_id must get 0 results.
+
+    GET /api/logs joins through WorkoutSession.user_id — this test makes
+    that implicit isolation guarantee explicit and regression-proof.
+    """
+    _create_user_b()
+
+    # User A: start a session, log one set for exercise 1
+    session = client.post(
+        "/api/sessions", json={"session": "Push A"}, headers=_auth_a(client)
+    ).json()
+    client.post(
+        "/api/logs",
+        json={
+            "exercise_id": 1,
+            "session_id": session["id"],
+            "weight": 100.0,
+            "reps": 5,
+        },
+        headers=_auth_a(client),
+    )
+
+    # User B: query the same exercise — must see nothing
+    resp = client.get("/api/logs", params={"exercise_id": 1}, headers=_auth_b(client))
+    assert resp.status_code == 200
+    assert resp.json() == []

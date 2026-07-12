@@ -4,8 +4,6 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import routers.stats as stats_module
-from database import SessionLocal
-from models.workout import Log, WorkoutSession
 
 
 def _token(client: TestClient) -> str:
@@ -17,25 +15,6 @@ def _token(client: TestClient) -> str:
 
 def _auth(client: TestClient) -> dict:
     return {"Authorization": f"Bearer {_token(client)}"}
-
-
-def _add_session(started_at: datetime, ended_at: datetime) -> None:
-    db = SessionLocal()
-    session = WorkoutSession(session="Push A", started_at=started_at, ended_at=ended_at)
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    db.add(
-        Log(
-            session_id=session.id,
-            exercise_id=1,
-            weight=50.0,
-            reps=10,
-            logged_at=started_at,
-        )
-    )
-    db.commit()
-    db.close()
 
 
 # ── Endpoint contract ─────────────────────────────────────────────────────────

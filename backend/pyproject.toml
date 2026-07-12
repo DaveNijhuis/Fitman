@@ -1,3 +1,9 @@
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+omit = ["alembic/versions/*"]
+
 [tool.ruff]
 exclude = [".venv", "__pycache__", "alembic/versions"]
 

@@ -3,6 +3,7 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Depends, FastAPI, Request
@@ -31,11 +32,23 @@ from seed import seed_exercises
 
 load_dotenv(find_dotenv())
 
+_request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
+
+
+class RequestIDFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = _request_id_ctx.get()  # type: ignore[attr-defined]
+        return True
+
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    format="%(asctime)s %(levelname)s %(name)s [%(request_id)s]: %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
+_request_id_filter = RequestIDFilter()
+for _h in logging.root.handlers:
+    _h.addFilter(_request_id_filter)
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +74,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        return response
+        token = _request_id_ctx.set(request_id)
+        try:
+            logger.info("%s %s", request.method, request.url.path)
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
+        finally:
+            _request_id_ctx.reset(token)
 
 
 app = FastAPI(title="Fitman API", lifespan=lifespan)

@@ -73,6 +73,64 @@ function Seg({ value, onChange }: { value: string; onChange: (v: string) => void
   )
 }
 
+type FigureItem = { label: string; left: boolean; topPct: number; value: number | null; tag: string; color: string }
+
+const BODY_H = 280
+const BODY_W = Math.round(BODY_H * 260 / 545)
+const LABEL_W = 100
+
+function BodyFigure({ title, items }: { title: string; items: FigureItem[] }) {
+  const leftItems  = items.filter(i => i.left)
+  const rightItems = items.filter(i => !i.left)
+  return (
+    <div className="flex-1 min-w-0 flex flex-col items-center">
+      <div className="text-[13px] font-bold text-center mb-3 text-[var(--color-text)]">{title}</div>
+      <div className="flex items-stretch gap-2">
+
+        {/* Left labels */}
+        <div className="relative shrink-0" style={{ width: LABEL_W, height: BODY_H }}>
+          {leftItems.map(item => item.value != null && (
+            <div key={item.label} className="absolute right-0 flex items-center gap-1.5"
+              style={{ top: `${item.topPct}%`, transform: 'translateY(-50%)' }}>
+              <div className="text-right">
+                <div className="text-[13.5px] font-mono font-bold text-[var(--color-text)] leading-snug">
+                  {item.value.toFixed(1)} kg
+                </div>
+                <div className="text-[11px] text-[var(--color-muted)] font-semibold leading-snug">{item.label}</div>
+                <div className={`text-[11px] font-bold leading-snug ${item.color}`}>{item.tag}</div>
+              </div>
+              <div className="w-3 h-px shrink-0 bg-[var(--color-border)]" />
+            </div>
+          ))}
+        </div>
+
+        {/* Body image */}
+        <div className="shrink-0" style={{ width: BODY_W, height: BODY_H }}>
+          <img src={bodyFrontUrl} alt="" style={{ height: '100%', width: 'auto' }} />
+        </div>
+
+        {/* Right labels */}
+        <div className="relative shrink-0" style={{ width: LABEL_W, height: BODY_H }}>
+          {rightItems.map(item => item.value != null && (
+            <div key={item.label} className="absolute left-0 flex items-center gap-1.5"
+              style={{ top: `${item.topPct}%`, transform: 'translateY(-50%)' }}>
+              <div className="w-3 h-px shrink-0 bg-[var(--color-border)]" />
+              <div>
+                <div className="text-[13.5px] font-mono font-bold text-[var(--color-text)] leading-snug">
+                  {item.value.toFixed(1)} kg
+                </div>
+                <div className="text-[11px] text-[var(--color-muted)] font-semibold leading-snug">{item.label}</div>
+                <div className={`text-[11px] font-bold leading-snug ${item.color}`}>{item.tag}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
 export default function ProgressPage() {
   const [selectedBodyMetric, setSelectedBodyMetric] = useState<string>('body_fat_pct')
   const [prs, setPRs] = useState<PersonalRecord[]>([])
@@ -199,7 +257,7 @@ export default function ProgressPage() {
           <CardHead
             title="Strength progression"
             sub={`Estimated 1-rep max · ${range}`}
-            right={<Seg value={range} onChange={v => setRange(v as any)} />}
+            right={<Seg value={range} onChange={v => setRange(v as '4W' | '12W' | '1Y')} />}
           />
           {prs.length === 0 ? empty : (
             <>
@@ -231,6 +289,7 @@ export default function ProgressPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={d => d.slice(5)} />
                     <YAxis tick={{ fontSize: 11 }} unit=" kg" />
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Tooltip formatter={((v: number) => [`${v} kg`, 'Est. 1RM']) as any} />
                     <Area type="monotone" dataKey="estimated_1rm" stroke="#ff5a36" strokeWidth={2} fill="url(#strengthGrad)" dot={false} activeDot={{ r: 4, fill: '#ff5a36' }} />
                   </AreaChart>
@@ -272,6 +331,7 @@ export default function ProgressPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="week" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} unit=" kg" />
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Tooltip formatter={((v: number) => [`${v.toLocaleString()} kg`, 'Volume']) as any} />
                   <Bar dataKey="volume_kg" radius={[4, 4, 0, 0]}>
                     {volumeChartData.map((_, i) => (
@@ -336,6 +396,7 @@ export default function ProgressPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={d => d.slice(5)} />
                   <YAxis tick={{ fontSize: 11 }} unit=" kg" domain={['auto', 'auto']} />
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Tooltip formatter={((v: number) => [`${v} kg`, 'Weight']) as any} />
                   <Area type="monotone" dataKey="weight_kg" stroke="#1b1a17" strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: '#1b1a17' }} activeDot={{ r: 4, fill: '#1b1a17' }} />
                 </AreaChart>
@@ -384,64 +445,6 @@ export default function ProgressPage() {
             if (diff > 4)  return { tag: 'High',     color: 'text-[#f97316]' }
             if (diff < -4) return { tag: 'Low',      color: 'text-[#60a5fa]' }
             return           { tag: 'Standard', color: 'text-[#22c55e]' }
-          }
-
-          type FigureItem = { label: string; left: boolean; topPct: number; value: number | null; tag: string; color: string }
-
-          const BODY_H = 280
-          const BODY_W = Math.round(BODY_H * 260 / 545)
-          const LABEL_W = 100
-
-          function BodyFigure({ title, items }: { title: string; items: FigureItem[] }) {
-            const leftItems  = items.filter(i => i.left)
-            const rightItems = items.filter(i => !i.left)
-            return (
-              <div className="flex-1 min-w-0 flex flex-col items-center">
-                <div className="text-[13px] font-bold text-center mb-3 text-[var(--color-text)]">{title}</div>
-                <div className="flex items-stretch gap-2">
-
-                  {/* Left labels */}
-                  <div className="relative shrink-0" style={{ width: LABEL_W, height: BODY_H }}>
-                    {leftItems.map(item => item.value != null && (
-                      <div key={item.label} className="absolute right-0 flex items-center gap-1.5"
-                        style={{ top: `${item.topPct}%`, transform: 'translateY(-50%)' }}>
-                        <div className="text-right">
-                          <div className="text-[13.5px] font-mono font-bold text-[var(--color-text)] leading-snug">
-                            {item.value.toFixed(1)} kg
-                          </div>
-                          <div className="text-[11px] text-[var(--color-muted)] font-semibold leading-snug">{item.label}</div>
-                          <div className={`text-[11px] font-bold leading-snug ${item.color}`}>{item.tag}</div>
-                        </div>
-                        <div className="w-3 h-px shrink-0 bg-[var(--color-border)]" />
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Body image */}
-                  <div className="shrink-0" style={{ width: BODY_W, height: BODY_H }}>
-                    <img src={bodyFrontUrl} alt="" style={{ height: '100%', width: 'auto' }} />
-                  </div>
-
-                  {/* Right labels */}
-                  <div className="relative shrink-0" style={{ width: LABEL_W, height: BODY_H }}>
-                    {rightItems.map(item => item.value != null && (
-                      <div key={item.label} className="absolute left-0 flex items-center gap-1.5"
-                        style={{ top: `${item.topPct}%`, transform: 'translateY(-50%)' }}>
-                        <div className="w-3 h-px shrink-0 bg-[var(--color-border)]" />
-                        <div>
-                          <div className="text-[13.5px] font-mono font-bold text-[var(--color-text)] leading-snug">
-                            {item.value.toFixed(1)} kg
-                          </div>
-                          <div className="text-[11px] text-[var(--color-muted)] font-semibold leading-snug">{item.label}</div>
-                          <div className={`text-[11px] font-bold leading-snug ${item.color}`}>{item.tag}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                </div>
-              </div>
-            )
           }
 
           const fatItems: FigureItem[] = [
@@ -570,6 +573,7 @@ export default function ProgressPage() {
                                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                                   <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
                                   <YAxis tick={{ fontSize: 10 }} unit={active?.unit} domain={['auto', 'auto']} />
+                                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                   <Tooltip formatter={((v: number) => [`${active?.unit === ' kcal' ? Math.round(v) : v}${active?.unit}`, active?.label]) as any} />
                                   <Area type="monotone" dataKey="value" stroke={active?.color} strokeWidth={2} fill="url(#metricGrad)" dot={{ r: 3, fill: active?.color }} activeDot={{ r: 4 }} />
                                 </AreaChart>

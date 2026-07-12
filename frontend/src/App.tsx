@@ -17,7 +17,7 @@ import AdminPage from './pages/AdminPage'
 import OnboardingPage, { ONBOARDING_FLAG } from './pages/OnboardingPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  if (!Boolean(getToken())) return <Navigate to="/login" replace />
+  if (!getToken()) return <Navigate to="/login" replace />
   return <Layout>{children}</Layout>
 }
 
@@ -59,7 +59,7 @@ export default function App() {
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
         <Route path="/onboarding" element={getToken() ? <OnboardingPage /> : <Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to={Boolean(getToken()) ? (localStorage.getItem(ONBOARDING_FLAG) ? '/onboarding' : '/') : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={getToken() ? (localStorage.getItem(ONBOARDING_FLAG) ? '/onboarding' : '/') : '/login'} replace />} />
       </Routes>
     </BrowserRouter>
   )

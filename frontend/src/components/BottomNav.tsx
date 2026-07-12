@@ -22,6 +22,7 @@ export default function BottomNav() {
   const [showPicker, setShowPicker] = useState(false)
 
   // Close speed-dial whenever the route changes (nav tab tap, etc.)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setFabOpen(false) }, [location.pathname])
 
   const menuItems = active

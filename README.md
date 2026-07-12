@@ -9,7 +9,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-220%20backend%20%7C%2010%20E2E-brightgreen)](TESTING.md)
 
 A self-hosted fitness tracking app. Log workouts, track progress, own your data.
 
@@ -188,6 +188,23 @@ npm run dev
 ```
 
 The frontend dev server runs on `http://localhost:5173` and proxies `/api` requests to the backend automatically.
+
+### Running E2E tests
+
+E2E tests require the app running via the dedicated test stack (isolated from production):
+
+```bash
+# Start the E2E stack (fresh DB, rate limiting disabled, port 8080)
+docker compose -f docker-compose.e2e.yml up -d --build
+
+# Run all 10 E2E tests
+cd e2e
+npm install
+npx playwright test
+
+# Tear down when done
+docker compose -f docker-compose.e2e.yml down -v
+```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full project structure and API reference.
 

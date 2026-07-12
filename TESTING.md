@@ -83,6 +83,52 @@ An `autouse=True` function-scoped fixture calls `limiter.reset()` before every t
 
 `DATABASE_URL` must be set in the environment before the test session starts. `conftest.py` defaults to `postgresql://fitman:fitman@localhost:5432/fitman_test` if the variable is not set.
 
+## E2E tests (Playwright)
+
+End-to-end tests live in `e2e/` and run against the full app stack in a browser (Chromium). They cover the critical user flows that unit tests cannot: login, navigation guards, workout lifecycle, account deletion, and WCAG 2.1 accessibility.
+
+### Running E2E tests
+
+The E2E stack must be running first:
+
+```bash
+docker compose -f docker-compose.e2e.yml up -d --build
+```
+
+Then run the suite:
+
+```bash
+cd e2e
+npm install
+npx playwright test          # headless
+npx playwright test --headed # headed (watch the browser)
+npx playwright show-report   # open HTML report after a run
+```
+
+Tear down when done:
+
+```bash
+docker compose -f docker-compose.e2e.yml down -v
+```
+
+### Per-test user isolation
+
+Each test gets a fresh `e2e_<timestamp>` user created via the admin API before the test runs and erased via `DELETE /api/gdpr/erase` in teardown. Tests never share state.
+
+### E2E test structure
+
+| File | What it covers |
+|---|---|
+| `tests/auth.spec.ts` | Unauthenticated redirect to `/login`; wrong password shows error; correct credentials navigate home |
+| `tests/workout.spec.ts` | Workout page loads after starting a session; finishing a session returns to home |
+| `tests/progress.spec.ts` | Progress page loads and renders heading |
+| `tests/account.spec.ts` | Delete button disabled until `DELETE` is typed; account deletion redirects to `/login` |
+| `tests/accessibility.spec.ts` | axe-core WCAG 2.1 A/AA scans on login page and home page |
+
+### Accessibility
+
+axe-core runs `wcag2a` and `wcag2aa` rules on the login and home pages. The `color-contrast` rule is deliberately disabled — the app's `#ff5a36` accent on `#f4f3ef` background gives a 2.79:1 ratio, which is a design choice below the 3:1 AA threshold.
+
 ## Pre-commit hooks
 
 Two hooks run automatically on every `git commit`:
@@ -103,12 +149,13 @@ If a commit is blocked, ruff has either auto-fixed files (stage and retry) or fo
 
 ## CI pipeline
 
-Every push and pull request runs three jobs on a self-hosted runner:
+Every push and pull request runs on GitHub-hosted `ubuntu-latest` runners:
 
-| Job | What it does |
-|---|---|
-| **backend-quality** | `ruff check`, `mypy`, `pytest` |
-| **docker-build** | Builds the production Docker image to catch Dockerfile and dependency errors |
-| **frontend-build** | `npm ci`, `npm run build` — TypeScript compile + Vite bundle |
+| Job | Trigger | What it does |
+|---|---|---|
+| **Frontend build** | every push/PR | `npm ci`, `npm run build` — TypeScript compile + Vite bundle |
+| **Backend quality** | every push/PR | `ruff check`, `mypy`, `pytest` against a postgres:16 service container |
+| **Docker production build** | every push/PR | Builds the production Docker image to catch Dockerfile and dependency errors |
+| **E2E tests** | PRs + pushes to `main`/`dev` | Spins up the E2E stack, runs 10 Playwright tests inside `mcr.microsoft.com/playwright:v1.61.1-jammy`, tears down |
 
-The backend job caches both the `uv` wheel store (keyed on requirements files) and the `.mypy_cache` directory (keyed on requirements files; mypy invalidates per-file internally). The frontend job caches `node_modules` keyed on `package-lock.json` and skips `npm ci` entirely on a cache hit.
+The backend job caches both the `uv` wheel store (keyed on requirements files) and the `.mypy_cache` directory. The frontend and E2E jobs cache `node_modules` keyed on the respective lock/package files. The E2E job runs the Playwright tests inside the official Docker image so no browser installation or system dependencies are needed on the runner.

@@ -98,6 +98,13 @@ Fitman/
 │
 ├── docker-compose.yml       # Development: Vite dev server + backend + postgres
 ├── docker-compose.prod.yml  # Production: nginx static build + backend + postgres
+├── docker-compose.e2e.yml   # E2E testing: isolated stack, tmpfs DB, port 8080
+├── e2e/                     # Playwright E2E test suite (TypeScript)
+│   ├── tests/               # Test files (auth, workout, progress, account, accessibility)
+│   ├── pages/               # Page Object Model classes
+│   ├── fixtures/            # Per-test user isolation via admin API
+│   ├── global-setup.ts      # Seeds admin user before test run
+│   └── playwright.config.ts
 ├── .env                     # Secrets and config — never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
@@ -277,6 +284,7 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size |
 | `DB_MAX_OVERFLOW` | | `10` | Max connections above pool size before blocking |
 | `DB_POOL_TIMEOUT` | | `30` | Seconds to wait for a connection before raising an error |
+| `RATE_LIMIT_DISABLED` | | `false` | Set to `true` to disable SlowAPI rate limiting (E2E stack only) |
 
 User credentials are stored in the database. On first launch, visit `/setup` to create the admin account. `ADMIN_USERNAME` and `ADMIN_PASSWORD` are no longer used.
 
@@ -297,7 +305,7 @@ Since Tailscale already restricts who can reach the server, JWT here primarily p
 
 ## Docker Compose
 
-Two compose files — one for each environment:
+Three compose files — one per environment:
 
 ```
 # Development (npm run dev inside Docker, hot reload)
@@ -305,7 +313,12 @@ docker compose up
 
 # Production (static build served by nginx)
 docker compose -f docker-compose.prod.yml up -d
+
+# E2E testing (isolated stack, tmpfs DB, rate limiting off, port 8080)
+docker compose -f docker-compose.e2e.yml up -d --build
 ```
+
+The E2E stack uses project name `fitman-e2e` to avoid colliding with a running production stack. Its PostgreSQL database lives on tmpfs so it is wiped on every `down -v`.
 
 In production, only nginx (port 80) is exposed to the host. The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
 

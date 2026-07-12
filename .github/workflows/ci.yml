@@ -9,7 +9,7 @@ on:
 jobs:
   frontend:
     name: Frontend build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -29,12 +29,28 @@ jobs:
 
   backend:
     name: Backend quality
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fitman_test
+          POSTGRES_USER: fitman
+          POSTGRES_PASSWORD: fitman
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
       - name: Cache uv package store
         uses: actions/cache@v5
         with:
@@ -63,9 +79,7 @@ jobs:
 
   docker:
     name: Docker production build
-    runs-on: self-hosted
-    env:
-      DOCKER_HOST: ${{ vars.DOCKER_SOCKET }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Create stub .env for build
@@ -77,11 +91,9 @@ jobs:
 
   e2e:
     name: E2E tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
     needs: [frontend, backend]
-    env:
-      DOCKER_HOST: ${{ vars.DOCKER_SOCKET }}
     steps:
       - uses: actions/checkout@v5
       - name: Tear down any leftover E2E stack
@@ -98,14 +110,19 @@ jobs:
         if: steps.cache-e2e-modules.outputs.cache-hit != 'true'
         run: npm install
         working-directory: e2e
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: e2e
       - name: Run E2E tests
-        run: npx playwright test
-        working-directory: e2e
-        env:
-          E2E_BASE_URL: http://localhost:8080
+        # Playwright Docker image ships Chromium pre-installed; no apt-get or sudo needed.
+        # --network host lets the container reach the E2E stack on localhost:8080.
+        # PLAYWRIGHT_BROWSERS_PATH points to the image's pre-installed browsers.
+        run: |
+          docker run --rm \
+            --network host \
+            -v "${{ github.workspace }}/e2e:/e2e" \
+            -w /e2e \
+            -e E2E_BASE_URL=http://localhost:8080 \
+            -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+            mcr.microsoft.com/playwright:v1.61.1-jammy \
+            node_modules/.bin/playwright test
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4

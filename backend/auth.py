@@ -25,12 +25,12 @@ def verify_password(plain: str, hashed: str) -> bool:
 bearer = HTTPBearer()
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, token_version: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         days=int(os.getenv("JWT_EXPIRE_DAYS", "7"))
     )
     return jwt.encode(
-        {"sub": str(user_id), "exp": expire},
+        {"sub": str(user_id), "ver": token_version, "exp": expire},
         os.getenv("SECRET_KEY"),
         algorithm=ALGORITHM,
     )
@@ -58,5 +58,10 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
+        )
+    if payload.get("ver") != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been invalidated",
         )
     return user

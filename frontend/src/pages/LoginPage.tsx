@@ -32,10 +32,11 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+            <label htmlFor="username" className="block text-sm font-medium text-[var(--color-muted)] mb-1">
               Username
             </label>
             <input
+              id="username"
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -45,10 +46,11 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-[var(--color-muted)] mb-1">
               Password
             </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -58,7 +60,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-500">{error}</p>
+            <p data-testid="login-error" className="text-sm text-red-500">{error}</p>
           )}
 
           <button

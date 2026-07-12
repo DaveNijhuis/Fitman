@@ -1,0 +1,43 @@
+name: fitman-e2e
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: fitman
+      POSTGRES_USER: fitman
+      POSTGRES_PASSWORD: fitman
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitman"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      SECRET_KEY: e2e-test-secret-key-not-for-production
+      DATABASE_URL: postgresql://fitman:fitman@postgres:5432/fitman
+      CORS_ORIGINS: http://localhost:8080
+      RATE_LIMIT_DISABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy

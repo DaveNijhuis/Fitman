@@ -9,7 +9,7 @@ on:
 jobs:
   frontend:
     name: Frontend build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -29,12 +29,28 @@ jobs:
 
   backend:
     name: Backend quality
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fitman_test
+          POSTGRES_USER: fitman
+          POSTGRES_PASSWORD: fitman
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
       - name: Cache uv package store
         uses: actions/cache@v5
         with:
@@ -63,9 +79,7 @@ jobs:
 
   docker:
     name: Docker production build
-    runs-on: self-hosted
-    env:
-      DOCKER_HOST: ${{ vars.DOCKER_SOCKET }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Create stub .env for build
@@ -74,3 +88,48 @@ jobs:
           echo "DATABASE_URL=postgresql://fitman:fitman@postgres:5432/fitman" >> .env
       - name: Build production images
         run: docker compose -f docker-compose.prod.yml build
+
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
+    needs: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tear down any leftover E2E stack
+        run: docker compose -f docker-compose.e2e.yml down -v || true
+      - name: Start E2E stack
+        run: docker compose -f docker-compose.e2e.yml up -d --build
+      - name: Cache e2e node_modules
+        id: cache-e2e-modules
+        uses: actions/cache@v5
+        with:
+          path: e2e/node_modules
+          key: e2e-node-modules-${{ hashFiles('e2e/package.json') }}
+      - name: Install E2E dependencies
+        if: steps.cache-e2e-modules.outputs.cache-hit != 'true'
+        run: npm install
+        working-directory: e2e
+      - name: Run E2E tests
+        # Playwright Docker image ships Chromium pre-installed; no apt-get or sudo needed.
+        # --network host lets the container reach the E2E stack on localhost:8080.
+        # PLAYWRIGHT_BROWSERS_PATH points to the image's pre-installed browsers.
+        run: |
+          docker run --rm \
+            --network host \
+            -v "${{ github.workspace }}/e2e:/e2e" \
+            -w /e2e \
+            -e E2E_BASE_URL=http://localhost:8080 \
+            -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+            mcr.microsoft.com/playwright:v1.61.1-jammy \
+            node_modules/.bin/playwright test
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
+      - name: Tear down E2E stack
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v

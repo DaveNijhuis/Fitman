@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -120,21 +121,24 @@ def consistency(
     current_user: User = Depends(get_current_user),
 ):
     cutoff = datetime.now(timezone.utc) - timedelta(weeks=17)
-    sessions = (
-        db.query(WorkoutSession)
+    rows = (
+        db.query(
+            WorkoutSession,
+            func.coalesce(func.sum(Log.weight * Log.reps), 0).label("volume"),
+        )
+        .outerjoin(Log, Log.session_id == WorkoutSession.id)
         .filter(
             WorkoutSession.user_id == current_user.id,
             WorkoutSession.started_at >= cutoff,
             WorkoutSession.ended_at.isnot(None),
         )
+        .group_by(WorkoutSession.id)
         .all()
     )
 
     trained_data: dict[str, dict] = {}
-    for s in sessions:
+    for s, volume in rows:
         date = s.started_at.date().isoformat()
-        logs = db.query(Log).filter(Log.session_id == s.id).all()
-        volume = sum(log.weight * log.reps for log in logs)
         trained_data[date] = {"session": s.session, "volume_kg": round(volume, 1)}
 
     now = datetime.now(timezone.utc)

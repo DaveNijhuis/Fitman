@@ -174,7 +174,7 @@ def test_disable_user_prevents_login(client: TestClient):
             "/api/auth/login",
             json={"username": "to_be_disabled", "password": "pass1234"},
         ).status_code
-        == 401
+        == 403
     )
 
 

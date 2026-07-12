@@ -26,10 +26,11 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 ### Backend — FastAPI (Python)
 
 - Serves a REST JSON API consumed by the frontend
-- Handles authentication (JWT tokens)
+- Handles authentication (JWT tokens, bcrypt password hashing via `hash_password` / `verify_password` in `auth.py`)
 - Reads and writes all data to PostgreSQL via SQLAlchemy
 - Runs database migrations automatically on startup via Alembic
 - Attaches a `X-Request-ID` UUID header to every response for log tracing
+- Rate-limits the login endpoint to 5 requests per minute per IP (SlowAPI)
 - Runs on port `8000` inside Docker (internal only — not exposed to the host)
 
 ### Frontend — React + TypeScript
@@ -38,6 +39,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Communicates with the backend via nginx proxy (no direct connection to port 8000)
 - Tailwind CSS v4 for styling
 - In production: built to static files and served by nginx
+- nginx adds five HTTP security headers on every response: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy`
 - In development: Vite dev server on port `5173` with `/api` proxy to backend
 
 ### Database — PostgreSQL 16
@@ -78,6 +80,7 @@ Fitman/
 │   │   └── versions/        # One file per schema change
 │   ├── alembic.ini
 │   ├── Dockerfile
+│   ├── .dockerignore        # Excludes .env, .venv, tests/, __pycache__, dev deps from image
 │   ├── requirements.txt
 │   ├── requirements-dev.txt # Dev/CI dependencies (pytest, ruff, mypy)
 │   ├── pyproject.toml       # Ruff and mypy configuration
@@ -137,6 +140,7 @@ exercises
 
 workout_sessions
   id          INTEGER PRIMARY KEY
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE
   session     TEXT NOT NULL          -- "Push A" | "Pull A" | "Legs A"
   started_at  TIMESTAMPTZ NOT NULL
   ended_at    TIMESTAMPTZ             -- null while in progress
@@ -155,6 +159,7 @@ logs
 ```
 cardio_entries
   id           INTEGER PRIMARY KEY
+  user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE
   activity     TEXT NOT NULL          -- "Run" | "Walk" | "Bike" | "Swim" | "Row" | "Other"
   distance_m   REAL                   -- metres (null if not tracked)
   duration_s   INTEGER                -- seconds (null if not tracked)
@@ -167,6 +172,7 @@ cardio_entries
 ```
 body_measurements
   id                  INTEGER PRIMARY KEY
+  user_id             INTEGER REFERENCES users(id) ON DELETE CASCADE
   recorded_at         TIMESTAMPTZ NOT NULL
   weight_kg           REAL
   height_cm           REAL
@@ -282,7 +288,7 @@ The backend refuses to start if `SECRET_KEY` is missing.
 2. User registers via `POST /api/auth/register` — first user is automatically admin
 3. **Onboarding**: after registration, `fitman_onboarding_pending` is set in localStorage; the frontend redirects to `/onboarding` for a one-time profile setup step, then clears the flag and proceeds to home
 4. Subsequent logins: `POST /api/auth/login` with username + password
-5. Backend verifies against bcrypt hash stored in the `users` table, returns a JWT
+5. Backend verifies against bcrypt hash stored in the `users` table. Wrong username or password → 401 `"Invalid credentials"`. Correct credentials on a disabled account → 403 `"Account disabled"`. Returns a JWT on success.
 6. Frontend stores the token in localStorage and sends it as `Authorization: Bearer <token>` on every request
 7. JWT payload contains `user_id` as `sub`; `get_current_user` validates the token and fetches the user from DB
 8. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again

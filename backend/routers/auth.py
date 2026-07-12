@@ -2,12 +2,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal
 
-import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import create_access_token, get_current_user
+from auth import create_access_token, get_current_user, hash_password, verify_password
 from database import get_db
 from limiter import limiter
 from models.user import User
@@ -15,14 +14,6 @@ from models.user import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-def _hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
-
-
-def _verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 class LoginRequest(BaseModel):
@@ -69,7 +60,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
     user = User(
         username=body.username,
-        hashed_password=_hash_password(body.password),
+        hashed_password=hash_password(body.password),
         display_name=body.display_name,
         is_active=True,
         is_admin=True,  # first user is always admin
@@ -93,12 +84,12 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not _verify_password(body.current_password, current_user.hashed_password):
+    if not verify_password(body.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
         )
-    current_user.hashed_password = _hash_password(body.new_password)
+    current_user.hashed_password = hash_password(body.new_password)
     db.commit()
     return {"detail": "Password updated"}
 
@@ -107,12 +98,12 @@ def change_password(
 @limiter.limit("5/minute")
 def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == body.username).first()
-    if (
-        not user
-        or not user.is_active
-        or not _verify_password(body.password, user.hashed_password)
-    ):
+    if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
         )
     return TokenResponse(access_token=create_access_token(user.id))

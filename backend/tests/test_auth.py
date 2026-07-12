@@ -1,11 +1,14 @@
-from datetime import datetime, timezone
+import os
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import jwt
 from fastapi.testclient import TestClient
 
+from auth import ALGORITHM
+from auth import verify_password as _verify_password
 from database import SessionLocal
 from models.user import User
-from routers.auth import _verify_password
 
 # ── Unit tests ────────────────────────────────────────────────────────────────
 
@@ -246,3 +249,93 @@ def test_consent_given_at_column_exists(client: TestClient):
     assert user is not None
     assert hasattr(user, "consent_given_at")
     db.close()
+
+
+# ── Expired JWT (#182) ────────────────────────────────────────────────────────
+
+
+def _expired_token(user_id: int) -> str:
+    expired = datetime.now(timezone.utc) - timedelta(seconds=1)
+    return jwt.encode(
+        {"sub": str(user_id), "exp": expired},
+        os.getenv("SECRET_KEY"),
+        algorithm=ALGORITHM,
+    )
+
+
+def test_expired_token_returns_401(client: TestClient):
+    token = _expired_token(1)
+    resp = client.get("/api/profile", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 401
+
+
+def test_expired_token_detail_is_invalid_token(client: TestClient):
+    """Response body must say 'Invalid token', not leak expiry details."""
+    token = _expired_token(1)
+    resp = client.get("/api/profile", headers={"Authorization": f"Bearer {token}"})
+    assert resp.json()["detail"] == "Invalid token"
+
+
+def test_expired_token_rejected_on_any_protected_endpoint(client: TestClient):
+    """Expiry check applies to all protected routes, not just /api/profile."""
+    token = _expired_token(1)
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/exercises", headers=headers).status_code == 401
+    assert client.get("/api/stats/home", headers=headers).status_code == 401
+
+
+# ── Disabled account login (#189) ─────────────────────────────────────────────
+
+
+def _make_disabled_user(username: str) -> None:
+    db = SessionLocal()
+    db.add(
+        User(
+            username=username,
+            hashed_password=bcrypt.hashpw(
+                b"pass1234", bcrypt.gensalt(rounds=4)
+            ).decode(),
+            is_active=False,
+            is_admin=False,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+    db.close()
+
+
+def test_disabled_account_returns_403(client: TestClient):
+    _make_disabled_user("disabled_user_403")
+    resp = client.post(
+        "/api/auth/login",
+        json={"username": "disabled_user_403", "password": "pass1234"},
+    )
+    assert resp.status_code == 403
+
+
+def test_disabled_account_detail_mentions_disabled(client: TestClient):
+    _make_disabled_user("disabled_user_detail")
+    resp = client.post(
+        "/api/auth/login",
+        json={"username": "disabled_user_detail", "password": "pass1234"},
+    )
+    assert "disabled" in resp.json()["detail"].lower()
+
+
+def test_disabled_account_wrong_password_returns_401(client: TestClient):
+    """Wrong password on a disabled account must not reveal the account is disabled."""
+    _make_disabled_user("disabled_user_wrong_pw")
+    resp = client.post(
+        "/api/auth/login",
+        json={"username": "disabled_user_wrong_pw", "password": "wrongpass"},
+    )
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid credentials"
+
+
+def test_active_account_wrong_password_still_401(client: TestClient):
+    resp = client.post(
+        "/api/auth/login", json={"username": "testuser", "password": "wrongpass"}
+    )
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid credentials"

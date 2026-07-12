@@ -1,6 +1,6 @@
 # Fitman
 
-[![CI](https://github.com/Dave-Nijhuis/Fitman/actions/workflows/ci.yml/badge.svg)](https://github.com/Dave-Nijhuis/Fitman/actions/workflows/ci.yml)
+[![CI](https://github.com/DaveNijhuis/Fitman/actions/workflows/ci.yml/badge.svg)](https://github.com/DaveNijhuis/Fitman/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -9,7 +9,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen)](TESTING.md)
 
 A self-hosted fitness tracking app. Log workouts, track progress, own your data.
 
@@ -67,7 +67,7 @@ In the [Tailscale admin console](https://login.tailscale.com/admin/machines), re
 
 ```bash
 # Clone the repo on your server
-git clone https://github.com/Dave-Nijhuis/Fitman.git
+git clone https://github.com/DaveNijhuis/Fitman.git
 cd Fitman
 
 # Set up environment variables
@@ -219,7 +219,7 @@ All work flows through feature branches → `dev` → `main` via pull request.
 
 ## Project board
 
-Issues and feature tracking are managed in the [GitHub Project](https://github.com/users/Dave-Nijhuis/projects/3).
+Issues and feature tracking are managed in the [GitHub Project](https://github.com/users/DaveNijhuis/projects/3).
 
 ## Built with AI
 

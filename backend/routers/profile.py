@@ -1,7 +1,9 @@
 import logging
+from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -28,8 +30,18 @@ class ProfileOut(BaseModel):
 class ProfilePatch(BaseModel):
     display_name: str | None = None
     birth_year: int | None = None
-    sex: str | None = None
+    sex: Literal["male", "female", "other"] | None = None
     height_cm: float | None = None
+
+    @field_validator("birth_year")
+    @classmethod
+    def birth_year_in_range(cls, v: int | None) -> int | None:
+        if v is None:
+            return v
+        current_year = datetime.now(timezone.utc).year
+        if not (1900 <= v <= current_year):
+            raise ValueError(f"birth_year must be between 1900 and {current_year}")
+        return v
 
 
 @router.get("", response_model=ProfileOut)

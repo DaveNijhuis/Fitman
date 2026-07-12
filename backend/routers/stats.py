@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy import Date, cast, func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -58,51 +59,73 @@ def home_stats(
     current_user: User = Depends(get_current_user),
 ):
     week_start, week_end = _iso_week_bounds()
+    week_start_dt = datetime.fromisoformat(week_start).replace(tzinfo=timezone.utc)
+    week_end_dt = datetime.fromisoformat(week_end).replace(
+        tzinfo=timezone.utc
+    ) + timedelta(days=1)
 
-    prev_start = (date.fromisoformat(week_start) - timedelta(weeks=1)).isoformat()
-    prev_end = (date.fromisoformat(week_end) - timedelta(weeks=1)).isoformat()
+    prev_start_dt = week_start_dt - timedelta(weeks=1)
+    prev_end_dt = week_end_dt - timedelta(weeks=1)
 
-    all_sessions = (
-        db.query(WorkoutSession)
+    # Streak — date-only query bounded to 365 days (covers any realistic streak)
+    streak_cutoff = datetime.now(timezone.utc) - timedelta(days=365)
+    trained_dates = {
+        row[0].isoformat()
+        for row in db.query(cast(WorkoutSession.started_at, Date))
         .filter(
             WorkoutSession.user_id == current_user.id,
             WorkoutSession.ended_at.isnot(None),
+            WorkoutSession.started_at >= streak_cutoff,
         )
         .all()
-    )
-    trained_dates = {s.started_at.date().isoformat() for s in all_sessions}
+    }
     streak = _compute_streak(trained_dates)
 
-    week_sessions = [
-        s
-        for s in all_sessions
-        if week_start <= s.started_at.date().isoformat() <= week_end
-    ]
-    week_workouts = len(week_sessions)
-
-    week_session_ids = {s.id for s in week_sessions}
-    week_logs = (
-        db.query(Log).filter(Log.session_id.in_(week_session_ids)).all()
-        if week_session_ids
-        else []
+    # Current week — single aggregated query
+    week_row = (
+        db.query(
+            func.count(WorkoutSession.id.distinct()).label("workouts"),
+            func.coalesce(func.sum(Log.weight * Log.reps), 0).label("volume"),
+            func.coalesce(
+                func.sum(
+                    func.extract(
+                        "epoch", WorkoutSession.ended_at - WorkoutSession.started_at
+                    )
+                    / 60
+                ),
+                0,
+            ).label("minutes"),
+        )
+        .select_from(WorkoutSession)
+        .outerjoin(Log, Log.session_id == WorkoutSession.id)
+        .filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.ended_at.isnot(None),
+            WorkoutSession.started_at >= week_start_dt,
+            WorkoutSession.started_at < week_end_dt,
+        )
+        .one()
     )
-    week_volume = round(sum(log.weight * log.reps for log in week_logs), 1)
+    week_workouts = week_row.workouts
+    week_volume = round(float(week_row.volume), 1)
+    week_minutes = int(week_row.minutes)
 
-    week_minutes = 0
-    for s in week_sessions:
-        if s.ended_at:
-            week_minutes += int((s.ended_at - s.started_at).total_seconds() / 60)
-
-    prev_sessions = [
-        s
-        for s in all_sessions
-        if prev_start <= s.started_at.date().isoformat() <= prev_end
-    ]
-    prev_ids = {s.id for s in prev_sessions}
-    prev_logs = (
-        db.query(Log).filter(Log.session_id.in_(prev_ids)).all() if prev_ids else []
+    # Previous week volume — single aggregated query
+    prev_row = (
+        db.query(
+            func.coalesce(func.sum(Log.weight * Log.reps), 0).label("volume"),
+        )
+        .select_from(WorkoutSession)
+        .outerjoin(Log, Log.session_id == WorkoutSession.id)
+        .filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.ended_at.isnot(None),
+            WorkoutSession.started_at >= prev_start_dt,
+            WorkoutSession.started_at < prev_end_dt,
+        )
+        .one()
     )
-    prev_week_volume = round(sum(log.weight * log.reps for log in prev_logs), 1)
+    prev_week_volume = round(float(prev_row.volume), 1)
 
     return HomeStats(
         streak=streak,

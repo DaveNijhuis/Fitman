@@ -20,7 +20,14 @@ removes all its logs, and deleting a user cascades cleanly all the way
 through to logs without any application-level intervention.
 """
 
+from typing import Union
+
 from alembic import op
+
+revision: str = "h4i6j8k0l2m3"
+down_revision: Union[str, None] = "g3h5i7j9k1l2"
+branch_labels = None
+depends_on = None
 
 
 def upgrade() -> None:

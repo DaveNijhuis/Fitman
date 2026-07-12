@@ -70,7 +70,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, user.token_version))
 
 
 class ChangePasswordRequest(BaseModel):
@@ -90,6 +90,7 @@ def change_password(
             detail="Current password is incorrect",
         )
     current_user.hashed_password = hash_password(body.new_password)
+    current_user.token_version += 1
     db.commit()
     return {"detail": "Password updated"}
 
@@ -106,4 +107,4 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
         )
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, user.token_version))

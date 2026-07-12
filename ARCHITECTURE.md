@@ -105,7 +105,7 @@ Fitman/
 │   ├── fixtures/            # Per-test user isolation via admin API
 │   ├── global-setup.ts      # Seeds admin user before test run
 │   └── playwright.config.ts
-├── .env                     # Secrets and config — never committed (gitignored)
+├── .env                     # Secrets and config (project root) — read by docker-compose.prod.yml via env_file; never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
 ├── ARCHITECTURE.md

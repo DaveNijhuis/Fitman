@@ -99,7 +99,7 @@ jobs:
       - name: Tear down any leftover E2E stack
         run: docker compose -f docker-compose.e2e.yml down -v || true
       - name: Start E2E stack
-        run: docker compose -f docker-compose.e2e.yml up -d --build
+        run: docker compose -f docker-compose.e2e.yml up -d --build --wait
       - name: Cache e2e node_modules
         id: cache-e2e-modules
         uses: actions/cache@v5

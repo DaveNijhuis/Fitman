@@ -9,7 +9,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-220%20backend%20%7C%2010%20E2E-brightgreen)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-backend%20%7C%20E2E-brightgreen)](TESTING.md)
 
 A self-hosted fitness tracking app. Log workouts, track progress, own your data.
 

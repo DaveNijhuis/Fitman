@@ -1,3 +1,4 @@
+import json as _json
 import logging
 import os
 import sys
@@ -41,14 +42,31 @@ class RequestIDFilter(logging.Filter):
         return True
 
 
+class JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        record.message = record.getMessage()
+        return _json.dumps(
+            {
+                "time": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+                "level": record.levelname,
+                "logger": record.name,
+                "request_id": getattr(record, "request_id", "-"),
+                "message": record.message,
+            }
+        )
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s [%(request_id)s]: %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 _request_id_filter = RequestIDFilter()
+_use_json = os.getenv("FITMAN_LOG_FORMAT", "json") != "text"
 for _h in logging.root.handlers:
     _h.addFilter(_request_id_filter)
+    if _use_json:
+        _h.setFormatter(JSONFormatter())
 
 logger = logging.getLogger(__name__)
 

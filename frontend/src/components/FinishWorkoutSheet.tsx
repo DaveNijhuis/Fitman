@@ -25,6 +25,7 @@ export default function FinishWorkoutSheet({ session, exercises, sessionLogs, on
 
   // Start countdown when discard panel opens; reset when it closes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!confirmDiscard) { setCountdown(0); return }
     setCountdown(2)
   }, [confirmDiscard])

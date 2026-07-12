@@ -59,7 +59,7 @@ export default function ActiveWorkoutPage() {
   const startedAt = useRef(
     (() => {
       const saved = getActiveWorkout()
-      return saved?.startedAt ? new Date(saved.startedAt).getTime() : Date.now()
+      return saved?.startedAt ? new Date(saved.startedAt).getTime() : Date.now() // eslint-disable-line react-hooks/purity
     })()
   )
   const [elapsed, setElapsed] = useState(0)

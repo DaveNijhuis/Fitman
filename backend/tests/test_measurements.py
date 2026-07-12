@@ -139,3 +139,40 @@ def test_bia_formulae_skipped_when_inputs_incomplete(client: TestClient):
     data = resp.json()
     assert data["bmi"] is None
     assert data["fat_mass_kg"] is None
+
+
+def test_bia_formulae_run_when_body_fat_pct_is_zero(client: TestClient):
+    """body_fat_pct=0.0 is falsy but present — formulas must still run.
+
+    all(required) treats 0.0 as absent and skips all formulae, so bmi is
+    never computed even though height, weight, age, and all impedance values
+    are provided.  The correct guard is all(x is not None for x in required).
+    """
+    token = _token(client)
+    payload = {
+        "weight_kg": 80.0,
+        "height_cm": 175.0,
+        "body_fat_pct": 0.0,
+        "user_age": 35,
+        "user_sex": 1,
+        "ra_z20": 312.5,
+        "la_z20": 308.0,
+        "rl_z20": 210.0,
+        "ll_z20": 208.5,
+        "trunk_z20": 42.0,
+        "ra_z100": 290.0,
+        "la_z100": 287.0,
+        "rl_z100": 195.0,
+        "ll_z100": 193.0,
+        "trunk_z100": 38.0,
+    }
+    resp = client.post(
+        "/api/measurements",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["bmi"] is not None, "bmi must be computed even when body_fat_pct=0.0"
+    expected_bmi = round(80.0 / (1.75**2), 1)
+    assert abs(data["bmi"] - expected_bmi) < 0.5

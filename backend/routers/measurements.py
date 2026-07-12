@@ -77,9 +77,10 @@ class MeasurementOut(_MeasurementFields):
     recorded_at: datetime
 
 
-def _apply_formulae(measurement: BodyMeasurement, age: int, sex: int) -> None:
+def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> None:
     """If all required inputs are present, calculate and fill derived fields."""
-    height = measurement.height_cm or float(os.getenv("SCALE_HEIGHT_CM", "0"))
+    _env_h = float(os.getenv("SCALE_HEIGHT_CM", "0"))
+    height: float | None = measurement.height_cm or (_env_h or None)
 
     required = [
         age,
@@ -97,12 +98,12 @@ def _apply_formulae(measurement: BodyMeasurement, age: int, sex: int) -> None:
         measurement.ll_z100,
         measurement.trunk_z100,
     ]
-    if not all(required):
+    if not all(x is not None for x in required):
         return
 
     profile = UserProfile(
-        age=age,
-        height_cm=float(height),
+        age=cast(int, age),
+        height_cm=cast(float, height),
         sex=sex,
         weight_kg=cast(float, measurement.weight_kg),
     )
@@ -141,13 +142,14 @@ def log_measurement(
     if measurement.height_cm is None and current_user.height_cm:
         measurement.height_cm = current_user.height_cm
 
-    # Age: request → profile birth_year → env
+    # Age: request → profile birth_year → env (0 means not configured → None)
+    age: int | None
     if age_from_request:
         age = age_from_request
     elif current_user.birth_year:
         age = datetime.now(timezone.utc).year - current_user.birth_year
     else:
-        age = int(os.getenv("SCALE_AGE", "0"))
+        age = int(os.getenv("SCALE_AGE", "0")) or None
 
     # Sex: request → profile sex → env
     if sex_from_request is not None:

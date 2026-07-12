@@ -98,12 +98,12 @@ def change_password(
 @limiter.limit("5/minute")
 def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == body.username).first()
-    if (
-        not user
-        or not user.is_active
-        or not verify_password(body.password, user.hashed_password)
-    ):
+    if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
         )
     return TokenResponse(access_token=create_access_token(user.id))

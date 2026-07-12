@@ -263,6 +263,16 @@ def _expired_token(user_id: int) -> str:
     )
 
 
+def _null_sub_token() -> str:
+    """JWT with sub=null — exercises the ValueError branch in get_current_user."""
+    future = datetime.now(timezone.utc) + timedelta(hours=1)
+    return jwt.encode(
+        {"sub": None, "exp": future},
+        os.getenv("SECRET_KEY"),
+        algorithm=ALGORITHM,
+    )
+
+
 def test_expired_token_returns_401(client: TestClient):
     token = _expired_token(1)
     resp = client.get("/api/profile", headers={"Authorization": f"Bearer {token}"})
@@ -282,6 +292,14 @@ def test_expired_token_rejected_on_any_protected_endpoint(client: TestClient):
     headers = {"Authorization": f"Bearer {token}"}
     assert client.get("/api/exercises", headers=headers).status_code == 401
     assert client.get("/api/stats/home", headers=headers).status_code == 401
+
+
+def test_jwt_with_null_sub_returns_401(client: TestClient):
+    """A valid JWT whose sub claim is null must be rejected."""
+    token = _null_sub_token()
+    resp = client.get("/api/profile", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid token"
 
 
 # ── Disabled account login (#189) ─────────────────────────────────────────────

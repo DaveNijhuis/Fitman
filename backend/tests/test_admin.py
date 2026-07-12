@@ -273,3 +273,20 @@ def test_admin_cannot_delete_self(client: TestClient):
     db.close()
     resp = client.delete(f"/api/admin/users/{user_id}", headers=_admin_headers(client))
     assert resp.status_code == 400
+
+
+def test_patch_nonexistent_user_returns_404(client: TestClient):
+    resp = client.patch(
+        "/api/admin/users/999999",
+        json={"is_active": False},
+        headers=_admin_headers(client),
+    )
+    assert resp.status_code == 404
+
+
+def test_delete_nonexistent_user_returns_404(client: TestClient):
+    resp = client.delete(
+        "/api/admin/users/999999",
+        headers=_admin_headers(client),
+    )
+    assert resp.status_code == 404

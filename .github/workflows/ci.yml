@@ -72,7 +72,7 @@ jobs:
       - name: Type check (mypy)
         run: .venv/bin/mypy .
       - name: Tests (pytest)
-        run: .venv/bin/pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=80
+        run: .venv/bin/pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=90
         env:
           SECRET_KEY: ci-test-secret-key-for-ci-only-not-for-production
           DATABASE_URL: postgresql://fitman:fitman@localhost:5432/fitman_test

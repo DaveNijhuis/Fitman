@@ -48,10 +48,11 @@ export default function SetupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+            <label htmlFor="setup-username" className="block text-sm font-medium text-[var(--color-muted)] mb-1">
               Username
             </label>
             <input
+              id="setup-username"
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -62,10 +63,11 @@ export default function SetupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+            <label htmlFor="setup-display-name" className="block text-sm font-medium text-[var(--color-muted)] mb-1">
               Display name <span className="font-normal">(optional)</span>
             </label>
             <input
+              id="setup-display-name"
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
@@ -76,10 +78,11 @@ export default function SetupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+            <label htmlFor="setup-password" className="block text-sm font-medium text-[var(--color-muted)] mb-1">
               Password
             </label>
             <input
+              id="setup-password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -91,10 +94,11 @@ export default function SetupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+            <label htmlFor="setup-confirm" className="block text-sm font-medium text-[var(--color-muted)] mb-1">
               Confirm password
             </label>
             <input
+              id="setup-confirm"
               type="password"
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
@@ -116,7 +120,7 @@ export default function SetupPage() {
             </span>
           </label>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p data-testid="setup-error" className="text-sm text-red-500">{error}</p>}
 
           <button
             type="submit"

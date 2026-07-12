@@ -16,7 +16,7 @@ function fmtVol(v: number): string {
 }
 
 function StatCard({
-  icon: Icon, label, value, unit, delta, deltaUp,
+  icon: Icon, label, value, unit, delta, deltaUp, testId,
 }: {
   icon: React.ElementType
   label: string
@@ -24,6 +24,7 @@ function StatCard({
   unit: string
   delta?: string
   deltaUp?: boolean
+  testId?: string
 }) {
   return (
     <div className="bg-[var(--color-surface)] rounded-[14px] p-[15px_16px] flex flex-col gap-[2px]"
@@ -32,7 +33,7 @@ function StatCard({
         <Icon size={15} strokeWidth={2} />
         <span className="tracking-[0.05em] uppercase">{label}</span>
       </div>
-      <div className="font-['DM_Mono',ui-monospace,monospace] text-[26px] font-medium leading-none tracking-[-0.01em]">
+      <div data-testid={testId} className="font-['DM_Mono',ui-monospace,monospace] text-[26px] font-medium leading-none tracking-[-0.01em]">
         {value}<span className="text-[13px] text-[var(--color-muted)] ml-[3px]">{unit}</span>
       </div>
       {delta && (
@@ -102,6 +103,7 @@ export default function HomePage() {
               unit="days"
               delta={stats.streak > 0 ? 'Keep it up' : undefined}
               deltaUp
+              testId="stat-streak"
             />
             <StatCard
               icon={Dumbbell}
@@ -110,6 +112,7 @@ export default function HomePage() {
               unit="/ 5"
               delta={stats.week_workouts >= 3 ? 'On track' : undefined}
               deltaUp
+              testId="stat-week-workouts"
             />
             <StatCard
               icon={Zap}
@@ -118,6 +121,7 @@ export default function HomePage() {
               unit="kg"
               delta={volumeDelta}
               deltaUp={stats.week_volume >= stats.prev_week_volume}
+              testId="stat-volume"
             />
             <StatCard
               icon={Clock}
@@ -125,6 +129,7 @@ export default function HomePage() {
               value={(stats.week_minutes / 60).toFixed(1).replace(/\.0$/, '')}
               unit="h"
               delta={stats.week_minutes > 0 ? `${stats.week_minutes} min` : undefined}
+              testId="stat-time"
             />
           </div>
         )}

@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -36,6 +36,13 @@ class CardioEntryOut(BaseModel):
     logged_at: datetime
 
 
+class CardioPage(BaseModel):
+    items: list[CardioEntryOut]
+    total: int
+    page: int
+    page_size: int
+
+
 @router.get("/activities")
 def list_activities(_: User = Depends(get_current_user)) -> list[str]:
     return ACTIVITIES
@@ -66,17 +73,21 @@ def log_cardio(
     return entry
 
 
-@router.get("", response_model=list[CardioEntryOut])
+@router.get("", response_model=CardioPage)
 def list_cardio(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
+    q = (
         db.query(CardioEntry)
         .filter(CardioEntry.user_id == current_user.id)
         .order_by(CardioEntry.logged_at.desc())
-        .all()
     )
+    total = q.count()
+    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

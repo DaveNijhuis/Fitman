@@ -74,7 +74,10 @@ def test_user_b_cannot_see_user_a_cardio(client: TestClient):
         headers=_auth_a(client),
     ).json()
 
-    ids = [e["id"] for e in client.get("/api/cardio", headers=_auth_b(client)).json()]
+    ids = [
+        e["id"]
+        for e in client.get("/api/cardio", headers=_auth_b(client)).json()["items"]
+    ]
     assert entry["id"] not in ids
 
 
@@ -92,7 +95,10 @@ def test_user_b_cannot_see_user_a_measurements(client: TestClient):
     ).json()
 
     ids = [
-        e["id"] for e in client.get("/api/measurements", headers=_auth_b(client)).json()
+        e["id"]
+        for e in client.get("/api/measurements", headers=_auth_b(client)).json()[
+            "items"
+        ]
     ]
     assert m["id"] not in ids
 

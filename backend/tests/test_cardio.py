@@ -36,9 +36,9 @@ def test_cardio_list_has_no_session_id(client: TestClient):
     _post_run(client)
     resp = client.get("/api/cardio", headers=_auth(client))
     assert resp.status_code == 200
-    entries = resp.json()
-    assert len(entries) > 0
-    for entry in entries:
+    data = resp.json()
+    assert "items" in data
+    for entry in data["items"]:
         assert "session_id" not in entry
 
 
@@ -66,7 +66,55 @@ def test_cardio_rejects_unknown_activity(client: TestClient):
 def test_cardio_list_returns_entries(client: TestClient):
     resp = client.get("/api/cardio", headers=_auth(client))
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    data = resp.json()
+    assert "items" in data
+    assert "total" in data
+    assert "page" in data
+    assert "page_size" in data
+    assert isinstance(data["items"], list)
+
+
+# ── Pagination (#227) ─────────────────────────────────────────────────────────
+
+
+def test_cardio_list_default_page_is_1(client: TestClient):
+    """Default page / page_size are returned in the envelope."""
+    resp = client.get("/api/cardio", headers=_auth(client))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["page"] == 1
+    assert data["page_size"] == 50
+
+
+def test_cardio_list_pagination_slices_correctly(client: TestClient):
+    """page_size=1 must return exactly 1 item; total reflects all rows."""
+    _post_run(client)
+    resp = client.get("/api/cardio?page=1&page_size=1", headers=_auth(client))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 1
+    assert data["total"] >= 1
+
+
+def test_cardio_list_page_size_capped_at_200(client: TestClient):
+    """page_size values above 200 must be rejected with 422."""
+    resp = client.get("/api/cardio?page_size=999", headers=_auth(client))
+    assert resp.status_code == 422
+
+
+def test_cardio_list_page_zero_returns_422(client: TestClient):
+    """page=0 is invalid — must return 422."""
+    resp = client.get("/api/cardio?page=0", headers=_auth(client))
+    assert resp.status_code == 422
+
+
+def test_cardio_list_beyond_last_page_returns_empty_items(client: TestClient):
+    """Page past the end returns items=[] with the real total."""
+    resp = client.get("/api/cardio?page=9999&page_size=50", headers=_auth(client))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items"] == []
+    assert data["total"] >= 0
 
 
 def test_cardio_delete_removes_entry(client: TestClient):

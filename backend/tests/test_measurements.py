@@ -56,7 +56,78 @@ def test_list_measurements(client: TestClient):
     token = _token(client)
     resp = client.get("/api/measurements", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    data = resp.json()
+    assert "items" in data
+    assert "total" in data
+    assert "page" in data
+    assert "page_size" in data
+    assert isinstance(data["items"], list)
+
+
+# ── Pagination (#227) ─────────────────────────────────────────────────────────
+
+
+def _post_weight(client: TestClient, weight: float) -> None:
+    client.post(
+        "/api/measurements",
+        json={"weight_kg": weight},
+        headers={"Authorization": f"Bearer {_token(client)}"},
+    )
+
+
+def test_list_measurements_default_page_is_1(client: TestClient):
+    """Default page / page_size are returned in the envelope."""
+    resp = client.get(
+        "/api/measurements",
+        headers={"Authorization": f"Bearer {_token(client)}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["page"] == 1
+    assert data["page_size"] == 50
+
+
+def test_list_measurements_pagination_slices_correctly(client: TestClient):
+    """page_size=1 must return exactly 1 item; total reflects all rows."""
+    _post_weight(client, 73.0)
+    resp = client.get(
+        "/api/measurements?page=1&page_size=1",
+        headers={"Authorization": f"Bearer {_token(client)}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 1
+    assert data["total"] >= 1
+
+
+def test_list_measurements_page_size_capped_at_200(client: TestClient):
+    """page_size values above 200 must be rejected with 422."""
+    resp = client.get(
+        "/api/measurements?page_size=999",
+        headers={"Authorization": f"Bearer {_token(client)}"},
+    )
+    assert resp.status_code == 422
+
+
+def test_list_measurements_page_zero_returns_422(client: TestClient):
+    """page=0 is invalid (pages start at 1) — must return 422."""
+    resp = client.get(
+        "/api/measurements?page=0",
+        headers={"Authorization": f"Bearer {_token(client)}"},
+    )
+    assert resp.status_code == 422
+
+
+def test_list_measurements_beyond_last_page_returns_empty_items(client: TestClient):
+    """Requesting a page past the end returns items=[] with the real total."""
+    resp = client.get(
+        "/api/measurements?page=9999&page_size=50",
+        headers={"Authorization": f"Bearer {_token(client)}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items"] == []
+    assert data["total"] >= 0
 
 
 def test_delete_measurement(client: TestClient):

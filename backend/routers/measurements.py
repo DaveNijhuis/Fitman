@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -75,6 +75,13 @@ class MeasurementOut(_MeasurementFields):
 
     id: int
     recorded_at: datetime
+
+
+class MeasurementPage(BaseModel):
+    items: list[MeasurementOut]
+    total: int
+    page: int
+    page_size: int
 
 
 def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> None:
@@ -167,17 +174,21 @@ def log_measurement(
     return measurement
 
 
-@router.get("", response_model=list[MeasurementOut])
+@router.get("", response_model=MeasurementPage)
 def list_measurements(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
+    q = (
         db.query(BodyMeasurement)
         .filter(BodyMeasurement.user_id == current_user.id)
         .order_by(BodyMeasurement.recorded_at.desc())
-        .all()
     )
+    total = q.count()
+    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 @router.delete("/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)

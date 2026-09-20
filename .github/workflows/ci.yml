@@ -24,6 +24,10 @@ jobs:
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
+      - name: Security audit (npm audit)
+        # High and critical only: moderate advisories in the transitive dev
+        # tree would make this gate noise rather than signal.
+        run: npm audit --audit-level=high
       - name: Lint (ESLint)
         run: npm run lint
       - name: Test (Vitest)
@@ -71,6 +75,10 @@ jobs:
         run: |
           uv venv .venv
           uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+      - name: Security audit (pip-audit)
+        # Auditing the requirements files resolves the full transitive tree,
+        # so unpinned indirect dependencies are covered too.
+        run: .venv/bin/pip-audit -r requirements.txt -r requirements-dev.txt
       - name: Lint (ruff)
         run: .venv/bin/ruff check .
       - name: Type check (mypy)

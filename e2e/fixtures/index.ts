@@ -27,8 +27,18 @@ export const test = base.extend<{
    * Uncaught exceptions are always fatal. console.error is separated because
    * the browser logs failed requests there, so a test asserting on a 401 or a
    * 404 trips it legitimately — those opt out via `allowConsoleErrors`.
+   *
+   * Depending on `testUser` is deliberate and load-bearing. Playwright tears
+   * fixtures down in reverse setup order, so this must be set up *after*
+   * testUser to be torn down *before* it. Otherwise testUser's account erase
+   * runs first, and any request the page still has in flight comes back 401 —
+   * an error caused by teardown rather than by the test. ActiveWorkoutPage
+   * requests a last-set per exercise concurrently, so it reliably has one
+   * outstanding when a workout test ends.
    */
-  failOnPageErrors: [async ({ page, allowConsoleErrors }, use) => {
+  failOnPageErrors: [async ({ page, allowConsoleErrors, testUser }, use) => {
+    void testUser // referenced only to order teardown; see above
+
     const uncaught: string[] = []
     const logged: string[] = []
     page.on('pageerror', e => uncaught.push(e.message))

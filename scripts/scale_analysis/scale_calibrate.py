@@ -12,6 +12,7 @@ Press Ctrl+C when done. Results + formula printed at exit.
 """
 
 import asyncio
+
 from bleak import BleakClient, BleakScanner
 
 DEVICE_PREFIX = "e.volve"
@@ -87,8 +88,10 @@ async def do_one_measurement(idx: int) -> dict | None:
                 await client.write_gatt_char(
                     CHAR_FFB1, build_user_profile(), response=False
                 )
-            except Exception:
-                pass
+            except Exception as err:
+                # Best-effort profile write; the scale still reports weight
+                # without it, so a failure here must not abort the capture.
+                print(f"Profile write skipped: {err}")
 
             print("Connected — stand still…")
 
@@ -128,7 +131,7 @@ def report() -> None:
     print("─" * 60)
     for r in results:
         h = " ".join(f"{b:02X}" for b in r["key"])
-        print(f"{r['idx']:<4} {str(r['kg']):<10} {h:<24} {list(r['key'])}")
+        print(f"{r['idx']:<4} {r['kg']!s:<10} {h:<24} {list(r['key'])}")
 
     valid = [
         (int.from_bytes(r["key"], "big"), r["kg"])
@@ -146,7 +149,7 @@ def report() -> None:
     n = len(xs)
     sx = sum(xs)
     sy = sum(ys)
-    sxy = sum(x * y for x, y in zip(xs, ys))
+    sxy = sum(x * y for x, y in zip(xs, ys, strict=True))
     sx2 = sum(x * x for x in xs)
     den = n * sx2 - sx * sx
     if den == 0:

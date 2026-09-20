@@ -28,6 +28,14 @@ jobs:
         # High and critical only: moderate advisories in the transitive dev
         # tree would make this gate noise rather than signal.
         run: npm audit --audit-level=high
+      - name: API types match the OpenAPI contract
+        # Regenerating must be a no-op. If it is not, the backend changed a
+        # response shape without the frontend types following, which is how
+        # #267 shipped — the cast in client.ts kept every call site compiling.
+        run: |
+          npm run generate:api
+          git diff --exit-code -- src/api/schema.d.ts \
+            || { echo "::error::src/api/schema.d.ts is stale. Run 'npm run generate:api' and commit the result."; exit 1; }
       - name: Lint (ESLint)
         run: npm run lint
       - name: Test (Vitest)

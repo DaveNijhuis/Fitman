@@ -1,3 +1,5 @@
+import type { components } from './schema'
+
 export function getToken(): string | null {
   return localStorage.getItem('token')
 }
@@ -39,6 +41,21 @@ export interface Page<T> {
   page: number
   page_size: number
 }
+
+/**
+ * Compile-time guard that the generic envelope above still matches what the
+ * backend publishes. `Page<T>` is the one API shape not generated from the
+ * OpenAPI document, and it is the exact shape #267 got wrong — so if a *Page
+ * schema changes, this must stop compiling rather than silently mis-reading
+ * the response. Types only: erased at build, nothing reaches the bundle.
+ */
+type AssertAssignableToPage<T extends Page<unknown>> = T
+export type _CardioPageIsAPage = AssertAssignableToPage<
+  components['schemas']['CardioPage']
+>
+export type _MeasurementPageIsAPage = AssertAssignableToPage<
+  components['schemas']['MeasurementPage']
+>
 
 /** The backend caps page_size at 200; ask for the maximum to minimise round trips. */
 const MAX_PAGE_SIZE = 200

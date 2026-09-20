@@ -1,4 +1,4 @@
-import { request } from './client'
+import { fetchAllPages, request } from './client'
 
 export interface Measurement {
   id: number
@@ -62,7 +62,7 @@ export interface MeasurementIn {
 }
 
 export function getMeasurements(): Promise<Measurement[]> {
-  return request<Measurement[]>('/api/measurements')
+  return fetchAllPages<Measurement>('/api/measurements')
 }
 
 export function logMeasurement(data: MeasurementIn): Promise<Measurement> {

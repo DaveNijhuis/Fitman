@@ -152,7 +152,8 @@ export default function ProgressPage() {
     Promise.all([getPRs(), getVolume(), getConsistency(), getBalance(), getMeasurements()])
       .then(([prsData, vol, cons, bal, meas]) => {
         setPRs(prsData)
-        if (prsData.length > 0) setSelectedExerciseId(prsData[0].exercise_id)
+        const firstPR = prsData[0]
+        if (firstPR) setSelectedExerciseId(firstPR.exercise_id)
         setVolume(vol)
         setConsistency(cons)
         setBalance(bal)
@@ -557,7 +558,9 @@ export default function ProgressPage() {
 
                         {/* Chart */}
                         <div className="flex-1 mt-4 md:mt-0 flex flex-col justify-center">
-                          {activeData.length >= 2 ? (
+                          {/* `active &&` narrows it for the chart props below: activeData is
+                              keyed off active.key, so a non-empty series implies active exists. */}
+                          {active && activeData.length >= 2 ? (
                             <>
                               <div className="text-[12px] text-[var(--color-muted)] font-semibold mb-2">
                                 {active?.label} over time
@@ -662,7 +665,8 @@ export default function ProgressPage() {
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${(b.percentage / balance[0].percentage) * 100}%`,
+                          // balance[0] exists: the map only runs when balance is non-empty.
+                          width: `${(b.percentage / (balance[0]?.percentage ?? b.percentage)) * 100}%`,
                           background: MUSCLE_COLORS[b.muscle] ?? '#ff5a36',
                         }}
                       />

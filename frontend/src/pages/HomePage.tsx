@@ -22,9 +22,11 @@ function StatCard({
   label: string
   value: string | number
   unit: string
-  delta?: string
-  deltaUp?: boolean
-  testId?: string
+  // `| undefined` is deliberate: call sites pass `cond ? 'x' : undefined`,
+  // which exactOptionalPropertyTypes distinguishes from omitting the prop.
+  delta?: string | undefined
+  deltaUp?: boolean | undefined
+  testId?: string | undefined
 }) {
   return (
     <div className="bg-[var(--color-surface)] rounded-[14px] p-[15px_16px] flex flex-col gap-[2px]"

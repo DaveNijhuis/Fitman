@@ -51,7 +51,7 @@ class PatchUserRequest(BaseModel):
 def list_users(
     db: Session = Depends(get_db),
     _: User = Depends(_require_admin),
-):
+) -> list[User]:
     return db.query(User).order_by(User.created_at).all()
 
 
@@ -60,7 +60,7 @@ def create_user(
     body: CreateUserRequest,
     db: Session = Depends(get_db),
     _: User = Depends(_require_admin),
-):
+) -> User:
     if db.query(User).filter(User.username == body.username).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
@@ -86,7 +86,7 @@ def patch_user(
     body: PatchUserRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(_require_admin),
-):
+) -> User:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -109,7 +109,7 @@ def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(_require_admin),
-):
+) -> None:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(

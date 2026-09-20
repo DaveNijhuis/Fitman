@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
@@ -53,7 +54,7 @@ def log_cardio(
     body: CardioIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> CardioEntry:
     if body.activity not in ACTIVITIES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown activity"
@@ -79,7 +80,7 @@ def list_cardio(
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, Any]:
     q = (
         db.query(CardioEntry)
         .filter(CardioEntry.user_id == current_user.id)
@@ -95,7 +96,7 @@ def delete_cardio(
     entry_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> None:
     entry = db.get(CardioEntry, entry_id)
     if not entry or entry.user_id != current_user.id:
         raise HTTPException(

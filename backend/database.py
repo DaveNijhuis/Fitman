@@ -1,15 +1,16 @@
 import os
+from collections.abc import Iterator
 
 from dotenv import find_dotenv, load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 load_dotenv(find_dotenv())
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
 
-def _make_engine(url: str):
+def _make_engine(url: str) -> Engine:
     return create_engine(
         url,
         pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
@@ -27,7 +28,7 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_db():
+def get_db() -> Iterator[Session]:
     db = SessionLocal()
     try:
         yield db

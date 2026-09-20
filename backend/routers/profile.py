@@ -45,7 +45,7 @@ class ProfilePatch(BaseModel):
 
 
 @router.get("", response_model=ProfileOut)
-def get_profile(current_user: User = Depends(get_current_user)):
+def get_profile(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
@@ -54,7 +54,7 @@ def patch_profile(
     body: ProfilePatch,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> User:
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(current_user, field, value)
     db.commit()

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 import bcrypt
 from sqlalchemy import inspect, text
+from sqlalchemy.engine.interfaces import ReflectedForeignKeyConstraint
 
 from database import SessionLocal, engine
 from models.cardio import CardioEntry
@@ -17,7 +18,7 @@ from models.user import User
 from models.workout import WorkoutSession
 
 
-def _user_id_fk(table: str) -> dict | None:
+def _user_id_fk(table: str) -> ReflectedForeignKeyConstraint | None:
     for fk in inspect(engine).get_foreign_keys(table):
         if "user_id" in fk["constrained_columns"]:
             return fk

@@ -107,3 +107,21 @@ def test_dependabot_targets_the_dev_integration_branch():
             "The key is target-branch (hyphen); Dependabot silently ignores "
             "unrecognised keys such as target_branch."
         )
+
+
+def test_react_packages_are_updated_as_one_group():
+    """React refuses to start unless react and react-dom match exactly.
+
+    Updated as separate PRs, Dependabot bumps one and leaves the other, and the
+    app dies at runtime with "Incompatible React versions" — PR #293. Grouping
+    is what keeps them in step.
+    """
+    config = yaml.safe_load(_DEPENDABOT.read_text())
+    frontend = next(
+        entry
+        for entry in config["updates"]
+        if entry["package-ecosystem"] == "npm" and entry["directory"] == "/frontend"
+    )
+    patterns = frontend["groups"]["react"]["patterns"]
+    assert "react" in patterns
+    assert "react-dom" in patterns

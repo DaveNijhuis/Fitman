@@ -10,6 +10,17 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    groups:
+      # React refuses to run unless react and react-dom are the exact same
+      # version. Updated separately, Dependabot bumps one and leaves the other,
+      # and the app dies at runtime with "Incompatible React versions" — which
+      # is how PR #293 failed. Grouping makes them move in one PR.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
   - package-ecosystem: npm
     directory: /e2e
     target-branch: dev

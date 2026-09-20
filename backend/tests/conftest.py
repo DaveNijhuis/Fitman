@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
@@ -39,24 +40,40 @@ from limiter import limiter  # noqa: E402
 from main import app  # noqa: E402
 from models.user import User  # noqa: E402
 
-_require_test_database(os.environ["DATABASE_URL"])
 
-Base.metadata.drop_all(engine)
-Base.metadata.create_all(engine)
+@pytest.fixture(scope="session")
+def database() -> Iterator[None]:
+    """Build the schema and seed it, once per session (#283).
 
-# Seed a test user directly in the DB
-_db = SessionLocal()
-_db.add(
-    User(
-        username="testuser",
-        hashed_password=bcrypt.hashpw(b"testpass", bcrypt.gensalt(rounds=4)).decode(),
-        is_active=True,
-        is_admin=True,
-        created_at=datetime.now(timezone.utc),
+    Requested rather than done at import, so collection opens no connection
+    and the config-only test modules — which read YAML, .gitignore and compose
+    files — run with no database at all.
+
+    The guard moved here with the destructive calls it protects. It still fires
+    before anything is dropped, which is the actual protection; running it at
+    import would also refuse a config-only run that never touches the database.
+    """
+    _require_test_database(os.environ["DATABASE_URL"])
+
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+
+    db = SessionLocal()
+    db.add(
+        User(
+            username="testuser",
+            hashed_password=bcrypt.hashpw(
+                b"testpass", bcrypt.gensalt(rounds=4)
+            ).decode(),
+            is_active=True,
+            is_admin=True,
+            created_at=datetime.now(timezone.utc),
+        )
     )
-)
-_db.commit()
-_db.close()
+    db.commit()
+    db.close()
+
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -65,6 +82,6 @@ def reset_rate_limits():
 
 
 @pytest.fixture(scope="session")
-def client():
+def client(database: None) -> Iterator[TestClient]:
     with TestClient(app) as c:
         yield c

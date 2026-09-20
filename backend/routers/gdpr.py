@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/gdpr", tags=["gdpr"])
 def erase_my_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> None:
     db.delete(current_user)
     db.commit()
 
@@ -30,7 +30,7 @@ def erase_my_data(
 def export_my_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> JSONResponse:
     user_id = current_user.id
 
     sessions = db.query(WorkoutSession).filter(WorkoutSession.user_id == user_id).all()

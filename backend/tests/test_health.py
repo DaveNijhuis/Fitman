@@ -16,7 +16,10 @@ def test_health_ok(client: TestClient):
 def test_health_db_down():
     def mock_db_fail():
         mock = MagicMock()
-        mock.execute.side_effect = OperationalError("DB down", None, None)
+        # orig must be the underlying DBAPI exception, not None.
+        mock.execute.side_effect = OperationalError(
+            "DB down", None, Exception("connection refused")
+        )
         yield mock
 
     app.dependency_overrides[get_db] = mock_db_fail

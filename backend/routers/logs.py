@@ -39,7 +39,7 @@ def log_set(
     body: LogRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> Log:
     if not db.get(Exercise, body.exercise_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"
@@ -67,7 +67,7 @@ def get_last_set(
     exercise_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> Log | None:
     return (
         db.query(Log)
         .join(WorkoutSession, Log.session_id == WorkoutSession.id)
@@ -85,7 +85,7 @@ def get_logs(
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[Log]:
     return (
         db.query(Log)
         .join(WorkoutSession, Log.session_id == WorkoutSession.id)

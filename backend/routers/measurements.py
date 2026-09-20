@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime, timezone
-from typing import cast
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
@@ -137,7 +137,7 @@ def log_measurement(
     body: MeasurementIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> BodyMeasurement:
     data = body.model_dump()
     age_from_request = data.pop("user_age")
     sex_from_request = data.pop("user_sex")
@@ -180,7 +180,7 @@ def list_measurements(
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, Any]:
     q = (
         db.query(BodyMeasurement)
         .filter(BodyMeasurement.user_id == current_user.id)
@@ -196,7 +196,7 @@ def delete_measurement(
     measurement_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> None:
     measurement = db.get(BodyMeasurement, measurement_id)
     if not measurement or measurement.user_id != current_user.id:
         raise HTTPException(

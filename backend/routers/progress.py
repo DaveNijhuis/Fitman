@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func
+from sqlalchemy.orm import Query as OrmQuery
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -24,7 +25,7 @@ def epley_1rm(weight: float, reps: int) -> float:
     return weight * (1 + reps / 30)
 
 
-def _user_logs(db: Session, user_id: int):
+def _user_logs(db: Session, user_id: int) -> OrmQuery[Log]:
     return (
         db.query(Log)
         .join(WorkoutSession, Log.session_id == WorkoutSession.id)
@@ -51,7 +52,7 @@ def strength_progression(
     exercise_id: int = Query(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> StrengthData:
     exercise = db.get(Exercise, exercise_id)
     if not exercise:
         raise HTTPException(
@@ -89,7 +90,7 @@ class VolumePoint(BaseModel):
 def volume_over_time(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[VolumePoint]:
     logs = _user_logs(db, current_user.id).order_by(Log.logged_at).all()
     weekly: dict[str, float] = defaultdict(float)
     for log in logs:
@@ -119,7 +120,7 @@ class ConsistencyWeek(BaseModel):
 def consistency(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[ConsistencyWeek]:
     cutoff = datetime.now(timezone.utc) - timedelta(weeks=17)
     rows = (
         db.query(
@@ -176,7 +177,7 @@ class MuscleBalance(BaseModel):
 def muscle_balance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[MuscleBalance]:
     rows = (
         db.query(Log, Exercise)
         .join(Exercise, Log.exercise_id == Exercise.id)
@@ -226,7 +227,7 @@ class PersonalRecord(BaseModel):
 def personal_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[PersonalRecord]:
     rows = (
         db.query(Log, Exercise)
         .join(Exercise, Log.exercise_id == Exercise.id)

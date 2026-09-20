@@ -52,7 +52,7 @@ def start_session(
     body: StartSessionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> WorkoutSession:
     if body.session not in SESSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
@@ -72,7 +72,7 @@ def start_session(
 def list_sessions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[WorkoutSessionSummary]:
     rows = (
         db.query(
             WorkoutSession,
@@ -106,7 +106,7 @@ def get_session_logs(
     session_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> list[SessionLogEntry]:
     workout = db.get(WorkoutSession, session_id)
     if not workout or workout.user_id != current_user.id:
         raise HTTPException(
@@ -137,7 +137,7 @@ def delete_session(
     session_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> None:
     workout = db.get(WorkoutSession, session_id)
     if not workout or workout.user_id != current_user.id:
         raise HTTPException(
@@ -157,7 +157,7 @@ def end_session(
     session_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> WorkoutSession:
     workout = db.get(WorkoutSession, session_id)
     if not workout or workout.user_id != current_user.id:
         raise HTTPException(

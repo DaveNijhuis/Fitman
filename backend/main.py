@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 
@@ -14,7 +15,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 from database import SessionLocal, get_db
 from limiter import limiter
@@ -79,7 +81,7 @@ if _missing:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = SessionLocal()
     try:
         seed_exercises(db)
@@ -89,7 +91,9 @@ async def lifespan(app: FastAPI):
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
         token = _request_id_ctx.set(request_id)
@@ -133,8 +137,10 @@ app.include_router(profile_router.router)
 app.include_router(stats_router.router)
 
 
-@app.get("/health")
-def health(db: Session = Depends(get_db)):
+# response_model=None: the union return type is not a valid Pydantic field, and
+# FastAPI would otherwise infer the response model from the annotation.
+@app.get("/health", response_model=None)
+def health(db: Session = Depends(get_db)) -> Response | dict[str, str]:
     try:
         db.execute(text("SELECT 1"))
         return {"status": "ok"}

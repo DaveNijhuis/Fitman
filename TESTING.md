@@ -69,6 +69,10 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_dockerignore.py` | Static parse of `backend/.dockerignore`: asserts `.env`, `.venv`, `tests/`, `__pycache__/`, and `requirements-dev.txt` are excluded from the Docker build context |
 | `test_hash_password_dedup.py` | Asserts `hash_password` and `verify_password` are defined in `auth.py` and that neither `routers/auth.py` nor `routers/admin.py` defines its own private copy; identity check confirms both routers import the same function object |
 | `test_fk_cascade.py` | FK constraint existence on `workout_sessions`, `cardio_entries`, and `body_measurements` `user_id` columns; schema-level assertion that each FK has `ON DELETE CASCADE`; behavioural tests that raw `DELETE FROM users` cascades child rows in all three tables |
+| `test_ci_security_scanning.py` | Structural parse of `.github/workflows/ci.yml`: asserts the backend job runs `pip-audit` and the frontend job runs `npm audit --audit-level=high`, each positioned after its dependency install; asserts `pip-audit` is pinned in `requirements-dev.txt` and that `.github/dependabot.yml` covers `/backend`, `/frontend` and `/e2e` weekly |
+| `test_lint_config.py` | Parses `pyproject.toml`: asserts ruff selects `B` and `S`, that `fastapi.Depends` is exempt from `B008`, that `S101` is ignored for tests, and that mypy sets `disallow_untyped_defs` with a `tests.*` override enabling `check_untyped_defs` |
+| `test_secret_key_config.py` | Asserts `auth.py` reads `SECRET_KEY` via `os.environ` (typed `str`) rather than `os.getenv` (`str \| None`); regression guard that a missing `SECRET_KEY` still produces `main.py`'s plain-English startup error rather than an import-time `KeyError` traceback |
+| `test_gitignore.py` | Asserts `.coverage` and `.coverage.*` are gitignored **and** that `backend/.coverage` is absent from the git index — ignoring a tracked file has no effect, so both halves are checked |
 
 ## conftest.py
 
@@ -82,6 +86,31 @@ Because the database is shared across tests, individual tests must not rely on t
 An `autouse=True` function-scoped fixture calls `limiter.reset()` before every test, clearing the in-memory rate limit counters so tests do not leak state across each other.
 
 `DATABASE_URL` must be set in the environment before the test session starts. `conftest.py` defaults to `postgresql://fitman:fitman@localhost:5432/fitman_test` if the variable is not set.
+
+## Coverage
+
+The backend suite enforces a **90% coverage floor** via `--cov-fail-under=90` in
+`pyproject.toml`; the run fails if coverage drops below it. Actual coverage is
+currently ~99%. `alembic/versions/*` is omitted from measurement — migrations are
+verified structurally by `test_postgresql.py` and `test_indexes.py` instead.
+
+## Frontend tests (Vitest)
+
+Component and configuration tests run under Vitest with a jsdom environment:
+
+```bash
+cd frontend
+npm test              # headless run
+npx vitest            # watch mode
+```
+
+| File | What it covers |
+|---|---|
+| `src/components/__tests__/ErrorBoundary.test.tsx` | Route-level error boundary: renders children when nothing throws; renders the fallback UI when a child throws; the fallback contains a link back to home; multiple independent boundaries do not interfere with each other |
+| `src/__tests__/tsconfig.test.ts` | Parses `tsconfig.app.json` and asserts `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `noImplicitOverride` are all declared |
+
+`strict` is asserted explicitly because TypeScript 6 enables it by default — the
+declaration is what keeps the guarantee if the compiler is ever pinned back to 5.x.
 
 ## E2E tests (Playwright)
 
@@ -153,9 +182,28 @@ Every push and pull request runs on GitHub-hosted `ubuntu-latest` runners:
 
 | Job | Trigger | What it does |
 |---|---|---|
-| **Frontend build** | every push/PR | `npm ci`, `npm run build` — TypeScript compile + Vite bundle |
-| **Backend quality** | every push/PR | `ruff check`, `mypy`, `pytest` against a postgres:16 service container |
+| **Frontend build** | every push/PR | `npm ci`, `npm audit --audit-level=high`, `npm run lint` (ESLint), `npm test` (Vitest), `npm run build` — TypeScript compile + Vite bundle |
+| **Backend quality** | every push/PR | `pip-audit`, `ruff check`, `mypy`, `pytest` against a postgres:16 service container, with a 90% coverage floor |
 | **Docker production build** | every push/PR | Builds the production Docker image to catch Dockerfile and dependency errors |
 | **E2E tests** | PRs + pushes to `main`/`dev` | Spins up the E2E stack, runs 10 Playwright tests inside `mcr.microsoft.com/playwright:v1.61.1-jammy`, tears down |
 
 The backend job caches both the `uv` wheel store (keyed on requirements files) and the `.mypy_cache` directory. The frontend and E2E jobs cache `node_modules` keyed on the respective lock/package files. The E2E job runs the Playwright tests inside the official Docker image so no browser installation or system dependencies are needed on the runner.
+
+### Dependency scanning
+
+`pip-audit` resolves the full transitive tree from `requirements.txt` and
+`requirements-dev.txt`, so unpinned indirect dependencies are covered too.
+`npm audit` gates on `--audit-level=high`: moderate advisories in the transitive
+dev tree would make the check noise rather than signal.
+
+`.github/dependabot.yml` opens weekly dependency update PRs for `/backend` (pip),
+`/frontend` and `/e2e` (npm).
+
+## Lint and type gates
+
+| Tool | Scope | Configuration |
+|---|---|---|
+| **ruff** | backend | Selects `E`, `F`, `I`, `B` (bugbear), `S` (bandit). `fastapi.Depends` is exempt from `B008` — dependency injection in an argument default is the framework idiom, not a mutable-default bug. `tests/**` ignores `S101`/`S105`/`S106`/`S107`/`S607`, since pytest is built on bare `assert` and fixture credentials are not secrets. |
+| **mypy** | backend | `disallow_untyped_defs` for application code. `tests.*` instead sets `check_untyped_defs` — annotating test functions `-> None` carries no type information, whereas checking their bodies does, and mypy skips unannotated bodies by default. |
+| **tsc** | frontend | `strict` plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `noImplicitOverride`. |
+| **ESLint** | frontend | Runs as a CI gate; errors fail the build, warnings do not. |

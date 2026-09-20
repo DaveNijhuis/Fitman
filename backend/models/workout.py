@@ -30,7 +30,10 @@ class Log(Base):
         Integer, ForeignKey("exercises.id"), nullable=False, index=True
     )
     session_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("workout_sessions.id"), nullable=False, index=True
+        Integer,
+        ForeignKey("workout_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     reps: Mapped[int] = mapped_column(Integer, nullable=False)

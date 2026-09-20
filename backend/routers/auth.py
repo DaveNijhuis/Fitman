@@ -30,7 +30,7 @@ class RegisterRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105  # OAuth2 token_type field, not a secret
 
 
 class SetupRequired(BaseModel):
@@ -38,7 +38,7 @@ class SetupRequired(BaseModel):
 
 
 @router.get("/setup-required", response_model=SetupRequired)
-def setup_required(db: Session = Depends(get_db)):
+def setup_required(db: Session = Depends(get_db)) -> SetupRequired:
     """Returns true if no users exist yet — used to trigger the first-run setup page."""
     return SetupRequired(required=db.query(User).count() == 0)
 
@@ -46,7 +46,7 @@ def setup_required(db: Session = Depends(get_db)):
 @router.post(
     "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
 )
-def register(body: RegisterRequest, db: Session = Depends(get_db)):
+def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
     """Create the first user. Returns 409 if any users already exist (use admin panel instead)."""
     if db.query(User).count() > 0:
         raise HTTPException(
@@ -70,7 +70,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, user.token_version))
 
 
 class ChangePasswordRequest(BaseModel):
@@ -83,20 +83,23 @@ def change_password(
     body: ChangePasswordRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, str]:
     if not verify_password(body.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
         )
     current_user.hashed_password = hash_password(body.new_password)
+    current_user.token_version += 1
     db.commit()
     return {"detail": "Password updated"}
 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    request: Request, body: LoginRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
     user = db.query(User).filter(User.username == body.username).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
@@ -106,4 +109,4 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
         )
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, user.token_version))

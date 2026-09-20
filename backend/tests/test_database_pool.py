@@ -7,10 +7,23 @@ StaticPool so a real PostgreSQL URL is required.
 """
 
 import os
+from typing import cast
+
+from sqlalchemy import Engine
+from sqlalchemy.pool import QueuePool
 
 
 def _url() -> str:
     return os.environ["DATABASE_URL"]
+
+
+def _pool(e: Engine) -> QueuePool:
+    """size()/_max_overflow/_timeout are QueuePool members, not base Pool ones.
+
+    The docstring above already requires PostgreSQL for these tests, which is
+    exactly the condition under which the engine uses a QueuePool.
+    """
+    return cast(QueuePool, e.pool)
 
 
 def test_pool_size_defaults_to_five(monkeypatch):
@@ -20,7 +33,7 @@ def test_pool_size_defaults_to_five(monkeypatch):
 
     e = _make_engine(_url())
     try:
-        assert e.pool.size() == 5
+        assert _pool(e).size() == 5
     finally:
         e.dispose()
 
@@ -32,7 +45,7 @@ def test_pool_size_is_configurable(monkeypatch):
 
     e = _make_engine(_url())
     try:
-        assert e.pool.size() == 3
+        assert _pool(e).size() == 3
     finally:
         e.dispose()
 
@@ -44,7 +57,7 @@ def test_max_overflow_defaults_to_ten(monkeypatch):
 
     e = _make_engine(_url())
     try:
-        assert e.pool._max_overflow == 10
+        assert _pool(e)._max_overflow == 10
     finally:
         e.dispose()
 
@@ -56,7 +69,7 @@ def test_max_overflow_is_configurable(monkeypatch):
 
     e = _make_engine(_url())
     try:
-        assert e.pool._max_overflow == 2
+        assert _pool(e)._max_overflow == 2
     finally:
         e.dispose()
 
@@ -68,7 +81,7 @@ def test_pool_timeout_defaults_to_thirty(monkeypatch):
 
     e = _make_engine(_url())
     try:
-        assert e.pool._timeout == 30
+        assert _pool(e)._timeout == 30
     finally:
         e.dispose()
 
@@ -80,6 +93,6 @@ def test_pool_timeout_is_configurable(monkeypatch):
 
     e = _make_engine(_url())
     try:
-        assert e.pool._timeout == 15
+        assert _pool(e)._timeout == 15
     finally:
         e.dispose()

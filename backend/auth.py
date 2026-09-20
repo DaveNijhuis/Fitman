@@ -14,6 +14,17 @@ from models.user import User
 ALGORITHM = "HS256"
 
 
+def _secret_key() -> str:
+    """Read at call time, not import time.
+
+    os.getenv returns str | None, which hides from mypy that PyJWT could be
+    handed None. Reading it here rather than as a module-level constant keeps
+    main.py's startup check (which reports missing config in plain English)
+    ahead of any KeyError, since routers.auth is imported before that check runs.
+    """
+    return os.environ["SECRET_KEY"]
+
+
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
@@ -25,13 +36,13 @@ def verify_password(plain: str, hashed: str) -> bool:
 bearer = HTTPBearer()
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, token_version: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         days=int(os.getenv("JWT_EXPIRE_DAYS", "7"))
     )
     return jwt.encode(
-        {"sub": str(user_id), "exp": expire},
-        os.getenv("SECRET_KEY"),
+        {"sub": str(user_id), "ver": token_version, "exp": expire},
+        _secret_key(),
         algorithm=ALGORITHM,
     )
 
@@ -42,21 +53,26 @@ def get_current_user(
 ) -> User:
     try:
         payload = jwt.decode(
-            credentials.credentials, os.getenv("SECRET_KEY"), algorithms=[ALGORITHM]
+            credentials.credentials, _secret_key(), algorithms=[ALGORITHM]
         )
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
             raise ValueError
         user_id = int(user_id_str)
-    except (jwt.InvalidTokenError, ValueError):
+    except (jwt.InvalidTokenError, ValueError) as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
+        ) from err
 
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
+        )
+    if payload.get("ver") != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been invalidated",
         )
     return user

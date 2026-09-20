@@ -263,6 +263,16 @@ def _expired_token(user_id: int) -> str:
     )
 
 
+def _null_sub_token() -> str:
+    """JWT with sub=null — exercises the ValueError branch in get_current_user."""
+    future = datetime.now(timezone.utc) + timedelta(hours=1)
+    return jwt.encode(
+        {"sub": None, "exp": future},
+        os.getenv("SECRET_KEY"),
+        algorithm=ALGORITHM,
+    )
+
+
 def test_expired_token_returns_401(client: TestClient):
     token = _expired_token(1)
     resp = client.get("/api/profile", headers={"Authorization": f"Bearer {token}"})
@@ -282,6 +292,14 @@ def test_expired_token_rejected_on_any_protected_endpoint(client: TestClient):
     headers = {"Authorization": f"Bearer {token}"}
     assert client.get("/api/exercises", headers=headers).status_code == 401
     assert client.get("/api/stats/home", headers=headers).status_code == 401
+
+
+def test_jwt_with_null_sub_returns_401(client: TestClient):
+    """A valid JWT whose sub claim is null must be rejected."""
+    token = _null_sub_token()
+    resp = client.get("/api/profile", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid token"
 
 
 # ── Disabled account login (#189) ─────────────────────────────────────────────
@@ -339,3 +357,35 @@ def test_active_account_wrong_password_still_401(client: TestClient):
     )
     assert resp.status_code == 401
     assert resp.json()["detail"] == "Invalid credentials"
+
+
+# ── JWT invalidation on credential change (#226) ─────────────────────────────
+
+
+def test_token_invalidated_after_password_change(client: TestClient):
+    """Token issued before a password change must be rejected after the change.
+
+    Without token_version, the old JWT stays valid until expiry because the
+    server has no way to tell the token is stale.  After the fix, change_password
+    bumps token_version; the old JWT carries the previous version and is rejected.
+    """
+    _make_user("stale_pw_user", "pass1234")
+    old_headers = _login(client, "stale_pw_user", "pass1234")
+    client.post(
+        "/api/auth/change-password",
+        json={"current_password": "pass1234", "new_password": "newpass5678"},
+        headers=old_headers,
+    )
+    assert client.get("/api/profile", headers=old_headers).status_code == 401
+
+
+def test_token_invalidated_after_gdpr_erase(client: TestClient):
+    """Token issued before GDPR self-erase must be rejected after deletion.
+
+    The user row is gone so get_current_user returns 401.  This is a regression
+    guard to ensure that behaviour is never silently removed.
+    """
+    _make_user("erase_token_user", "pass1234")
+    old_headers = _login(client, "erase_token_user", "pass1234")
+    client.delete("/api/gdpr/erase", headers=old_headers)
+    assert client.get("/api/profile", headers=old_headers).status_code == 401

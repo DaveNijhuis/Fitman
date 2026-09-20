@@ -7,10 +7,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password
 from database import get_db
-from models.cardio import CardioEntry
-from models.measurement import BodyMeasurement
 from models.user import User
-from models.workout import Log, WorkoutSession
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +51,7 @@ class PatchUserRequest(BaseModel):
 def list_users(
     db: Session = Depends(get_db),
     _: User = Depends(_require_admin),
-):
+) -> list[User]:
     return db.query(User).order_by(User.created_at).all()
 
 
@@ -63,7 +60,7 @@ def create_user(
     body: CreateUserRequest,
     db: Session = Depends(get_db),
     _: User = Depends(_require_admin),
-):
+) -> User:
     if db.query(User).filter(User.username == body.username).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
@@ -89,7 +86,7 @@ def patch_user(
     body: PatchUserRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(_require_admin),
-):
+) -> User:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -112,7 +109,7 @@ def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(_require_admin),
-):
+) -> None:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -123,24 +120,5 @@ def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account",
         )
-    session_ids = [
-        s.id
-        for s in db.query(WorkoutSession)
-        .filter(WorkoutSession.user_id == user_id)
-        .all()
-    ]
-    if session_ids:
-        db.query(Log).filter(Log.session_id.in_(session_ids)).delete(
-            synchronize_session=False
-        )
-    db.query(WorkoutSession).filter(WorkoutSession.user_id == user_id).delete(
-        synchronize_session=False
-    )
-    db.query(CardioEntry).filter(CardioEntry.user_id == user_id).delete(
-        synchronize_session=False
-    )
-    db.query(BodyMeasurement).filter(BodyMeasurement.user_id == user_id).delete(
-        synchronize_session=False
-    )
     db.delete(user)
     db.commit()

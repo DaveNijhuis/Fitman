@@ -1,8 +1,11 @@
+import json as _json
 import logging
 import os
 import sys
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Depends, FastAPI, Request
@@ -12,7 +15,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 from database import SessionLocal, get_db
 from limiter import limiter
@@ -31,11 +35,40 @@ from seed import seed_exercises
 
 load_dotenv(find_dotenv())
 
+_request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
+
+
+class RequestIDFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = _request_id_ctx.get()  # type: ignore[attr-defined]
+        return True
+
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        record.message = record.getMessage()
+        return _json.dumps(
+            {
+                "time": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+                "level": record.levelname,
+                "logger": record.name,
+                "request_id": getattr(record, "request_id", "-"),
+                "message": record.message,
+            }
+        )
+
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    format="%(asctime)s %(levelname)s %(name)s [%(request_id)s]: %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
+_request_id_filter = RequestIDFilter()
+_use_json = os.getenv("FITMAN_LOG_FORMAT", "json") != "text"
+for _h in logging.root.handlers:
+    _h.addFilter(_request_id_filter)
+    if _use_json:
+        _h.setFormatter(JSONFormatter())
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +81,7 @@ if _missing:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = SessionLocal()
     try:
         seed_exercises(db)
@@ -58,12 +91,19 @@ async def lifespan(app: FastAPI):
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        return response
+        token = _request_id_ctx.set(request_id)
+        try:
+            logger.info("%s %s", request.method, request.url.path)
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
+        finally:
+            _request_id_ctx.reset(token)
 
 
 app = FastAPI(title="Fitman API", lifespan=lifespan)
@@ -97,8 +137,10 @@ app.include_router(profile_router.router)
 app.include_router(stats_router.router)
 
 
-@app.get("/health")
-def health(db: Session = Depends(get_db)):
+# response_model=None: the union return type is not a valid Pydantic field, and
+# FastAPI would otherwise infer the response model from the annotation.
+@app.get("/health", response_model=None)
+def health(db: Session = Depends(get_db)) -> Response | dict[str, str]:
     try:
         db.execute(text("SELECT 1"))
         return {"status": "ok"}

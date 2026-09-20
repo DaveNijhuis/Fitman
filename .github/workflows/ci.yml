@@ -24,6 +24,14 @@ jobs:
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
+      - name: Security audit (npm audit)
+        # High and critical only: moderate advisories in the transitive dev
+        # tree would make this gate noise rather than signal.
+        run: npm audit --audit-level=high
+      - name: Lint (ESLint)
+        run: npm run lint
+      - name: Test (Vitest)
+        run: npm test
       - name: Build
         run: npm run build
 
@@ -67,12 +75,16 @@ jobs:
         run: |
           uv venv .venv
           uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+      - name: Security audit (pip-audit)
+        # Auditing the requirements files resolves the full transitive tree,
+        # so unpinned indirect dependencies are covered too.
+        run: .venv/bin/pip-audit -r requirements.txt -r requirements-dev.txt
       - name: Lint (ruff)
         run: .venv/bin/ruff check .
       - name: Type check (mypy)
         run: .venv/bin/mypy .
       - name: Tests (pytest)
-        run: .venv/bin/pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=80
+        run: .venv/bin/pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=90
         env:
           SECRET_KEY: ci-test-secret-key-for-ci-only-not-for-production
           DATABASE_URL: postgresql://fitman:fitman@localhost:5432/fitman_test
@@ -99,7 +111,7 @@ jobs:
       - name: Tear down any leftover E2E stack
         run: docker compose -f docker-compose.e2e.yml down -v || true
       - name: Start E2E stack
-        run: docker compose -f docker-compose.e2e.yml up -d --build
+        run: docker compose -f docker-compose.e2e.yml up -d --build --wait
       - name: Cache e2e node_modules
         id: cache-e2e-modules
         uses: actions/cache@v5

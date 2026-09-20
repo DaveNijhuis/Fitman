@@ -16,6 +16,12 @@
     "jsx": "react-jsx",
 
     /* Linting */
+    /* TypeScript 6 defaults strict to true; declared so the guarantee
+       survives a version pin back to 5.x. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,

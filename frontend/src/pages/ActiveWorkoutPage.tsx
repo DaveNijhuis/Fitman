@@ -59,7 +59,7 @@ export default function ActiveWorkoutPage() {
   const startedAt = useRef(
     (() => {
       const saved = getActiveWorkout()
-      return saved?.startedAt ? new Date(saved.startedAt).getTime() : Date.now()
+      return saved?.startedAt ? new Date(saved.startedAt).getTime() : Date.now() // eslint-disable-line react-hooks/purity
     })()
   )
   const [elapsed, setElapsed] = useState(0)
@@ -103,7 +103,7 @@ export default function ActiveWorkoutPage() {
           const lastMap: Record<number, LogEntry | null> = {}
           const setsMap: Record<number, SetRow[]> = {}
           exs.forEach((e, i) => {
-            const last = results[i]
+            const last = results[i] ?? null
             lastMap[e.id] = last
 
             const doneLogs = logsByExercise[e.id] ?? []
@@ -137,7 +137,9 @@ export default function ActiveWorkoutPage() {
   function updateSet(exerciseId: number, si: number, field: 'weight' | 'reps', value: string) {
     setSets(prev => {
       const exSets = [...(prev[exerciseId] ?? [])]
-      exSets[si] = { ...exSets[si], [field]: value }
+      const row = exSets[si]
+      if (!row) return prev
+      exSets[si] = { ...row, [field]: value }
       return { ...prev, [exerciseId]: exSets }
     })
   }
@@ -152,7 +154,9 @@ export default function ActiveWorkoutPage() {
       const logEntry = await logSet(exerciseId, id, isNaN(weight) ? 0 : weight, reps)
       setSets(prev => {
         const exSets = [...(prev[exerciseId] ?? [])]
-        exSets[si] = { ...exSets[si], done: true, logEntry }
+        const existing = exSets[si]
+        if (!existing) return prev
+        exSets[si] = { ...existing, done: true, logEntry }
         return { ...prev, [exerciseId]: exSets }
       })
       setRest(90)

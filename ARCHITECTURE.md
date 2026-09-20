@@ -29,7 +29,9 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Handles authentication (JWT tokens, bcrypt password hashing via `hash_password` / `verify_password` in `auth.py`)
 - Reads and writes all data to PostgreSQL via SQLAlchemy
 - Runs database migrations automatically on startup via Alembic
-- Attaches a `X-Request-ID` UUID header to every response for log tracing
+- Attaches a `X-Request-ID` UUID header to every response, and injects the same
+  id into every Python log record emitted while handling that request
+- Emits structured JSON logs by default (`FITMAN_LOG_FORMAT=text` for plain output)
 - Rate-limits the login endpoint to 5 requests per minute per IP (SlowAPI)
 - Runs on port `8000` inside Docker (internal only — not exposed to the host)
 
@@ -105,7 +107,7 @@ Fitman/
 │   ├── fixtures/            # Per-test user isolation via admin API
 │   ├── global-setup.ts      # Seeds admin user before test run
 │   └── playwright.config.ts
-├── .env                     # Secrets and config — never committed (gitignored)
+├── .env                     # Secrets and config (project root) — read by docker-compose.prod.yml via env_file; never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
 ├── ARCHITECTURE.md
@@ -255,17 +257,29 @@ GET    /api/stats/home                    Streak, weekly volume, workouts this w
 # Cardio
 GET    /api/cardio/activities             List supported activity types
 POST   /api/cardio                        Log a cardio entry { activity, distance_m, duration_s, notes }
-GET    /api/cardio                        All cardio entries (newest first)
+GET    /api/cardio                        Cardio entries, newest first — paginated
 DELETE /api/cardio/{id}                  Delete a cardio entry
 
 # Body measurements
 POST   /api/measurements                  Log a measurement { weight_kg, body_fat_pct, ... }
-GET    /api/measurements                  All measurements (newest first)
+GET    /api/measurements                  Measurements, newest first — paginated
 DELETE /api/measurements/{id}            Delete a measurement
 
 # GDPR
 DELETE /api/gdpr/erase                   Delete own account and all associated data (GDPR Article 17)
 GET    /api/gdpr/export                  Download all own data as JSON (GDPR Article 20)
+```
+
+### Pagination
+
+`GET /api/cardio` and `GET /api/measurements` are paginated. Both take the same
+query parameters and return the same envelope:
+
+```
+?page=1          1-indexed, default 1
+&page_size=50    default 50, maximum 200
+
+{ "items": [...], "total": 1234, "page": 1, "page_size": 50 }
 
 # System
 GET    /health                            200 {"status": "ok"} if DB is reachable; 503 {"status": "error"} if not
@@ -285,6 +299,7 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | `DB_MAX_OVERFLOW` | | `10` | Max connections above pool size before blocking |
 | `DB_POOL_TIMEOUT` | | `30` | Seconds to wait for a connection before raising an error |
 | `RATE_LIMIT_DISABLED` | | `false` | Set to `true` to disable SlowAPI rate limiting (E2E stack only) |
+| `FITMAN_LOG_FORMAT` | | `json` | Log output format. Any value other than `text` produces structured JSON; set `text` for human-readable local development. |
 
 User credentials are stored in the database. On first launch, visit `/setup` to create the admin account. `ADMIN_USERNAME` and `ADMIN_PASSWORD` are no longer used.
 
@@ -298,8 +313,9 @@ The backend refuses to start if `SECRET_KEY` is missing.
 4. Subsequent logins: `POST /api/auth/login` with username + password
 5. Backend verifies against bcrypt hash stored in the `users` table. Wrong username or password → 401 `"Invalid credentials"`. Correct credentials on a disabled account → 403 `"Account disabled"`. Returns a JWT on success.
 6. Frontend stores the token in localStorage and sends it as `Authorization: Bearer <token>` on every request
-7. JWT payload contains `user_id` as `sub`; `get_current_user` validates the token and fetches the user from DB
-8. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again
+7. JWT payload contains `user_id` as `sub` and the user's `token_version` as `ver`; `get_current_user` validates the token, fetches the user from DB, and rejects the token with 401 if `ver` no longer matches the stored `token_version`
+8. Changing a password increments `token_version`, which invalidates every token issued before the change — so a stolen token stops working the moment the password is changed
+9. Token expires after `JWT_EXPIRE_DAYS` days — user logs in again
 
 Since Tailscale already restricts who can reach the server, JWT here primarily prevents accidents rather than acting as the sole security layer.
 

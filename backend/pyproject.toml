@@ -1,11 +1,37 @@
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+omit = ["alembic/versions/*"]
+
 [tool.ruff]
 exclude = [".venv", "__pycache__", "alembic/versions"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "B", "S"]
 ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Depends() in an argument default is the FastAPI dependency-injection idiom,
+# not the mutable-default-argument bug B008 exists to catch.
+extend-immutable-calls = ["fastapi.Depends"]
+
+[tool.ruff.lint.per-file-ignores]
+# S101: pytest is built on bare assert.
+# S105/S106/S107: fixture credentials are not real secrets.
+# S607: test helpers invoke `sh` and `docker` by name on purpose.
+"tests/**" = ["S101", "S105", "S106", "S107", "S607"]
 
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
 exclude = [".venv/", "alembic/"]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# Annotating 263 test functions `-> None` carries no type information. What
+# does carry value is check_untyped_defs: mypy skips unannotated bodies by
+# default, so without it the whole suite goes type-unverified.
+module = "tests.*"
+disallow_untyped_defs = false
+check_untyped_defs = true

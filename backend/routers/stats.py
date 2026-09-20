@@ -57,7 +57,7 @@ class HomeStats(BaseModel):
 def home_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> HomeStats:
     week_start, week_end = _iso_week_bounds()
     week_start_dt = datetime.fromisoformat(week_start).replace(tzinfo=timezone.utc)
     week_end_dt = datetime.fromisoformat(week_end).replace(

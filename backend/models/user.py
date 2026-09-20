@@ -17,6 +17,7 @@ class User(Base):
     birth_year: Mapped[int | None] = mapped_column(Integer)
     sex: Mapped[str | None] = mapped_column(String)  # 'male' | 'female' | 'other'
     height_cm: Mapped[float | None] = mapped_column(Float)
+    token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

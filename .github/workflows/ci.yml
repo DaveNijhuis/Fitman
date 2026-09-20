@@ -42,6 +42,10 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Bundle size budget
+        # Vite's 500 kB notice is only a warning, so it went unheeded for
+        # months. This fails the build instead (#271).
+        run: npm run check:bundle
 
   backend:
     name: Backend quality

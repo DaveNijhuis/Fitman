@@ -1,25 +1,40 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { getToken } from './api/client'
 import { checkSetupRequired } from './api/auth'
+import { ONBOARDING_FLAG } from './onboarding'
 import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
+
+// Eager: the two screens that are the first thing anyone sees. Loading these
+// lazily would only add a round trip before first paint.
 import LoginPage from './pages/LoginPage'
 import SetupPage from './pages/SetupPage'
 import HomePage from './pages/HomePage'
-import ActiveWorkoutPage from './pages/ActiveWorkoutPage'
-import HistoryPage from './pages/HistoryPage'
-import WorkoutDetailPage from './pages/WorkoutDetailPage'
-import ProgressPage from './pages/ProgressPage'
-import LibraryPage from './pages/LibraryPage'
-import CardioPage from './pages/CardioPage'
-import SettingsPage from './pages/SettingsPage'
-import AdminPage from './pages/AdminPage'
-import OnboardingPage, { ONBOARDING_FLAG } from './pages/OnboardingPage'
+
+// Lazy: everything reachable only after a deliberate navigation (#271).
+// ProgressPage is the one that matters — it is the sole user of recharts, which
+// with its d3, redux-toolkit and immer dependencies is roughly 640 kB of the
+// bundle. Loading that on the login screen served nobody.
+const ActiveWorkoutPage = lazy(() => import('./pages/ActiveWorkoutPage'))
+const HistoryPage = lazy(() => import('./pages/HistoryPage'))
+const WorkoutDetailPage = lazy(() => import('./pages/WorkoutDetailPage'))
+const ProgressPage = lazy(() => import('./pages/ProgressPage'))
+const LibraryPage = lazy(() => import('./pages/LibraryPage'))
+const CardioPage = lazy(() => import('./pages/CardioPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!getToken()) return <Navigate to="/login" replace />
-  return <Layout><ErrorBoundary>{children}</ErrorBoundary></Layout>
+  return (
+    <Layout>
+      <ErrorBoundary>
+        <Suspense fallback={null}>{children}</Suspense>
+      </ErrorBoundary>
+    </Layout>
+  )
 }
 
 export default function App() {
@@ -59,7 +74,7 @@ export default function App() {
         <Route path="/cardio" element={<ProtectedRoute><CardioPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-        <Route path="/onboarding" element={getToken() ? <OnboardingPage /> : <Navigate to="/login" replace />} />
+        <Route path="/onboarding" element={getToken() ? <Suspense fallback={null}><OnboardingPage /></Suspense> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to={getToken() ? (localStorage.getItem(ONBOARDING_FLAG) ? '/onboarding' : '/') : '/login'} replace />} />
       </Routes>
     </BrowserRouter>

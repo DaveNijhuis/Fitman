@@ -73,6 +73,11 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_lint_config.py` | Parses `pyproject.toml`: asserts ruff selects `B` and `S`, that `fastapi.Depends` is exempt from `B008`, that `S101` is ignored for tests, and that mypy sets `disallow_untyped_defs` with a `tests.*` override enabling `check_untyped_defs` |
 | `test_secret_key_config.py` | Asserts `auth.py` reads `SECRET_KEY` via `os.environ` (typed `str`) rather than `os.getenv` (`str \| None`); regression guard that a missing `SECRET_KEY` still produces `main.py`'s plain-English startup error rather than an import-time `KeyError` traceback |
 | `test_gitignore.py` | Asserts `.coverage` and `.coverage.*` are gitignored **and** that `backend/.coverage` is absent from the git index — ignoring a tracked file has no effect, so both halves are checked |
+| `test_openapi_snapshot.py` | Asserts the committed `backend/openapi.json` matches what the FastAPI app currently produces, that `/api/cardio` and `/api/measurements` still return paginated envelopes, and that CI regenerates the frontend types and fails on a diff |
+| `test_compose_config.py` | Static parse of `docker-compose.yml`: the frontend sets `VITE_API_PROXY_TARGET`, it names the `backend` service rather than `localhost`, and the host it names is a service the compose file actually defines |
+| `test_db_volume_guard.py` | Asserts both compose files define the `db-guard` service, that it mounts the data volume and names `fitman.db` in its message, that postgres waits on its successful completion, and that the volume is **not** renamed — a rename would start existing instances on an empty database |
+| `test_ci_playwright_pin.py` | Asserts `ci.yml` does not hardcode a Playwright image version and resolves it from the installed `@playwright/test` instead, in a step that runs before the tests and in the `e2e` directory |
+| `test_conftest_database_guard.py` | Points a real `pytest` subprocess at a scratch database holding a seeded user row and asserts the run is refused, the error names the database, **and the row survives** — asserting identity rather than row count, because conftest drops, recreates and reseeds |
 
 ## conftest.py
 
@@ -86,6 +91,15 @@ Because the database is shared across tests, individual tests must not rely on t
 An `autouse=True` function-scoped fixture calls `limiter.reset()` before every test, clearing the in-memory rate limit counters so tests do not leak state across each other.
 
 `DATABASE_URL` must be set in the environment before the test session starts. `conftest.py` defaults to `postgresql://fitman:fitman@localhost:5432/fitman_test` if the variable is not set.
+
+**The suite refuses to run against a database whose name does not end in `_test`.** The lines above drop every application table, and the default only applies when `DATABASE_URL` is unset — so running `pytest` in a shell where you had exported it for `alembic upgrade head` or `fastapi dev` would otherwise destroy your working database. The guard reports the database it declined to touch:
+
+```
+pytest.UsageError: Refusing to run: DATABASE_URL points at 'fitman_devwork',
+which is not a test database. ...
+```
+
+Because the schema is built at import rather than in a fixture, every test currently needs a reachable database — including the twelve files that only read config. That is tracked in #283.
 
 ## Coverage
 
@@ -108,6 +122,8 @@ npx vitest            # watch mode
 |---|---|
 | `src/components/__tests__/ErrorBoundary.test.tsx` | Route-level error boundary: renders children when nothing throws; renders the fallback UI when a child throws; the fallback contains a link back to home; multiple independent boundaries do not interfere with each other |
 | `src/__tests__/tsconfig.test.ts` | Parses `tsconfig.app.json` and asserts `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `noImplicitOverride` are all declared |
+| `src/api/__tests__/pagination.test.ts` | Drives the cardio and measurements clients from the real `{items, total, page, page_size}` envelope with a mocked `fetch`: each returns a usable array, collects every page rather than truncating at the first, and stops requesting once the last page is served |
+| `src/api/__tests__/generated-types.test.ts` | Asserts `schema.d.ts` exists, carries the `CardioPage` and `MeasurementPage` envelopes, and that the cardio and measurements modules derive their types from it instead of hand-declaring response shapes |
 
 `strict` is asserted explicitly because TypeScript 6 enables it by default — the
 declaration is what keeps the guarantee if the compiler is ever pinned back to 5.x.
@@ -154,6 +170,30 @@ Each test gets a fresh `e2e_<timestamp>` user created via the admin API before t
 | `tests/account.spec.ts` | Delete button disabled until `DELETE` is typed; account deletion redirects to `/login` |
 | `tests/accessibility.spec.ts` | axe-core WCAG 2.1 A/AA scans on login page and home page |
 
+### Page errors fail the test
+
+An auto-fixture in `e2e/fixtures/index.ts` fails any test whose page threw an
+uncaught exception or logged a `console.error`.
+
+Without it, a page that mounts and then dies on data load is indistinguishable
+from a working one — an assertion on a heading passes before the fetch resolves.
+That is exactly how #267 shipped: `progress.spec.ts` stayed green while the
+Progress page crashed into its error boundary milliseconds later.
+
+Uncaught exceptions and console errors are asserted separately. React's error
+boundary catches the throw, so that class of bug never surfaces as an uncaught
+exception and is only visible through `console.error` — while a test that
+deliberately provokes a 401 legitimately logs one. Those opt out:
+
+```ts
+test.use({ allowConsoleErrors: true })
+```
+
+The fixture depends on `testUser` so that it is torn down *before* the account is
+erased. Playwright tears fixtures down in reverse setup order, and without that
+dependency the guard observed 401s caused by its own teardown rather than by the
+test.
+
 ### Accessibility
 
 axe-core runs `wcag2a` and `wcag2aa` rules on the login and home pages. The `color-contrast` rule is deliberately disabled — the app's `#ff5a36` accent on `#f4f3ef` background gives a 2.79:1 ratio, which is a design choice below the 3:1 AA threshold.
@@ -182,10 +222,10 @@ Every push and pull request runs on GitHub-hosted `ubuntu-latest` runners:
 
 | Job | Trigger | What it does |
 |---|---|---|
-| **Frontend build** | every push/PR | `npm ci`, `npm audit --audit-level=high`, `npm run lint` (ESLint), `npm test` (Vitest), `npm run build` — TypeScript compile + Vite bundle |
+| **Frontend build** | every push/PR | `npm ci`, `npm audit --audit-level=high`, regenerate the API types and fail on a diff, `npm run lint` (ESLint), `npm test` (Vitest), `npm run build` — TypeScript compile + Vite bundle |
 | **Backend quality** | every push/PR | `pip-audit`, `ruff check`, `mypy`, `pytest` against a postgres:16 service container, with a 90% coverage floor |
 | **Docker production build** | every push/PR | Builds the production Docker image to catch Dockerfile and dependency errors |
-| **E2E tests** | PRs + pushes to `main`/`dev` | Spins up the E2E stack, runs 10 Playwright tests inside `mcr.microsoft.com/playwright:v1.61.1-jammy`, tears down |
+| **E2E tests** | PRs + pushes to `main`/`dev` | Spins up the E2E stack, runs 10 Playwright tests inside `mcr.microsoft.com/playwright:v<version>-jammy`, tears down. The image tag is resolved from the installed `@playwright/test` rather than hardcoded — library and browsers must match, and a Dependabot bump cannot see a tag buried in a `run:` block |
 
 The backend job caches both the `uv` wheel store (keyed on requirements files) and the `.mypy_cache` directory. The frontend and E2E jobs cache `node_modules` keyed on the respective lock/package files. The E2E job runs the Playwright tests inside the official Docker image so no browser installation or system dependencies are needed on the runner.
 
@@ -203,7 +243,19 @@ dev tree would make the check noise rather than signal.
 
 | Tool | Scope | Configuration |
 |---|---|---|
-| **ruff** | backend | Selects `E`, `F`, `I`, `B` (bugbear), `S` (bandit). `fastapi.Depends` is exempt from `B008` — dependency injection in an argument default is the framework idiom, not a mutable-default bug. `tests/**` ignores `S101`/`S105`/`S106`/`S107`/`S607`, since pytest is built on bare `assert` and fixture credentials are not secrets. |
+| **ruff** | whole repo | Selects `E`, `F`, `I`, `B` (bugbear), `S` (bandit). `fastapi.Depends` is exempt from `B008` — dependency injection in an argument default is the framework idiom, not a mutable-default bug. `tests/**` ignores `S101`/`S105`/`S106`/`S107`/`S607`, since pytest is built on bare `assert` and fixture credentials are not secrets. |
 | **mypy** | backend | `disallow_untyped_defs` for application code. `tests.*` instead sets `check_untyped_defs` — annotating test functions `-> None` carries no type information, whereas checking their bodies does, and mypy skips unannotated bodies by default. |
 | **tsc** | frontend | `strict` plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `noImplicitOverride`. |
 | **ESLint** | frontend | Runs as a CI gate; errors fail the build, warnings do not. |
+
+Two ruff configs exist: `ruff.toml` at the repo root and `[tool.ruff]` in
+`backend/pyproject.toml`. Ruff applies the nearest config to each file, so
+without the root one, anything outside `backend/` — the smart scale scripts —
+fell back to ruff's built-in defaults. Those are not a stable contract: bumping
+ruff from 0.15 to 0.16 widened them and the pre-commit hook began failing on
+files nobody had touched, under rules absent from the project's own `select`
+list. The hook runs `ruff check --fix` from the repo root with
+`pass_filenames: false`, so it lints everything and everything needs a
+deliberate ruleset. `test_lint_config.py` asserts the two configs select and
+ignore the same rules, so a file's lint result cannot depend on which directory
+it lives in.

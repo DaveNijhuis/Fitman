@@ -227,11 +227,19 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 265 tests, 90% coverage floor
-cd frontend && npm test            # Vitest, jsdom
+cd backend  && .venv/bin/pytest    # 302 tests, 90% coverage floor
+cd frontend && npm test            # 24 tests, Vitest + jsdom
 ```
 
-The frontend dev server runs on `http://localhost:5173` and proxies `/api` requests to the backend automatically.
+The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.
+
+**After changing any API response model**, regenerate the contract the frontend
+types are built from — CI fails if either is stale:
+
+```bash
+cd backend  && python -m scripts.dump_openapi   # updates backend/openapi.json
+cd frontend && npm run generate:api             # updates src/api/schema.d.ts
+```
 
 ### Running E2E tests
 

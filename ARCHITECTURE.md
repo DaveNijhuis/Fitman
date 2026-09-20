@@ -42,7 +42,8 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Tailwind CSS v4 for styling
 - In production: built to static files and served by nginx
 - nginx adds five HTTP security headers on every response: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy`
-- In development: Vite dev server on port `5173` with `/api` proxy to backend
+- In development: Vite dev server on port `3000` with `/api` proxied to the backend. The proxy target comes from `VITE_API_PROXY_TARGET`, defaulting to `http://localhost:8000` for running on the host; the dev compose stack sets it to `http://backend:8000`, the service name, because inside a container `localhost` is the frontend itself
+- API response types are generated from the backend's OpenAPI document, not hand-written — see [API contract](#api-contract)
 
 ### Database — PostgreSQL 16
 
@@ -285,6 +286,49 @@ query parameters and return the same envelope:
 GET    /health                            200 {"status": "ok"} if DB is reachable; 503 {"status": "error"} if not
 ```
 
+## API contract
+
+The frontend does not restate the API's shapes. `backend/openapi.json` is
+committed as the contract between the two halves, and the frontend's types are
+generated from it:
+
+```
+FastAPI app
+  │  python -m scripts.dump_openapi
+  ▼
+backend/openapi.json          ← committed, reviewable diff on any shape change
+  │  npm run generate:api
+  ▼
+frontend/src/api/schema.d.ts  ← generated, never edited by hand
+  │
+  ▼
+src/api/*.ts                  ← response types taken from the generated schema
+```
+
+`request<T>()` in `client.ts` casts rather than validates, so a hand-written
+interface is checked against nothing. That is how #267 shipped: #227 changed two
+response shapes, all 34 call sites kept compiling, and the Progress page crashed
+while Cardio history silently rendered empty.
+
+Three checks make that drift impossible to ship quietly:
+
+| Guard | Catches |
+|---|---|
+| `test_openapi_snapshot.py` | backend changed, `openapi.json` not regenerated |
+| CI: `npm run generate:api` then `git diff --exit-code` | snapshot regenerated, types not |
+| `Page<T>` assertion in `client.ts` | both regenerated, frontend still wrong |
+
+**When you change a response model, regenerate both:**
+
+```bash
+cd backend  && python -m scripts.dump_openapi
+cd frontend && npm run generate:api
+```
+
+Generated types are erased at build time, so none of this reaches the bundle.
+`openapi-typescript` is invoked through a pinned `npx` rather than installed —
+it peer-requires TypeScript 5.x and this project is on 6.x.
+
 ## Environment variables
 
 All configuration lives in `.env` at the project root. See `.env.example` for a documented template.
@@ -339,6 +383,17 @@ The E2E stack uses project name `fitman-e2e` to avoid colliding with a running p
 In production, only nginx (port 80) is exposed to the host. The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
 
 On every container start, `entrypoint.sh` runs `alembic upgrade head` before starting uvicorn, so database migrations apply automatically on deploy.
+
+A `db-guard` service runs before PostgreSQL in the development and production
+stacks, and postgres waits on its successful completion. It inspects the
+`db_data` volume and refuses to let the stack start if the volume holds
+something that is not a PostgreSQL cluster — typically `fitman.db` left by the
+pre-PostgreSQL version. Without it, postgres reports `initdb: directory exists
+but is not empty` in a restart loop, which says nothing about the migration that
+caused it, and the whole stack stays down because the other services wait on
+postgres being healthy. The volume is deliberately **not** renamed to avoid the
+collision: a rename creates an empty volume, so every instance already running
+PostgreSQL would start on a blank database and report healthy.
 
 ## Design decisions
 

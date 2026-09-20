@@ -116,19 +116,55 @@ docker compose -f docker-compose.prod.yml down
 
 ### Migrating from SQLite (M18 → M19 upgrade)
 
-If you ran a previous version of Fitman backed by SQLite, your data is in a `fitman.db` file. PostgreSQL is not compatible with SQLite backups directly — you need to export and re-import your data.
+If you ran a version of Fitman backed by SQLite, your data is a `fitman.db` file
+living in the `db_data` Docker volume. That volume is now where PostgreSQL keeps
+its cluster, and PostgreSQL will not initialise over a directory that already has
+something in it. **Upgrading without clearing it first leaves the stack unable to
+start** — postgres restart-loops and, because the other services wait on it, nothing
+comes up.
 
-**Option A — Fresh start (recommended for personal use)**
+Fitman detects this and stops with an explanatory message rather than looping. Do
+the steps below in order.
 
-1. Note down any data you want to keep manually
-2. Deploy the new version: `docker compose -f docker-compose.prod.yml up -d --build`
-3. Visit `/setup` to create a new admin account
+**Step 1 — Recover the old file before you do anything else**
 
-**Option B — Data migration**
+Do this first. Once the compose file is replaced, the old SQLite-backed app can no
+longer start, so exporting through its API is no longer possible.
 
-1. Export your data via the old app: `GET /api/gdpr/export` (returns JSON)
-2. Bring up the new PostgreSQL-backed version
-3. Re-import your workout history via the API or manually
+```bash
+docker compose down
+docker run --rm -v fitman_db_data:/d -v "$(pwd)":/out postgres:16 cp /d/fitman.db /out/
+```
+
+`fitman.db` is now in your current directory. Keep it somewhere safe — it is the
+only copy of your pre-PostgreSQL history.
+
+**Step 2 — Clear the volume**
+
+```bash
+docker volume rm fitman_db_data
+```
+
+**Step 3 — Start the new version**
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Visit `/setup` to create your admin account.
+
+**Step 4 — Optional: bring the old data across**
+
+There is no automated importer. The recovered `fitman.db` is a standard SQLite
+file, so you can read it with any SQLite client and re-enter what matters:
+
+```bash
+sqlite3 fitman.db "SELECT COUNT(*) FROM workout_sessions;"
+sqlite3 fitman.db "SELECT COUNT(*) FROM logs;"
+```
+
+For a personal instance, re-entering recent history by hand is usually quicker than
+scripting an import. The file keeps the rest indefinitely if you change your mind.
 
 ### Backups
 
@@ -191,11 +227,19 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 265 tests, 90% coverage floor
-cd frontend && npm test            # Vitest, jsdom
+cd backend  && .venv/bin/pytest    # 302 tests, 90% coverage floor
+cd frontend && npm test            # 24 tests, Vitest + jsdom
 ```
 
-The frontend dev server runs on `http://localhost:5173` and proxies `/api` requests to the backend automatically.
+The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.
+
+**After changing any API response model**, regenerate the contract the frontend
+types are built from — CI fails if either is stale:
+
+```bash
+cd backend  && python -m scripts.dump_openapi   # updates backend/openapi.json
+cd frontend && npm run generate:api             # updates src/api/schema.d.ts
+```
 
 ### Running E2E tests
 

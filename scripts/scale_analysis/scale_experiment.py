@@ -20,6 +20,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
+
 from bleak import BleakClient, BleakScanner
 
 RESULTS_FILE = Path(__file__).parent / "scale_experiment_results.json"
@@ -187,7 +188,7 @@ def compare_results() -> None:
         for label in labels:
             val = by_label[label][-1]["unknowns"][k]
             changed = " ←" if prev_val is not None and val != prev_val else ""
-            print(f"  {str(val):<18}{changed}", end="")
+            print(f"  {val!s:<18}{changed}", end="")
             prev_val = val
         print()
 

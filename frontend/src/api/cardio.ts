@@ -1,28 +1,20 @@
-import { request } from './client'
+import type { components } from './schema'
+import { fetchAllPages, request } from './client'
 
-export interface CardioEntry {
-  id: number
-  session_id: number
-  activity: string
-  distance_m: number | null
-  duration_s: number | null
-  notes: string | null
-  logged_at: string
-}
-
-export interface CardioIn {
-  activity: string
-  distance_m?: number | null
-  duration_s?: number | null
-  notes?: string | null
-}
+/**
+ * Derived from the backend's published OpenAPI contract rather than
+ * hand-written, so a response-shape change breaks the build instead of
+ * surfacing as undefined at runtime (#268).
+ */
+export type CardioEntry = components['schemas']['CardioEntryOut']
+export type CardioIn = components['schemas']['CardioIn']
 
 export function getActivities(): Promise<string[]> {
   return request<string[]>('/api/cardio/activities')
 }
 
 export function getCardioHistory(): Promise<CardioEntry[]> {
-  return request<CardioEntry[]>('/api/cardio')
+  return fetchAllPages<CardioEntry>('/api/cardio')
 }
 
 export function logCardio(data: CardioIn): Promise<CardioEntry> {

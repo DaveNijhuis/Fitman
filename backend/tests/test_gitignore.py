@@ -41,3 +41,26 @@ def test_coverage_file_is_not_tracked():
     assert result.returncode != 0, (
         "backend/.coverage is still tracked; run: git rm --cached backend/.coverage"
     )
+
+
+def test_playwright_output_is_gitignored():
+    """playwright-report/ and test-results/ are rewritten by every E2E run."""
+    entries = _entries()
+    assert "e2e/playwright-report/" in entries
+    assert "e2e/test-results/" in entries
+
+
+def test_playwright_output_is_not_tracked():
+    """A committed HTML report shows as modified after any local E2E run."""
+    result = subprocess.run(
+        ["git", "ls-files", "e2e/playwright-report", "e2e/test-results"],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    tracked = [line for line in result.stdout.splitlines() if line.strip()]
+    assert not tracked, (
+        "Playwright output is still tracked:\n"
+        + "\n".join(tracked)
+        + "\nRun: git rm -r --cached e2e/playwright-report e2e/test-results"
+    )

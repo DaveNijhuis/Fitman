@@ -15,6 +15,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
 from bleak import BleakClient, BleakScanner
 
 LOG_FILE = Path(__file__).parent / "scale_packets.txt"

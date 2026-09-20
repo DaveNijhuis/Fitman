@@ -28,6 +28,14 @@ jobs:
         # High and critical only: moderate advisories in the transitive dev
         # tree would make this gate noise rather than signal.
         run: npm audit --audit-level=high
+      - name: API types match the OpenAPI contract
+        # Regenerating must be a no-op. If it is not, the backend changed a
+        # response shape without the frontend types following, which is how
+        # #267 shipped — the cast in client.ts kept every call site compiling.
+        run: |
+          npm run generate:api
+          git diff --exit-code -- src/api/schema.d.ts \
+            || { echo "::error::src/api/schema.d.ts is stale. Run 'npm run generate:api' and commit the result."; exit 1; }
       - name: Lint (ESLint)
         run: npm run lint
       - name: Test (Vitest)
@@ -122,6 +130,14 @@ jobs:
         if: steps.cache-e2e-modules.outputs.cache-hit != 'true'
         run: npm install
         working-directory: e2e
+      - name: Resolve Playwright version
+        id: playwright
+        working-directory: e2e
+        # The image must match the installed library or its browsers are
+        # missing. Reading the installed package rather than the declared
+        # dependency means a Dependabot bump carries the image with it (#275).
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Run E2E tests
         # Playwright Docker image ships Chromium pre-installed; no apt-get or sudo needed.
         # --network host lets the container reach the E2E stack on localhost:8080.
@@ -133,7 +149,7 @@ jobs:
             -w /e2e \
             -e E2E_BASE_URL=http://localhost:8080 \
             -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-            mcr.microsoft.com/playwright:v1.61.1-jammy \
+            mcr.microsoft.com/playwright:v${{ steps.playwright.outputs.version }}-jammy \
             node_modules/.bin/playwright test
       - name: Upload Playwright report on failure
         if: failure()

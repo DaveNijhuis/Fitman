@@ -73,7 +73,9 @@ function Seg({ value, onChange }: { value: string; onChange: (v: string) => void
   )
 }
 
-type FigureItem = { label: string; left: boolean; topPct: number; value: number | null; tag: string; color: string }
+// value is `| undefined` because the OpenAPI contract marks the BIA fields
+// optional: they have defaults on the backend, so the response may omit them.
+type FigureItem = { label: string; left: boolean; topPct: number; value: number | null | undefined; tag: string; color: string }
 
 const BODY_H = 280
 const BODY_W = Math.round(BODY_H * 260 / 545)
@@ -440,7 +442,7 @@ export default function ProgressPage() {
           const FAT_EXP  = { ra: 3.5, la: 3.5, rl: 18, ll: 18, trunk: 43 }
           const MUS_EXP  = { ra: 5,   la: 5,   rl: 22, ll: 22, trunk: 43 }
 
-          function evalTag(val: number | null, total: number, exp: number): { tag: string; color: string } {
+          function evalTag(val: number | null | undefined, total: number, exp: number): { tag: string; color: string } {
             if (!val || !total) return { tag: '—', color: 'text-[var(--color-muted)]' }
             const diff = (val / total) * 100 - exp
             if (diff > 4)  return { tag: 'High',     color: 'text-[#f97316]' }

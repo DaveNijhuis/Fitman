@@ -1,4 +1,32 @@
 services:
+  # Refuses to let the stack start on a data volume PostgreSQL cannot use.
+  # A pre-PostgreSQL instance still has fitman.db here, and postgres responds
+  # with "initdb: directory exists but is not empty" in a restart loop, which
+  # says nothing about the migration that caused it. Uses the postgres image
+  # so no additional image is pulled.
+  db-guard:
+    image: postgres:16
+    volumes:
+      - db_data:/data:ro
+    command: >
+      sh -c '
+      if [ ! -f /data/PG_VERSION ] && [ -n "$$(ls -A /data 2>/dev/null)" ]; then
+        echo "";
+        echo "ERROR: the db_data volume is not a PostgreSQL cluster.";
+        if [ -f /data/fitman.db ]; then
+          echo "It still holds fitman.db from the SQLite version of Fitman.";
+        fi;
+        echo "PostgreSQL will not initialise over a non-empty directory.";
+        echo "";
+        echo "Recover the old file first, then remove the volume:";
+        echo "  docker run --rm -v fitman_db_data:/d -v \"\$$(pwd)\":/out postgres:16 cp /d/fitman.db /out/";
+        echo "  docker compose down";
+        echo "  docker volume rm fitman_db_data";
+        echo "";
+        echo "See the migration section in README.md.";
+        exit 1;
+      fi'
+
   postgres:
     image: postgres:16
     environment:
@@ -7,6 +35,9 @@ services:
       POSTGRES_PASSWORD: fitman
     volumes:
       - db_data:/var/lib/postgresql/data
+    depends_on:
+      db-guard:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fitman"]

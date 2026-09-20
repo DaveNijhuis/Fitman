@@ -35,6 +35,11 @@ services:
     build: ./frontend
     ports:
       - "3000:3000"
+    environment:
+      # This container runs the Vite dev server, which proxies /api. Inside the
+      # compose network the backend is reachable by service name; localhost
+      # would resolve to this container, where nothing listens on 8000 (#274).
+      VITE_API_PROXY_TARGET: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy

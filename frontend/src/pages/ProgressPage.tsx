@@ -8,6 +8,7 @@ import {
   type ConsistencyWeek, type MuscleBalance,
 } from '../api/progress'
 import { getMeasurements, logMeasurement, deleteMeasurement, type Measurement } from '../api/measurements'
+import { numericTooltipFormatter } from '../chartFormatters'
 
 const DAY_LABELS = ['M', '', 'W', '', 'F', '', 'S']
 
@@ -292,8 +293,7 @@ export default function ProgressPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={d => d.slice(5)} />
                     <YAxis tick={{ fontSize: 11 }} unit=" kg" />
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Tooltip formatter={((v: number) => [`${v} kg`, 'Est. 1RM']) as any} />
+                    <Tooltip formatter={numericTooltipFormatter(v => [`${v} kg`, 'Est. 1RM'])} />
                     <Area type="monotone" dataKey="estimated_1rm" stroke="#ff5a36" strokeWidth={2} fill="url(#strengthGrad)" dot={false} activeDot={{ r: 4, fill: '#ff5a36' }} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -334,8 +334,7 @@ export default function ProgressPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="week" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} unit=" kg" />
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <Tooltip formatter={((v: number) => [`${v.toLocaleString()} kg`, 'Volume']) as any} />
+                  <Tooltip formatter={numericTooltipFormatter(v => [`${v.toLocaleString()} kg`, 'Volume'])} />
                   <Bar dataKey="volume_kg" radius={[4, 4, 0, 0]}>
                     {volumeChartData.map((_, i) => (
                       <Cell key={i} fill={i === volumeChartData.length - 1 ? '#ff5a36' : 'var(--color-border-strong)'} />
@@ -399,8 +398,7 @@ export default function ProgressPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={d => d.slice(5)} />
                   <YAxis tick={{ fontSize: 11 }} unit=" kg" domain={['auto', 'auto']} />
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <Tooltip formatter={((v: number) => [`${v} kg`, 'Weight']) as any} />
+                  <Tooltip formatter={numericTooltipFormatter(v => [`${v} kg`, 'Weight'])} />
                   <Area type="monotone" dataKey="weight_kg" stroke="#1b1a17" strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: '#1b1a17' }} activeDot={{ r: 4, fill: '#1b1a17' }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -578,8 +576,7 @@ export default function ProgressPage() {
                                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                                   <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
                                   <YAxis tick={{ fontSize: 10 }} unit={active?.unit} domain={['auto', 'auto']} />
-                                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                  <Tooltip formatter={((v: number) => [`${active?.unit === ' kcal' ? Math.round(v) : v}${active?.unit}`, active?.label]) as any} />
+                                  <Tooltip formatter={numericTooltipFormatter(v => [`${active.unit === ' kcal' ? Math.round(v) : v}${active.unit}`, active.label])} />
                                   <Area type="monotone" dataKey="value" stroke={active?.color} strokeWidth={2} fill="url(#metricGrad)" dot={{ r: 3, fill: active?.color }} activeDot={{ r: 4 }} />
                                 </AreaChart>
                               </ResponsiveContainer>

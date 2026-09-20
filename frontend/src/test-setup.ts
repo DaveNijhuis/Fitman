@@ -1,4 +1,8 @@
-import '@testing-library/jest-dom'
+// The /vitest entry point, not the bare package: it registers the matchers
+// with Vitest's expect *and* augments its Assertion type. Vitest 5 no longer
+// picks those types up from the bare import, so `toBeInTheDocument` and
+// friends compile as missing properties.
+import '@testing-library/jest-dom/vitest'
 
 /**
  * jsdom in this setup does not provide localStorage — `typeof localStorage`

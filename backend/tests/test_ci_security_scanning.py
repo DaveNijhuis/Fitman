@@ -187,3 +187,17 @@ def test_only_react_may_batch_major_updates(ecosystem: str, directory: str) -> N
         assert "major" not in update_types, (
             f"group {name!r} in {ecosystem} {directory} includes major updates"
         )
+
+
+def test_ci_enforces_the_bundle_size_budget() -> None:
+    """Vite's chunk-size notice is a warning and was ignored for months.
+
+    A lazily-loaded route is one eager import away from being pulled back into
+    the entry chunk, and nothing about that change looks wrong in review (#271).
+    """
+    runs = _run_commands("frontend")
+    build = _index_of_run("frontend", "npm run build")
+    budget = _index_of_run("frontend", "check:bundle")
+    assert budget != -1, "no CI step enforces the bundle size budget"
+    assert budget > build, "the budget check must run after the build"
+    assert runs

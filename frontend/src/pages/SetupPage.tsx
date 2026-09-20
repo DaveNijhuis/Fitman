@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { register } from '../api/auth'
-import { ONBOARDING_FLAG } from './OnboardingPage'
+import { ONBOARDING_FLAG } from '../onboarding'
 
 export default function SetupPage() {
   const [username, setUsername]       = useState('')

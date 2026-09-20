@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { updateProfile } from '../api/profile'
+import { ONBOARDING_FLAG } from '../onboarding'
 
 const inputCls = 'w-full px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]'
 const labelCls = 'text-xs text-[var(--color-muted)] mb-1.5 block'
-
-export const ONBOARDING_FLAG = 'fitman_onboarding_pending'
 
 export default function OnboardingPage() {
   const navigate = useNavigate()

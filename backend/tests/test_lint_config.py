@@ -64,3 +64,29 @@ def test_test_bodies_are_still_type_checked():
     """The flag that actually finds bugs: mypy skips unannotated bodies by default,
     so without this the entire test suite goes type-unverified."""
     assert _tests_override()["check_untyped_defs"] is True
+
+
+_ROOT_RUFF = Path(__file__).resolve().parents[2] / "ruff.toml"
+
+
+def _root_ruff() -> dict[str, Any]:
+    return tomllib.loads(_ROOT_RUFF.read_text())
+
+
+def test_repo_root_has_a_ruff_config():
+    """The pre-commit hook runs `ruff check` from the repo root with no
+    arguments, so files outside backend/ are linted too. Without a root config
+    they inherit ruff's built-in defaults, which are not a stable contract —
+    the 0.15 to 0.16 bump widened them and broke the hook on untouched files.
+    """
+    assert _ROOT_RUFF.is_file()
+
+
+def test_root_and_backend_select_the_same_rules():
+    """Two configs, one standard. If they drift, a file's lint result depends
+    on which directory it happens to live in."""
+    assert _root_ruff()["lint"]["select"] == _ruff_lint()["select"]
+
+
+def test_root_and_backend_ignore_the_same_rules():
+    assert _root_ruff()["lint"]["ignore"] == _ruff_lint()["ignore"]

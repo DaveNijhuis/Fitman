@@ -1,4 +1,4 @@
-import { request } from './client'
+import { fetchAllPages, request } from './client'
 
 export interface CardioEntry {
   id: number
@@ -22,7 +22,7 @@ export function getActivities(): Promise<string[]> {
 }
 
 export function getCardioHistory(): Promise<CardioEntry[]> {
-  return request<CardioEntry[]>('/api/cardio')
+  return fetchAllPages<CardioEntry>('/api/cardio')
 }
 
 export function logCardio(data: CardioIn): Promise<CardioEntry> {

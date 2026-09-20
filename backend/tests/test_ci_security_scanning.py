@@ -90,3 +90,20 @@ def test_dependabot_updates_are_scheduled_weekly():
     assert config["updates"]
     for entry in config["updates"]:
         assert entry["schedule"]["interval"] == "weekly"
+
+
+def test_dependabot_targets_the_dev_integration_branch():
+    """Dependency PRs must go through dev, not straight to main (#276).
+
+    Without target-branch, Dependabot defaults to the repository default
+    branch, inverting the feature -> dev -> main flow and putting untested
+    dependency changes on the production branch.
+    """
+    config = yaml.safe_load(_DEPENDABOT.read_text())
+    assert config["updates"]
+    for entry in config["updates"]:
+        assert entry.get("target-branch") == "dev", (
+            f"{entry['package-ecosystem']} {entry['directory']} does not target dev. "
+            "The key is target-branch (hyphen); Dependabot silently ignores "
+            "unrecognised keys such as target_branch."
+        )

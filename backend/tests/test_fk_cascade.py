@@ -8,6 +8,7 @@ for production, but correctness is proved here at the model level.
 from datetime import datetime, timezone
 
 import bcrypt
+import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.engine.interfaces import ReflectedForeignKeyConstraint
 
@@ -16,6 +17,16 @@ from models.cardio import CardioEntry
 from models.measurement import BodyMeasurement
 from models.user import User
 from models.workout import WorkoutSession
+
+
+@pytest.fixture(autouse=True)
+def _schema(database: None) -> None:
+    """This module inspects the live schema, so it needs the database built.
+
+    Requested explicitly rather than inherited through `client`: conftest no
+    longer builds the schema at import (#283), and nothing here goes through
+    the HTTP client.
+    """
 
 
 def _user_id_fk(table: str) -> ReflectedForeignKeyConstraint | None:

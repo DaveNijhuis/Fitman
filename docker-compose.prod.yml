@@ -32,7 +32,14 @@ services:
     environment:
       POSTGRES_DB: fitman
       POSTGRES_USER: fitman
-      POSTGRES_PASSWORD: fitman
+      # The operator's own secret (#335); the stack refuses to start without it.
+      # Applied only when the volume is first initialised: to change it on an
+      # existing database, see "Changing the database password" in README.md.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see README.md, step 4)}
+    # Queryable from the server itself, or through an SSH tunnel, never from
+    # the network: bound to 127.0.0.1. 5433 leaves 5432 free for a dev database.
+    ports:
+      - "127.0.0.1:5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     depends_on:
@@ -49,6 +56,11 @@ services:
     build: ./backend
     env_file:
       - .env
+    environment:
+      # Built from the same password as the database, so the two can't drift;
+      # overrides any DATABASE_URL in .env. Use a hex password (README step 4):
+      # anything else would need URL-encoding here.
+      DATABASE_URL: postgresql://fitman:${POSTGRES_PASSWORD}@postgres:5432/fitman
     depends_on:
       postgres:
         condition: service_healthy

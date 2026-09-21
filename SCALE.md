@@ -12,6 +12,8 @@ Fitman reads body composition directly from the **e.volve Bluetooth smart scale*
 
 The integration is **opt-in**: set `SCALE_ENABLED=true` in `.env` (#326). Off, which is the default, Fitman offers manual weight entry only, the scale endpoints return 404 and no Weigh-in button appears. `GET /api/features` tells the frontend which it is.
 
+**Weighing in.** On the Progress page, the Body weight card shows **Weigh in** next to *Log measurement*. Tap it, pick the `e.volve` scale in the browser's device chooser, then step on barefoot and hold the handle. Live weight shows while you stand; when the scale beeps, the result is stored and appears in the chart. This needs Web Bluetooth and HTTPS (README, step 5): Chrome on Android, or **Bluefy** on iPhone. Elsewhere the card says so and names Bluefy.
+
 ## How it works
 
 Step on barefoot and grip the handle bar. The scale passes a small current at two frequencies (20 kHz and 100 kHz) between its hand and foot electrodes and measures the impedance of each limb. That is multi-frequency segmental BIA.

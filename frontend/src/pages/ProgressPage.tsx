@@ -8,6 +8,7 @@ import {
   type ConsistencyWeek, type MuscleBalance,
 } from '../api/progress'
 import { getMeasurements, logMeasurement, deleteMeasurement, type Measurement } from '../api/measurements'
+import WeighIn from '../components/WeighIn'
 import { numericTooltipFormatter } from '../chartFormatters'
 
 const DAY_LABELS = ['M', '', 'W', '', 'F', '', 'S']
@@ -355,6 +356,8 @@ export default function ProgressPage() {
                   : undefined
               }
             />
+
+            <WeighIn onMeasured={m => setMeasurements(prev => [m, ...prev])} />
 
             <button
               onClick={() => setShowLogForm(v => !v)}

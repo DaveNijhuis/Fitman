@@ -1,9 +1,27 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { login } from '../api/auth'
+
+/**
+ * Where to go after signing in: the `next` page a rejected session was sent
+ * here from (#317), or home.
+ *
+ * Only a path on this site is accepted, or a crafted /login?next= link would
+ * become an open redirect. `//host` and `/\host` look like paths but browsers
+ * resolve both to another origin.
+ */
+function safeNext(next: string | null): string {
+  if (!next || !next.startsWith('/')) return '/'
+  if (next.startsWith('//') || next.startsWith('/\\')) return '/'
+  if (next === '/login' || next.startsWith('/login?')) return '/'
+  return next
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const expired = params.get('expired') === '1'
+  const next = safeNext(params.get('next'))
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -15,7 +33,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/')
+      navigate(next, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
@@ -29,6 +47,16 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold tracking-tight text-center mb-8">
           Fit<span className="text-[var(--color-accent)]">man</span>
         </h1>
+
+        {expired && (
+          <p
+            data-testid="session-expired"
+            role="status"
+            className="mb-4 text-sm text-center text-[var(--color-muted)]"
+          >
+            Your session has expired. Sign in to continue.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

@@ -326,6 +326,20 @@
         "title": "ExerciseOut",
         "type": "object"
       },
+      "FeaturesOut": {
+        "description": "Optional features this instance has switched on (#326).\n\nThe frontend asks once, rather than probing feature endpoints for 404s.",
+        "properties": {
+          "scale": {
+            "title": "Scale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scale"
+        ],
+        "title": "FeaturesOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2626,6 +2640,32 @@
         "summary": "Get Exercise",
         "tags": [
           "exercises"
+        ]
+      }
+    },
+    "/api/features": {
+      "get": {
+        "operationId": "get_features_api_features_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeaturesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Features",
+        "tags": [
+          "features"
         ]
       }
     },

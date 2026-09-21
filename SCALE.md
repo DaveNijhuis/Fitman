@@ -8,6 +8,10 @@ Fitman reads body composition directly from the **e.volve Bluetooth smart scale*
 
 ---
 
+## Enabling it
+
+The integration is **opt-in**: set `SCALE_ENABLED=true` in `.env` (#326). Off, which is the default, Fitman offers manual weight entry only, the scale endpoints return 404 and no Weigh-in button appears. `GET /api/features` tells the frontend which it is.
+
 ## How it works
 
 Step on barefoot and grip the handle bar. The scale passes a small current at two frequencies (20 kHz and 100 kHz) between its hand and foot electrodes and measures the impedance of each limb. That is multi-frequency segmental BIA.

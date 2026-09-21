@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     scale_age: int = Field(default=0, ge=0)
     scale_sex: int = Field(default=1, ge=0, le=1)  # 1 = male, 0 = female
 
+    # The smart scale integration (#59) serves one specific scale; it is opt-in
+    # so everyone else gets manual weight entry and nothing scale-related (#326).
+    scale_enabled: bool = False
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

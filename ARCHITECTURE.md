@@ -349,6 +349,7 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | `DB_POOL_TIMEOUT` | | `30` | Seconds to wait for a connection before raising an error |
 | `RATE_LIMIT_DISABLED` | | `false` | Set to `true` to disable SlowAPI rate limiting (E2E stack only). Accepts `true`/`false`/`1`/`0`; anything else is rejected |
 | `FITMAN_LOG_FORMAT` | | `json` | Log output format: `json` (structured, one object per line) or `text` for human-readable local development. Any other value is rejected. |
+| `SCALE_ENABLED` | | `false` | Opt in to the smart scale integration (SCALE.md). Off: no scale endpoints (404), no Weigh-in button; manual weight entry either way |
 | `SCALE_HEIGHT_CM` | | `0` | Fallback height for body-composition formulas when neither request nor profile has one; `0` = not set |
 | `SCALE_AGE` | | `0` | Fallback age, same rules; `0` = not set |
 | `SCALE_SEX` | | `1` | Fallback sex for the formulas: `1` = male, `0` = female |

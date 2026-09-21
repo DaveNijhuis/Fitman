@@ -217,6 +217,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Features */
+        get: operations["get_features_api_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gdpr/erase": {
         parameters: {
             query?: never;
@@ -630,6 +647,16 @@ export interface components {
             session: string;
             /** Type */
             type: string;
+        };
+        /**
+         * FeaturesOut
+         * @description Optional features this instance has switched on (#326).
+         *
+         *     The frontend asks once, rather than probing feature endpoints for 404s.
+         */
+        FeaturesOut: {
+            /** Scale */
+            scale: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1504,6 +1531,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_features_api_features_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturesOut"];
                 };
             };
         };

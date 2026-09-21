@@ -101,6 +101,21 @@ def list_sessions(
     ]
 
 
+@router.get("/{session_id}", response_model=WorkoutSessionOut)
+def get_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> WorkoutSession:
+    """One session: the workout page checks it hasn't ended before resuming (#338)."""
+    workout = db.get(WorkoutSession, session_id)
+    if not workout or workout.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+    return workout
+
+
 @router.get("/{session_id}/logs", response_model=list[SessionLogEntry])
 def get_session_logs(
     session_id: int,

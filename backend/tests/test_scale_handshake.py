@@ -96,3 +96,11 @@ def test_default_offset_is_the_local_timezone():
 
     hs = Handshake(PERSON)
     assert hs.utc_offset_min == round(time.localtime().tm_gmtoff / 60)
+
+
+def test_resumes_from_carried_state():
+    """#323: the phone carries seq and sent_sequence between requests."""
+    hs = Handshake(PERSON, utc_offset_min=0, seq=6, sent_sequence=True)
+    assert hs.start() == []
+    out = hs.on_scale_frame(protocol.parse(F.HELLO))
+    assert _types(out) == [0xB0] and protocol.parse(out[0]).seq == 6

@@ -24,3 +24,6 @@ class User(Base):
         DateTime(timezone=True), nullable=False
     )
     consent_given_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # This user's id on the smart scale (#323): 4 random bytes as hex, created on
+    # first weigh-in. The scale keeps history per id and tags results with it.
+    scale_user_id: Mapped[str | None] = mapped_column(String(8), unique=True)

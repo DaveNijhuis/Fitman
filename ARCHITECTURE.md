@@ -73,6 +73,8 @@ Fitman/
 │   │   ├── stats.py         # Home dashboard stats
 │   │   ├── profile.py       # GET/PATCH /api/profile
 │   │   ├── admin.py         # Admin user management
+│   │   ├── features.py      # GET /api/features: optional features switched on (#326)
+│   │   ├── scale.py         # POST /api/scale/exchange: smart scale relay, opt-in (#323)
 │   │   └── gdpr.py          # Data export and account erasure
 │   ├── scale/               # Smart scale protocol, no radio code (see SCALE.md)
 │   │   ├── protocol.py      # Framing, messages, result decoding
@@ -137,6 +139,7 @@ users
   is_admin        BOOLEAN NOT NULL DEFAULT 0
   created_at      TIMESTAMPTZ NOT NULL
   consent_given_at TIMESTAMPTZ             -- NULL for users created before #138
+  scale_user_id   VARCHAR(8) UNIQUE      -- the user's id on the smart scale, 4 random bytes as hex; created on first weigh-in (#323)
 ```
 
 ### Strength training

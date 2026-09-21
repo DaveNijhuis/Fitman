@@ -34,14 +34,19 @@ class Handshake:
         profile: ScaleProfile,
         now: Callable[[], int] = lambda: int(time.time()),
         utc_offset_min: int | None = None,
+        *,
+        seq: int = 0,
+        sent_sequence: bool = False,
     ) -> None:
+        """`seq` and `sent_sequence` resume a handshake whose state the phone
+        carried between requests (#323); a fresh one starts at 0, unsent."""
         self.profile = profile
         self.now = now
         self.utc_offset_min = (
             _local_offset_min() if utc_offset_min is None else utc_offset_min
         )
-        self.seq = 0
-        self.sent_sequence = False
+        self.seq = seq
+        self.sent_sequence = sent_sequence
         self.result: protocol.Measurement | None = None
         self.stored: list[protocol.Measurement] = []
 

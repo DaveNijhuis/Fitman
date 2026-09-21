@@ -1,6 +1,6 @@
 """The dev compose frontend must be able to reach the backend (#274).
 
-docker-compose.yml runs the Vite dev server in the frontend container. Vite
+docker-compose.dev.yml (docker-compose.yml before #339) runs the Vite dev server in the frontend container. Vite
 proxies /api to the target in vite.config.ts, which was hardcoded to
 localhost:8000 — correct on the host, but inside the container that resolves
 to the frontend itself, where nothing listens. Every API call returned 502
@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 _ROOT = Path(__file__).resolve().parents[2]
-_DEV_COMPOSE = _ROOT / "docker-compose.yml"
+_DEV_COMPOSE = _ROOT / "docker-compose.dev.yml"
 _VITE_CONFIG = _ROOT / "frontend" / "vite.config.ts"
 
 _PROXY_ENV_VAR = "VITE_API_PROXY_TARGET"
@@ -55,7 +55,7 @@ def test_proxy_target_points_at_a_service_compose_defines() -> None:
     compose = yaml.safe_load(_DEV_COMPOSE.read_text())
     host = _frontend_environment()[_PROXY_ENV_VAR].split("//")[-1].split(":")[0]
     assert host in compose["services"], (
-        f"proxy target host {host!r} is not a service in docker-compose.yml"
+        f"proxy target host {host!r} is not a service in docker-compose.dev.yml"
     )
 
 

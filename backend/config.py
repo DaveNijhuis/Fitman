@@ -25,8 +25,9 @@ ENV_FILE: Path = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    # extra="ignore": the root .env also serves scripts/scale_ingest.py, whose
-    # ADMIN_USERNAME / ADMIN_PASSWORD would otherwise be rejected as unknown.
+    # extra="ignore": existing .env files still carry keys the backend doesn't
+    # read (ADMIN_USERNAME / ADMIN_PASSWORD from the retired scale script), which
+    # would otherwise be rejected as unknown and stop startup.
     model_config = SettingsConfigDict(extra="ignore")
 
     secret_key: str = Field(min_length=1)
@@ -49,6 +50,10 @@ class Settings(BaseSettings):
     scale_height_cm: float = Field(default=0, ge=0)
     scale_age: int = Field(default=0, ge=0)
     scale_sex: int = Field(default=1, ge=0, le=1)  # 1 = male, 0 = female
+
+    # The smart scale integration (#59) serves one specific scale; it is opt-in
+    # so everyone else gets manual weight entry and nothing scale-related (#326).
+    scale_enabled: bool = False
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -46,6 +46,11 @@ export function getSessionLogs(sessionId: number): Promise<SessionLogEntry[]> {
   return request<SessionLogEntry[]>(`/api/sessions/${sessionId}/logs`)
 }
 
+/** One session, to tell whether it is still in progress (#338). */
+export function getSession(sessionId: number): Promise<WorkoutSession> {
+  return request<WorkoutSession>(`/api/sessions/${sessionId}`)
+}
+
 export function startSession(session: string): Promise<WorkoutSession> {
   return request<WorkoutSession>('/api/sessions', {
     method: 'POST',
@@ -59,6 +64,10 @@ export function endSession(sessionId: number): Promise<WorkoutSession> {
   })
 }
 
-export function discardSession(sessionId: number): Promise<void> {
+/** Delete a session and its sets: a finished workout from History (#336). */
+export function deleteSession(sessionId: number): Promise<void> {
   return request<void>(`/api/sessions/${sessionId}`, { method: 'DELETE' })
 }
+
+/** Throw away the workout in progress. The same endpoint as deleteSession. */
+export const discardSession = deleteSession

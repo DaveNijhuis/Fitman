@@ -3,8 +3,8 @@
 [![CI](https://github.com/DaveNijhuis/Fitman/actions/workflows/ci.yml/badge.svg)](https://github.com/DaveNijhuis/Fitman/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -23,10 +23,11 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 - **Workout logging** — log sets, reps, and weight per exercise in real time with a rest timer
 - **Cardio tracking** — log runs, rides, swims and more with distance and duration
 - **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, personal records, and interactive body composition trends
-- **Body composition analysis** — connect an e.volve BLE smart scale to capture segmental impedance data; BIA formulae (Janssen, Watson, Katch-McArdle) derive fat mass, muscle mass, BMR, visceral fat grade, and more
+- **Smart scale weigh-in (opt-in)** — weigh in on an e.volve (iCOMON) Bluetooth scale straight from the web app, no Fitdays account or cloud: your phone's browser relays the scale to your server. The scale shows your name, keeps each user apart, and live weight shows while you stand. Needs HTTPS and a Web Bluetooth browser (Chrome on Android, Bluefy on iPhone); see [SCALE.md](SCALE.md)
+- **Body composition analysis** — the scale's body fat and limb impedances feed BIA formulae (Janssen, Watson, Katch-McArdle, and iCOMON's WLA25 for visceral and trunk estimates) that derive fat mass, muscle mass, BMR, visceral fat grade, and more
 - **Body measurements** — manually log weight and body fat % over time with trend charts
 - **Exercise library** — browse and search all exercises with muscle and equipment info
-- **Workout history** — review past sessions with full set-by-set detail
+- **Workout history** — review past sessions with full set-by-set detail, and delete one after a confirmation
 - **User profile** — set display name, birth year, sex, and height; profile fields are used as fallback inputs for BIA body composition formulas
 - **Multi-user support** — admin can invite users, enable/disable accounts, and delete users with full data cascade; each user's data is fully isolated
 - **Password management** — users can change their own password from settings; admin can set a temporary password when creating accounts
@@ -38,7 +39,7 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 | Layer | Technology |
 |---|---|
 | Backend API | Python 3.11 + FastAPI |
-| Frontend | React 18 + TypeScript + Tailwind CSS |
+| Frontend | React 19 + TypeScript 6 + Vite + Tailwind CSS 4 |
 | Database | PostgreSQL 16 (via SQLAlchemy) |
 | Auth | JWT |
 | Infra | Docker Compose + nginx + Tailscale |
@@ -62,7 +63,7 @@ Log in when prompted. Your server will get a Tailscale IP (e.g. `100.x.x.x`) and
 
 ### 3. Set a Tailscale hostname (optional but recommended)
 
-In the [Tailscale admin console](https://login.tailscale.com/admin/machines), rename your server to `fitman`. The app will then be reachable at `http://fitman` from any device on your Tailscale network.
+In the [Tailscale admin console](https://login.tailscale.com/admin/machines), rename your server, e.g. to `fitman`. That name becomes part of its HTTPS address in step 5.
 
 ### 4. Deploy Fitman
 
@@ -75,44 +76,81 @@ cd Fitman
 cp .env.example .env
 ```
 
-Edit `.env` and set one required value:
+Edit `.env` and set two required values, each generated:
 
 ```bash
-# Generate a secure key:
-python3 -c "import secrets; print(secrets.token_hex(32))"
+python3 -c "import secrets; print(secrets.token_hex(32))"   # → SECRET_KEY
+python3 -c "import secrets; print(secrets.token_hex(24))"   # → POSTGRES_PASSWORD
 
-SECRET_KEY=<paste generated key here>
+SECRET_KEY=<first value>
+POSTGRES_PASSWORD=<second value>
 ```
 
-Then start the app:
+The stack refuses to start without `POSTGRES_PASSWORD`. Keep it hex (as generated): it goes into the backend's connection URL.
+
+Then start the app, from the repo directory:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
 
-### 5. Create your account
+That one command starts everything: the PostgreSQL database, the backend, and the web app on port 80. The database is also queryable from the server itself on `localhost:5433` (see [Database access](#database-access)). Migrations run automatically on every start.
 
-On first launch, visit `http://localhost/setup` (or `http://fitman/setup` via Tailscale) to create the admin account. Credentials are stored in the database — no plaintext passwords in `.env`.
+### 5. Turn on HTTPS (recommended; required for the smart scale)
 
-### 6. Access the app
+Tailscale can put a real HTTPS certificate in front of Fitman, with no change to Fitman or Docker. It's worth doing anyway, and the smart scale's Weigh-in needs it: browsers only allow Web Bluetooth on HTTPS pages (see [SCALE.md](SCALE.md)).
 
-- From your server: `http://localhost`
-- From any device on Tailscale: `http://fitman` (or `http://<tailscale-ip>`)
+1. In the [Tailscale admin console](https://login.tailscale.com/admin/dns), under **DNS**, enable **HTTPS Certificates**. MagicDNS must be on.
+2. On the server, forward HTTPS to Fitman's nginx on port 80:
+
+   ```bash
+   sudo tailscale serve --bg 80
+   ```
+
+   `tailscale serve status` should show `https://<host>.<tailnet>.ts.net` proxying to `http://127.0.0.1:80`. To undo it: `sudo tailscale serve reset`.
+
+**Privacy note:** issued certificates are recorded in public Certificate Transparency logs, so your machine's name and your tailnet's name become publicly visible. The app itself stays reachable only from your tailnet.
+
+The API is proxied by nginx on the page's own origin, so `CORS_ORIGINS` needs no change for HTTPS.
+
+### 6. Create your account
+
+On first launch, visit `https://<host>.<tailnet>.ts.net/setup` (or `http://localhost/setup` on the server itself) to create the admin account. Credentials are stored in the database — no plaintext passwords in `.env`.
+
+### 7. Access the app
+
+- From any device on your tailnet: `https://<host>.<tailnet>.ts.net`
+- From the server itself: `http://localhost`
+
+Each address is its own origin to the browser, so you log in separately on each.
 
 Install the Tailscale app on your iPhone or laptop and sign in with the same account — you'll have access from anywhere without opening any ports to the internet.
 
-### Updating to a new version
+### Everyday commands
+
+Run these from the repo directory.
+
+| To | Run |
+|---|---|
+| Start, or apply a changed `.env` | `docker compose up -d` |
+| Update to a new version | `git pull && docker compose up -d --build` |
+| Stop (data is kept) | `docker compose down` |
+| See what's running | `docker compose ps` |
+| Follow the logs | `docker compose logs -f backend` |
+| Open a database shell | `docker compose exec postgres psql -U fitman fitman` |
+
+Never add `-v` to `down`: that deletes the database volume.
+
+### Upgrading from docker-compose.prod.yml
+
+Before [#339](https://github.com/DaveNijhuis/Fitman/issues/339), production was started by naming `docker-compose.prod.yml` explicitly, and plain `docker compose` meant the development stack. Now `docker-compose.yml` is production, and the old file is gone. To switch over, update and start as usual:
 
 ```bash
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up -d --build
 ```
 
-### Stopping the app
-
-```bash
-docker compose -f docker-compose.prod.yml down
-```
+The project name and the `db_data` volume are unchanged, so Compose replaces the running containers in place and your data stays where it is. Update any scripts, cron jobs or aliases that still name `docker-compose.prod.yml`: that file no longer exists, so they'll fail rather than do the wrong thing. From #335 on, `.env` must also set `POSTGRES_PASSWORD` (see [Changing the database password](#changing-the-database-password)).
 
 ### Migrating from SQLite (M18 → M19 upgrade)
 
@@ -148,7 +186,7 @@ docker volume rm fitman_db_data
 **Step 3 — Start the new version**
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up -d --build
 ```
 
 Visit `/setup` to create your admin account.
@@ -168,10 +206,11 @@ scripting an import. The file keeps the rest indefinitely if you change your min
 
 ### Backups
 
-Back up the database with `pg_dump` — safe to run while the app is live:
+Back up the database with `pg_dump` — safe to run while the app is live. From the repo directory:
 
 ```bash
-docker exec fitman-postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y%m%d_%H%M%S).sql
+mkdir -p backups
+docker compose exec -T postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 **Set up a daily automatic backup with cron:**
@@ -180,28 +219,68 @@ docker exec fitman-postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y
 crontab -e
 ```
 
-Add this line to run every day at 3am:
+Add this line to run every day at 3am. cron starts in your home directory, so it changes into the repo first; Compose finds the stack from there:
 
 ```
-0 3 * * * docker exec fitman-postgres pg_dump -U fitman fitman > /path/to/Fitman/backups/fitman_$(date +\%Y\%m\%d_\%H\%M\%S).sql
+0 3 * * * cd /path/to/Fitman && docker compose exec -T postgres pg_dump -U fitman fitman > backups/fitman_$(date +\%Y\%m\%d_\%H\%M\%S).sql
 ```
+
+Check the first file isn't empty: a dump that failed still leaves one behind.
 
 **Restoring from a backup:**
 
 ```bash
 # 1. Stop the backend (keep postgres running)
-docker compose -f docker-compose.prod.yml stop backend frontend
+docker compose stop backend frontend
 
 # 2. Restore the dump
-docker exec -i fitman-postgres psql -U fitman fitman < backups/fitman_YYYYMMDD_HHMMSS.sql
+docker compose exec -T postgres psql -U fitman fitman < backups/fitman_YYYYMMDD_HHMMSS.sql
 
 # 3. Start the app again
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
 
 ---
 
+
+### Database access
+
+The production database is published on `127.0.0.1:5433`: reachable from the server itself, never from the network.
+
+- **On the server:** connect any client (e.g. DBeaver) to `localhost:5433`, database `fitman`, user `fitman`, password `POSTGRES_PASSWORD` from `.env`.
+- **From another machine:** use an SSH tunnel to the server over Tailscale. In DBeaver: host `localhost`, port `5433`, and on the **SSH** tab the server's Tailscale name, port 22, key authentication. The server needs an SSH server (`sudo systemctl enable --now sshd`); plain OpenSSH works where Tailscale SSH's browser re-check can't.
+
+Tick **Read-only connection** in DBeaver unless you mean to change data.
+
+### Changing the database password
+
+PostgreSQL applies `POSTGRES_PASSWORD` only when it first creates the database. For an existing one, including every instance deployed before this setting existed with the old default `fitman`, change it in place:
+
+```bash
+# 1. Generate a password and set it in .env as POSTGRES_PASSWORD=<value>
+python3 -c "import secrets; print(secrets.token_hex(24))"
+
+# 2. Apply it to the running database (local connections inside the container need no password)
+docker compose exec postgres \
+  psql -U fitman -d fitman -c "ALTER USER fitman WITH PASSWORD '<value>'"
+
+# 3. Restart, so the backend connects with the new password
+docker compose up -d
+```
+
+Set it in `.env` first: once `POSTGRES_PASSWORD` is required, Compose won't run any command without it.
+
 ## Development setup
+
+The quickest way is the development stack in Docker: the Vite dev server with hot reload on `http://localhost:3000`, the backend on port 8000, and a throwaway database.
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+It's a separate Compose project (`fitman-dev`), with its own containers and database, so it can run beside production without touching it. Stop it with `docker compose -f docker-compose.dev.yml down`; add `-v` to wipe its database.
+
+To run the backend and frontend on the host instead:
 
 ```bash
 # Start PostgreSQL for local development (requires Docker)
@@ -227,8 +306,8 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 302 tests, 90% coverage floor
-cd frontend && npm test            # 24 tests, Vitest + jsdom
+cd backend  && .venv/bin/pytest    # 506 tests, 90% coverage floor
+cd frontend && npm test            # 86 tests, Vitest + jsdom
 ```
 
 The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.
@@ -249,7 +328,7 @@ E2E tests require the app running via the dedicated test stack (isolated from pr
 # Start the E2E stack (fresh DB, rate limiting disabled, port 8080)
 docker compose -f docker-compose.e2e.yml up -d --build
 
-# Run all 10 E2E tests
+# Run all 13 E2E tests
 cd e2e
 npm install
 npx playwright test
@@ -270,7 +349,8 @@ See [SCALE.md](SCALE.md) for the smart scale BLE protocol, packet decoding, and 
 
 If you share this app with others on your Tailscale network, users should know:
 
-- **What is stored:** workout sessions, sets, cardio entries, body measurements (weight, body fat %, BIA impedance readings), and profile fields (display name, birth year, sex, height)
+- **What is stored:** workout sessions, sets, cardio entries, body measurements (weight, body fat %, BIA impedance readings), profile fields (display name, birth year, sex, height), and, if you use the smart scale, a random id the scale knows you by
+- **What goes to the smart scale:** weighing in sends the scale your height, age, sex, last weight and display name (shown on its screen), over Bluetooth from your phone. The scale keeps them, with its own history of your weigh-ins, until it is reset
 - **Where it is stored:** exclusively on your self-hosted server — no data is sent to any third party
 - **User rights:** each user can export all their data (`GET /api/gdpr/export`) or permanently delete their account and all associated data (`DELETE /api/gdpr/erase`) at any time
 - **Encryption:** data is stored in a PostgreSQL database running on your server; protect it with filesystem-level encryption on the host (see [ARCHITECTURE.md](ARCHITECTURE.md) for the full decision)
@@ -281,8 +361,7 @@ If you share this app with others on your Tailscale network, users should know:
 |---|---|
 | `main` | Stable, production-ready |
 | `dev` | Integration and testing |
-| `feature/<name>` | One branch per new feature |
-| `fix/<name>` | Bug fixes |
+| `<type>/<issue>-<name>` | One branch per issue, e.g. `feat/322-weigh-in-relay`, `fix/338-stale-resume-after-finish`; types `feat`, `fix`, `chore`, `docs`, `refactor` |
 
 All work flows through feature branches → `dev` → `main` via pull request.
 

@@ -21,11 +21,17 @@ _CONFIG_ONLY = [
     "tests/test_ci_playwright_pin.py",
     "tests/test_ci_security_scanning.py",
     "tests/test_compose_config.py",
+    "tests/test_compose_launch.py",
     "tests/test_db_volume_guard.py",
     "tests/test_dockerignore.py",
+    "tests/test_frontend_dockerignore.py",
     "tests/test_gitignore.py",
     "tests/test_lint_config.py",
     "tests/test_nginx_conf.py",
+    "tests/test_prod_db_credentials.py",
+    "tests/test_readme_https.py",
+    "tests/test_scale_handshake.py",
+    "tests/test_scale_protocol.py",
 ]
 
 # Nothing listens here, so any connection attempt fails immediately rather than

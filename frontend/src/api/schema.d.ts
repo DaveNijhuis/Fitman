@@ -217,6 +217,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Features */
+        get: operations["get_features_api_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gdpr/erase": {
         parameters: {
             query?: never;
@@ -424,6 +441,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scale/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange */
+        post: operations["exchange_api_scale_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions": {
         parameters: {
             query?: never;
@@ -449,7 +483,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Session
+         * @description One session: the workout page checks it hasn't ended before resuming (#338).
+         */
+        get: operations["get_session_api_sessions__session_id__get"];
         put?: never;
         post?: never;
         /** Delete Session */
@@ -614,6 +652,43 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** ExchangeIn */
+        ExchangeIn: {
+            /** Frames */
+            frames?: string[];
+            /**
+             * Phone Seq
+             * @default 0
+             */
+            phone_seq: number;
+            /**
+             * Sequence Sent
+             * @default false
+             */
+            sequence_sent: boolean;
+            /**
+             * Utc Offset Min
+             * @default 0
+             */
+            utc_offset_min: number;
+        };
+        /** ExchangeOut */
+        ExchangeOut: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Image Chunks
+             * @default []
+             */
+            image_chunks: string[];
+            measurement?: components["schemas"]["MeasurementOut"] | null;
+            /** Phone Seq */
+            phone_seq: number;
+            /** Send */
+            send: string[];
+            /** Sequence Sent */
+            sequence_sent: boolean;
+        };
         /** ExerciseOut */
         ExerciseOut: {
             /** Equip */
@@ -630,6 +705,16 @@ export interface components {
             session: string;
             /** Type */
             type: string;
+        };
+        /**
+         * FeaturesOut
+         * @description Optional features this instance has switched on (#326).
+         *
+         *     The frontend asks once, rather than probing feature endpoints for 404s.
+         */
+        FeaturesOut: {
+            /** Scale */
+            scale: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1508,6 +1593,26 @@ export interface operations {
             };
         };
     };
+    get_features_api_features_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturesOut"];
+                };
+            };
+        };
+    };
     erase_my_data_api_gdpr_erase_delete: {
         parameters: {
             query?: never;
@@ -1900,6 +2005,39 @@ export interface operations {
             };
         };
     };
+    exchange_api_scale_exchange_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExchangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_sessions_api_sessions_get: {
         parameters: {
             query?: never;
@@ -1935,6 +2073,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_api_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

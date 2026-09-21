@@ -36,6 +36,7 @@ FITMAN_VARS = [
     "SCALE_HEIGHT_CM",
     "SCALE_AGE",
     "SCALE_SEX",
+    "SCALE_ENABLED",
 ]
 
 _REQUIRED = {
@@ -82,6 +83,7 @@ def test_optional_variables_take_their_documented_defaults(required_env):
     assert s.scale_height_cm == 0
     assert s.scale_age == 0
     assert s.scale_sex == 1
+    assert s.scale_enabled is False  # #326: the smart scale is opt-in
 
 
 def test_secret_key_is_typed_str(required_env):
@@ -98,6 +100,12 @@ def test_cors_origins_are_split_on_commas_and_trimmed(required_env):
         "http://a.example",
         "http://b.example",
     ]
+
+
+@pytest.mark.parametrize("raw", ["true", "TRUE", "1"])
+def test_scale_enabled_accepts_true_values(required_env, raw):
+    required_env.setenv("SCALE_ENABLED", raw)
+    assert load_settings(env_file=None).scale_enabled is True
 
 
 @pytest.mark.parametrize("raw", ["true", "TRUE", "1"])
@@ -157,6 +165,7 @@ def test_empty_secret_key_counts_as_missing(required_env):
         ("JWT_EXPIRE_DAYS", "0"),
         ("SCALE_AGE", "-5"),
         ("SCALE_HEIGHT_CM", "-180"),
+        ("SCALE_ENABLED", "maybe"),
     ],
 )
 def test_out_of_range_values_are_rejected_by_name(required_env, name, value):
@@ -187,7 +196,8 @@ def test_env_file_values_are_read(clean_env, tmp_path):
 
 
 def test_env_file_keys_for_other_tools_are_ignored(clean_env, tmp_path):
-    """The root .env also serves scripts/scale_ingest.py (ADMIN_USERNAME etc.).
+    """Existing .env files carry keys the backend doesn't read (ADMIN_USERNAME etc.,
+    from the retired scale_ingest.py).
 
     pydantic-settings rejects unknown env-file keys by default, which would
     turn a working .env into a startup failure.

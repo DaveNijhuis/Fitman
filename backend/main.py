@@ -18,15 +18,18 @@ from starlette.responses import Response
 from config import settings
 from database import SessionLocal, get_db
 from limiter import limiter
+from measurement_backfill import backfill_derived
 from routers import admin as admin_router
 from routers import auth as auth_router
 from routers import cardio as cardio_router
 from routers import exercises as exercises_router
+from routers import features as features_router
 from routers import gdpr as gdpr_router
 from routers import logs as logs_router
 from routers import measurements as measurements_router
 from routers import profile as profile_router
 from routers import progress as progress_router
+from routers import scale as scale_router
 from routers import sessions as sessions_router
 from routers import stats as stats_router
 from seed import seed_exercises
@@ -74,6 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = SessionLocal()
     try:
         seed_exercises(db)
+        backfill_derived(db)
     finally:
         db.close()
     yield
@@ -113,6 +117,8 @@ app.add_middleware(
 app.include_router(admin_router.router)
 app.include_router(auth_router.router)
 app.include_router(exercises_router.router)
+app.include_router(features_router.router)
+app.include_router(scale_router.router)
 app.include_router(sessions_router.router)
 app.include_router(logs_router.router)
 app.include_router(progress_router.router)

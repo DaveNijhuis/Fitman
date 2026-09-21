@@ -276,6 +276,94 @@
         "title": "CreateUserRequest",
         "type": "object"
       },
+      "ExchangeIn": {
+        "properties": {
+          "frames": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Frames",
+            "type": "array"
+          },
+          "phone_seq": {
+            "default": 0,
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Phone Seq",
+            "type": "integer"
+          },
+          "sequence_sent": {
+            "default": false,
+            "title": "Sequence Sent",
+            "type": "boolean"
+          },
+          "utc_offset_min": {
+            "default": 0,
+            "maximum": 840.0,
+            "minimum": -720.0,
+            "title": "Utc Offset Min",
+            "type": "integer"
+          }
+        },
+        "title": "ExchangeIn",
+        "type": "object"
+      },
+      "ExchangeOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "image_chunks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Chunks",
+            "type": "array"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeasurementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone_seq": {
+            "title": "Phone Seq",
+            "type": "integer"
+          },
+          "send": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Send",
+            "type": "array"
+          },
+          "sequence_sent": {
+            "title": "Sequence Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "send",
+          "phone_seq",
+          "sequence_sent"
+        ],
+        "title": "ExchangeOut",
+        "type": "object"
+      },
       "ExerciseOut": {
         "properties": {
           "equip": {
@@ -324,6 +412,20 @@
           "equip"
         ],
         "title": "ExerciseOut",
+        "type": "object"
+      },
+      "FeaturesOut": {
+        "description": "Optional features this instance has switched on (#326).\n\nThe frontend asks once, rather than probing feature endpoints for 404s.",
+        "properties": {
+          "scale": {
+            "title": "Scale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scale"
+        ],
+        "title": "FeaturesOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2629,6 +2731,32 @@
         ]
       }
     },
+    "/api/features": {
+      "get": {
+        "operationId": "get_features_api_features_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeaturesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Features",
+        "tags": [
+          "features"
+        ]
+      }
+    },
     "/api/gdpr/erase": {
       "delete": {
         "operationId": "erase_my_data_api_gdpr_erase_delete",
@@ -3216,6 +3344,52 @@
         ]
       }
     },
+    "/api/scale/exchange": {
+      "post": {
+        "operationId": "exchange_api_scale_exchange_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Exchange",
+        "tags": [
+          "scale"
+        ]
+      }
+    },
     "/api/sessions": {
       "get": {
         "operationId": "list_sessions_api_sessions_get",
@@ -3325,6 +3499,52 @@
           }
         ],
         "summary": "Delete Session",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "get": {
+        "description": "One session: the workout page checks it hasn't ended before resuming (#338).",
+        "operationId": "get_session_api_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Session",
         "tags": [
           "sessions"
         ]

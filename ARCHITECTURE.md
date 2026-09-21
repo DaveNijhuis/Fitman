@@ -21,6 +21,8 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
                          └─────────────────────────────────────────┘
 ```
 
+`tailscale serve` terminates HTTPS in front of nginx (README, step 5). PostgreSQL is also published on `127.0.0.1:5433`, for database clients on the server itself or through an SSH tunnel; the backend's port is never published.
+
 ## Services
 
 ### Backend — FastAPI (Python)
@@ -28,7 +30,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Serves a REST JSON API consumed by the frontend
 - Handles authentication (JWT tokens, bcrypt password hashing via `hash_password` / `verify_password` in `auth.py`)
 - Reads and writes all data to PostgreSQL via SQLAlchemy
-- Runs database migrations automatically on startup via Alembic
+- Runs database migrations automatically on startup via Alembic, then seeds the exercise library and fills in derived body-composition fields for measurements stored without them (`measurement_backfill.py`, #325)
 - Attaches a `X-Request-ID` UUID header to every response, and injects the same
   id into every Python log record emitted while handling that request
 - Emits structured JSON logs by default (`FITMAN_LOG_FORMAT=text` for plain output)
@@ -49,7 +51,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 
 - Runs as a `postgres:16` Docker service with a named volume (`db_data`)
 - Supports concurrent writes — required for multi-user deployment
-- Accessed by the backend via `DATABASE_URL` in `.env`
+- Accessed by the backend via `DATABASE_URL`. In production the compose file builds it from `POSTGRES_PASSWORD` in `.env`, so the two can't drift (#335); `.env`'s own `DATABASE_URL` is for the dev stack and host runs
 - Schema managed by Alembic; migrations run automatically on container start
 
 ## Directory structure
@@ -57,10 +59,15 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 ```
 Fitman/
 ├── backend/
-│   ├── main.py              # FastAPI app entry point + startup validation
+│   ├── main.py              # FastAPI app entry point + startup (seed, backfill)
+│   ├── config.py            # The only reader of the environment: validated Settings (#250)
 │   ├── auth.py              # JWT creation and verification
 │   ├── database.py          # DB connection and session setup
+│   ├── limiter.py           # SlowAPI rate limiter
 │   ├── seed.py              # Initial exercise data
+│   ├── formulas.py          # BIA body-composition formulas, incl. WLA25 estimates (#325)
+│   ├── measurement_backfill.py  # Startup: derive fields for measurements stored without them
+│   ├── features.py          # require_scale_enabled: scale endpoints 404 unless SCALE_ENABLED
 │   ├── entrypoint.sh        # Docker entrypoint: runs migrations then uvicorn
 │   ├── routers/             # API route handlers
 │   │   ├── auth.py          # POST /api/auth/login, /register, /change-password
@@ -73,8 +80,16 @@ Fitman/
 │   │   ├── stats.py         # Home dashboard stats
 │   │   ├── profile.py       # GET/PATCH /api/profile
 │   │   ├── admin.py         # Admin user management
+│   │   ├── features.py      # GET /api/features: optional features switched on (#326)
+│   │   ├── scale.py         # POST /api/scale/exchange: smart scale relay, opt-in (#323)
 │   │   └── gdpr.py          # Data export and account erasure
+│   ├── scale/               # Smart scale protocol, no radio code (see SCALE.md)
+│   │   ├── protocol.py      # Framing, messages, result decoding
+│   │   ├── handshake.py     # What to send back for each scale message
+│   │   ├── name_image.py    # The user's name as a bitmap for the scale's display (#324)
+│   │   └── fonts/           # Noto Sans Bold + its SIL Open Font License (OFL.txt)
 │   ├── models/              # SQLAlchemy database models
+│   │   ├── user.py
 │   │   ├── exercise.py
 │   │   ├── workout.py
 │   │   ├── cardio.py
@@ -87,20 +102,24 @@ Fitman/
 │   ├── requirements.txt
 │   ├── requirements-dev.txt # Dev/CI dependencies (pytest, ruff, mypy)
 │   ├── pyproject.toml       # Ruff and mypy configuration
+│   ├── openapi.json         # Committed API contract (see API contract)
+│   ├── scripts/dump_openapi.py  # Regenerates openapi.json
 │   └── tests/               # pytest test suite
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/           # Top-level route pages
-│   │   ├── components/      # Reusable UI components (BottomNav, RestTimer, etc.)
-│   │   └── api/             # API client functions
+│   │   ├── components/      # Reusable UI components (BottomNav, RestTimer, WeighIn, etc.)
+│   │   ├── hooks/           # Shared React hooks
+│   │   ├── scale/           # Web Bluetooth relay for the smart scale, loaded on first use (#322)
+│   │   └── api/             # API client functions; schema.d.ts is generated
 │   ├── nginx.conf           # nginx config used in production Docker image
 │   ├── Dockerfile.prod      # Multi-stage: Node build → nginx serve
 │   ├── Dockerfile           # Dev only: Vite dev server
 │   └── package.json
 │
-├── docker-compose.yml       # Development: Vite dev server + backend + postgres
-├── docker-compose.prod.yml  # Production: nginx static build + backend + postgres
+├── docker-compose.yml       # Production: nginx static build + backend + postgres (`docker compose up -d`)
+├── docker-compose.dev.yml   # Development: Vite dev server + backend + postgres, project fitman-dev
 ├── docker-compose.e2e.yml   # E2E testing: isolated stack, tmpfs DB, port 8080
 ├── e2e/                     # Playwright E2E test suite (TypeScript)
 │   ├── tests/               # Test files (auth, workout, progress, account, accessibility)
@@ -108,7 +127,7 @@ Fitman/
 │   ├── fixtures/            # Per-test user isolation via admin API
 │   ├── global-setup.ts      # Seeds admin user before test run
 │   └── playwright.config.ts
-├── .env                     # Secrets and config (project root) — read by docker-compose.prod.yml via env_file; never committed (gitignored)
+├── .env                     # Secrets and config (project root) — read by docker-compose.yml via env_file; never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
 ├── ARCHITECTURE.md
@@ -134,6 +153,7 @@ users
   is_admin        BOOLEAN NOT NULL DEFAULT 0
   created_at      TIMESTAMPTZ NOT NULL
   consent_given_at TIMESTAMPTZ             -- NULL for users created before #138
+  scale_user_id   VARCHAR(8) UNIQUE      -- the user's id on the smart scale, 4 random bytes as hex; created on first weigh-in (#323)
 ```
 
 ### Strength training
@@ -238,11 +258,12 @@ GET    /api/exercises/{id}               Single exercise by ID
 
 # Strength logging
 POST   /api/sessions                      Start a workout session
-DELETE /api/sessions/{id}                Discard an in-progress session and all its logs (active sessions only)
-PATCH  /api/sessions/{id}/end            End a workout session
+DELETE /api/sessions/{id}                Delete a session and all its logs: discard one in progress, or delete a finished one from History (#336)
+PATCH  /api/sessions/{id}/end            End a workout session (400 if already ended)
 GET    /api/sessions                      List completed sessions with volume + set count
+GET    /api/sessions/{id}                One session; ended_at tells whether it is still in progress (#338)
 GET    /api/sessions/{id}/logs           All logs for a session
-POST   /api/logs                          Log a set { exercise_id, session_id, weight, reps }
+POST   /api/logs                          Log a set { exercise_id, session_id, weight, reps }; 409 once the session has ended (#338)
 GET    /api/logs/last/{exercise_id}      Most recent set for an exercise
 
 # Progress
@@ -266,9 +287,18 @@ POST   /api/measurements                  Log a measurement { weight_kg, body_fa
 GET    /api/measurements                  Measurements, newest first — paginated
 DELETE /api/measurements/{id}            Delete a measurement
 
+# Features
+GET    /api/features                      Optional features this instance has on: { scale: bool } (#326)
+
+# Smart scale (404 unless SCALE_ENABLED; see Smart scale below and SCALE.md)
+POST   /api/scale/exchange               Relay scale frames from the phone; returns frames to send back and, once measured, the stored measurement (#323)
+
 # GDPR
 DELETE /api/gdpr/erase                   Delete own account and all associated data (GDPR Article 17)
 GET    /api/gdpr/export                  Download all own data as JSON (GDPR Article 20)
+
+# System
+GET    /health                            200 {"status": "ok"} if DB is reachable; 503 {"status": "error"} if not
 ```
 
 ### Pagination
@@ -281,10 +311,35 @@ query parameters and return the same envelope:
 &page_size=50    default 50, maximum 200
 
 { "items": [...], "total": 1234, "page": 1, "page_size": 50 }
-
-# System
-GET    /health                            200 {"status": "ok"} if DB is reachable; 503 {"status": "error"} if not
 ```
+
+## Smart scale
+
+Opt-in (`SCALE_ENABLED`, #326). The server never talks Bluetooth: it may run
+anywhere, and the scale is only in range of the phone. The phone's browser is a
+relay:
+
+```
+iCOMON scale ⇄ BLE ⇄ phone browser (Web Bluetooth: Bluefy on iPhone, Chrome on Android)
+                         ⇄ HTTPS: POST /api/scale/exchange ⇄ backend/scale/ ⇄ body_measurements
+```
+
+- `frontend/src/scale/relay.ts` forwards every frame the scale sends and writes
+  back what the backend returns, including the name image's chunks. The only
+  thing it decodes itself is the live weight shown while measuring.
+- `backend/scale/` holds the whole protocol: framing and decoding
+  (`protocol.py`), what to answer each message with (`handshake.py`), and the
+  user's name rendered for the scale's display (`name_image.py`, #324).
+- The exchange is stateless on the server: the phone carries the handshake
+  state between requests, and sends its UTC offset for the scale's clock.
+- The scale matches a weigh-in to a user by `users.scale_user_id`, created on
+  the first weigh-in. A result tagged with another id is acknowledged but not
+  stored. Stored weigh-ins the scale re-offers (`A5`) are acknowledged, never
+  stored.
+- Web Bluetooth only works on HTTPS pages, hence `tailscale serve`.
+
+SCALE.md documents the protocol, byte by byte, and how body composition is
+calculated.
 
 ## API contract
 
@@ -338,7 +393,8 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SECRET_KEY` | ✅ | — | Random string for signing JWT tokens. Changing it invalidates all sessions. |
-| `DATABASE_URL` | ✅ | — | PostgreSQL connection string, e.g. `postgresql://fitman:fitman@postgres:5432/fitman` |
+| `POSTGRES_PASSWORD` | ✅ production | — | Production database password; the production stack refuses to start without it and builds the backend's `DATABASE_URL` from it (#335). Hex, as generated in README step 4, since it goes into a URL. Applied only when the database is first created: README, "Changing the database password" |
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string, e.g. `postgresql://fitman:fitman@postgres:5432/fitman`. Overridden by the production stack (see `POSTGRES_PASSWORD`) |
 | `JWT_EXPIRE_DAYS` | | `7` | Token validity in days |
 | `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins, comma-separated |
 | `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size (at least 1) |
@@ -346,6 +402,7 @@ All configuration lives in `.env` at the project root. See `.env.example` for a 
 | `DB_POOL_TIMEOUT` | | `30` | Seconds to wait for a connection before raising an error |
 | `RATE_LIMIT_DISABLED` | | `false` | Set to `true` to disable SlowAPI rate limiting (E2E stack only). Accepts `true`/`false`/`1`/`0`; anything else is rejected |
 | `FITMAN_LOG_FORMAT` | | `json` | Log output format: `json` (structured, one object per line) or `text` for human-readable local development. Any other value is rejected. |
+| `SCALE_ENABLED` | | `false` | Opt in to the smart scale integration (SCALE.md). Off: no scale endpoints (404), no Weigh-in button; manual weight entry either way |
 | `SCALE_HEIGHT_CM` | | `0` | Fallback height for body-composition formulas when neither request nor profile has one; `0` = not set |
 | `SCALE_AGE` | | `0` | Fallback age, same rules; `0` = not set |
 | `SCALE_SEX` | | `1` | Fallback sex for the formulas: `1` = male, `0` = female |
@@ -377,27 +434,27 @@ Since Tailscale already restricts who can reach the server, JWT here primarily p
 
 ## Docker Compose
 
-Three compose files — one per environment:
+Three compose files — one per environment. The default file is production, so
+the plain command launches the app (#339):
 
 ```
-# Development (npm run dev inside Docker, hot reload)
-docker compose up
-
 # Production (static build served by nginx)
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
+
+# Development (npm run dev inside Docker, hot reload)
+docker compose -f docker-compose.dev.yml up
 
 # E2E testing (isolated stack, tmpfs DB, rate limiting off, port 8080)
 docker compose -f docker-compose.e2e.yml up -d --build
 ```
 
-The E2E stack uses project name `fitman-e2e` to avoid colliding with a running production stack. Its PostgreSQL database lives on tmpfs so it is wiped on every `down -v`.
+Production takes its project name from the clone's directory (normally `fitman`), and its data lives in the `<project>_db_data` volume. The file pins no name on purpose: pinning one would move an instance cloned elsewhere onto a new, empty volume. The development and E2E stacks pin `fitman-dev` and `fitman-e2e`, so neither can replace production's containers or reach its data. The E2E database lives on tmpfs, so it is wiped on every `down -v`.
 
-In production, only nginx (port 80) is exposed to the host. The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
+In production, nginx (port 80) is exposed to the host, and PostgreSQL on `127.0.0.1:5433` only, for database clients on the server or through an SSH tunnel (#335). The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
 
 On every container start, `entrypoint.sh` runs `alembic upgrade head` before starting uvicorn, so database migrations apply automatically on deploy.
 
-A `db-guard` service runs before PostgreSQL in the development and production
-stacks, and postgres waits on its successful completion. It inspects the
+A `db-guard` service runs before PostgreSQL in the production stack, and postgres waits on its successful completion. It inspects the
 `db_data` volume and refuses to let the stack start if the volume holds
 something that is not a PostgreSQL cluster — typically `fitman.db` left by the
 pre-PostgreSQL version. Without it, postgres reports `initdb: directory exists
@@ -427,7 +484,7 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 | pgcrypto / column-level encryption | Most granular, but: requires managing an encryption key in `.env`, breaks `WHERE` queries on encrypted columns, complicates backups and exports. Disproportionate for this scope. |
 | Column-level encryption (`cryptography` lib) | Same trade-offs as pgcrypto with more application complexity. Not recommended. |
 
-**Key management (filesystem approach):** Use Linux LUKS or macOS FileVault on the host machine, or encrypt the Docker volume via the host's block device. The `SECRET_KEY` in `.env` remains the only application-level secret and should not be committed to version control.
+**Key management (filesystem approach):** Use Linux LUKS or macOS FileVault on the host machine, or encrypt the Docker volume via the host's block device. `SECRET_KEY` and `POSTGRES_PASSWORD` in `.env` are the only application-level secrets; `.env` is gitignored and must never be committed.
 
 **Backup note:** Encrypted backups are only as strong as the decryption key. Store backups on an encrypted medium and never in the same location as the key.
 
@@ -435,7 +492,7 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 
 ## Hosting & access
 
-- The server runs Docker Compose continuously (`docker compose -f docker-compose.prod.yml up -d`)
+- The server runs Docker Compose continuously (`docker compose up -d`)
 - Tailscale is installed on the server and on your phone/laptop
 - No port forwarding or public IP needed — Tailscale creates a private encrypted network
-- Access the app at `http://fitman.local` (or whatever Tailscale hostname you configure)
+- Access the app at `https://<host>.<tailnet>.ts.net`: `tailscale serve` terminates HTTPS in front of nginx (README, step 5)

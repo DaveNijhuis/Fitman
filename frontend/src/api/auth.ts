@@ -19,6 +19,10 @@ export async function register(username: string, password: string, displayName?:
 }
 
 export async function login(username: string, password: string): Promise<void> {
+  // Logging in replaces the session, so drop the old token first. Sent along
+  // with the credentials, a stale token would turn a wrong password's 401 into
+  // an apparent expired session — clearing the form's error on redirect (#317).
+  clearToken()
   const data = await request<TokenResponse>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),

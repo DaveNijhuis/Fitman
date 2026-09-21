@@ -32,3 +32,27 @@ test('finishing a session returns to home', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Fitman/i })).toBeVisible()
   await expect(page).not.toHaveURL(/\/workout\//)
 })
+
+test('a finished workout can be deleted from its detail page (#336)', async ({ page }) => {
+  const home = new HomePage(page)
+  await home.waitForStats()
+  await home.startSession('Push A')
+  const workout = new WorkoutPage(page)
+  await workout.waitForLoaded()
+  await workout.finish()
+
+  await page.goto('/history')
+  await expect(page.getByText('1 workouts logged')).toBeVisible()
+  // Anchored: the sidebar's "Resume Push A" must never match the History entry.
+  await page.getByRole('button', { name: /^Push A/ }).click()
+  await expect(page).toHaveURL(/\/history\/\d+/)
+
+  await page.getByRole('button', { name: /delete workout/i }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('Push A')
+  await dialog.getByRole('button', { name: /^delete$/i }).click()
+
+  await expect(page).toHaveURL(/\/history$/)
+  await expect(page.getByText('No workouts yet. Go lift something.')).toBeVisible()
+  await expect(page.getByText('0 workouts logged')).toBeVisible()
+})

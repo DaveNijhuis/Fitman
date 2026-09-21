@@ -110,8 +110,9 @@ jobs:
         run: |
           echo "SECRET_KEY=ci_placeholder_key" >> .env
           echo "DATABASE_URL=postgresql://fitman:fitman@postgres:5432/fitman" >> .env
+          echo "POSTGRES_PASSWORD=ci_placeholder_db_password" >> .env
       - name: Build production images
-        run: docker compose -f docker-compose.prod.yml build
+        run: docker compose build
 
   e2e:
     name: E2E tests

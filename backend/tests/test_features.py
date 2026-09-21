@@ -28,10 +28,21 @@ def scale_on(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     yield
 
 
+@pytest.fixture(autouse=True)
+def scale_off_unless_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Start every test with the scale off, whatever the developer's .env says.
+
+    The default itself (off) is pinned in test_settings.py, which ignores .env;
+    here it must not depend on it — SCALE_ENABLED=true for real weigh-ins
+    otherwise flips these results.
+    """
+    monkeypatch.setattr(settings, "scale_enabled", False)
+
+
 # ── GET /api/features ─────────────────────────────────────────────────────────
 
 
-def test_features_report_the_scale_off_by_default(client: TestClient):
+def test_features_report_the_scale_off(client: TestClient):
     resp = client.get("/api/features", headers=_auth(client))
     assert resp.status_code == 200
     assert resp.json() == {"scale": False}

@@ -54,7 +54,8 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_entrypoint.py` | entrypoint.sh behaviour: non-zero exit and clear error message to stderr when migration fails; uvicorn not invoked on failure, invoked on success |
 | `test_exercises.py` | Exercise list (session + search filters), exercise by ID, sessions list |
 | `test_gdpr.py` | Right to erasure (401, 204, cascade delete); data export (401, structure, no password hash, Content-Disposition header, workout sessions included); fixture integrity check asserting seeded cardio activity is a valid title-case value |
-| `test_formulas.py` | Body composition formula calculations (BMI, fat mass, lean mass, BMR, segmental values) — pure unit tests, no HTTP |
+| `test_formulas.py` | Body composition formula calculations (BMI, fat mass, lean mass, BMR, segmental values) — pure unit tests, no HTTP; without trunk impedance every derived field except skeletal muscle and SMI is still computed and the segments still sum to the totals; visceral fat (WLA25) matches both Fitdays readings exactly (9, 16) and stays within 1–20; trunk fat and trunk muscle are within 0.7 and 0.2 kg of Fitdays (#325) |
+| `test_backfill_derived.py` | Stored measurements with raw inputs but no derived fields get them at startup, using the age at the time of the measurement; rows that already have derived values, or lack body fat, are left alone; a second run changes nothing; it runs in the app's startup (#325) |
 | `test_isolation.py` | Per-user data isolation: user B cannot read user A's sessions, cardio, or measurements |
 | `test_logs.py` | Set logging validation (`weight >= 0`, `reps > 0`), POST edge cases (bad IDs), GET last log, GET log list |
 | `test_measurements.py` | Body measurement CRUD, auth enforcement, full BIA formula application with impedance inputs |

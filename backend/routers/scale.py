@@ -136,7 +136,8 @@ def _store(
     db.add(m)
     db.commit()
     db.refresh(m)
-    # Derived fields stay empty while trunk impedance is unresolved (#325).
+    # Trunk impedance is not stored (#320); the formulas derive everything but
+    # skeletal muscle without it (#325).
     _apply_formulae(m, age, sex)
     db.commit()
     db.refresh(m)

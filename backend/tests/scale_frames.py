@@ -37,6 +37,10 @@ GUEST_RECORD = unhex(  # BE for the built-in guest; also sets the clock
 GUEST_TIME = 0x6AB11E59
 UTC_OFFSET_MIN = 120
 AD_ALREADY_HAS_IMAGE = unhex("0f 00 06 00 ad 01 04 00 00 00 12")
+AD_SEND_IMAGE = unhex("63 00 06 00 ad 01 00 20 00 95 03")  # 0x95 = 149-byte chunks
+# The 18-byte header of Fitdays' name image (184 x 48 px). The bitmap that
+# followed spelled a real name, so it stays out of this public repository.
+NAME_IMAGE_HEADER = unhex("41 00 41 00 01 00 00 00 0c 00 00 00 b8 b8 30 00 00 00")
 
 # ── Captured structure, made-up person ────────────────────────────────────────
 

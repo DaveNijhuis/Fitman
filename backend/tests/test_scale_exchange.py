@@ -329,3 +329,69 @@ def test_a_height_the_scale_cannot_represent_is_refused(client: TestClient, scal
     resp = _exchange(client, headers, [F.HELLO])
     assert resp.status_code == 422
     assert "height" in resp.json()["detail"]
+
+
+# ── Name on the display (#324) ────────────────────────────────────────────────
+
+
+def test_the_offer_names_the_user_with_a_stable_image_id(
+    client: TestClient, scale_on, person
+):
+    headers, _ = person
+    first = protocol.parse(
+        bytes.fromhex(_exchange(client, headers, [F.HELLO]).json()["send"][-1])
+    )
+    again = protocol.parse(
+        bytes.fromhex(_exchange(client, headers, [F.HELLO]).json()["send"][-1])
+    )
+    assert first.type == 0xBC
+    assert (
+        first.payload[16:18] == again.payload[16:18]
+    )  # unchanged name: the scale won't ask again
+
+
+def test_a_new_display_name_changes_the_image_id(client: TestClient, scale_on, person):
+    headers, _ = person
+    before = protocol.parse(
+        bytes.fromhex(_exchange(client, headers, [F.HELLO]).json()["send"][-1])
+    )
+    client.patch("/api/profile", json={"display_name": "Someone Else"}, headers=headers)
+    after = protocol.parse(
+        bytes.fromhex(_exchange(client, headers, [F.HELLO]).json()["send"][-1])
+    )
+    assert before.payload[16:18] != after.payload[16:18]
+
+
+def test_when_the_scale_asks_the_image_chunks_are_returned(
+    client: TestClient, scale_on, person
+):
+    headers, username = person
+    state = _exchange(client, headers, [F.HELLO]).json()
+    resp = _exchange(
+        client,
+        headers,
+        [F.AD_SEND_IMAGE],
+        phone_seq=state["phone_seq"],
+        sequence_sent=True,
+    ).json()
+    chunks = [bytes.fromhex(c) for c in resp["image_chunks"]]
+    assert chunks, "no image chunks returned"
+    assert [c[0] for c in chunks] == list(range(len(chunks)))
+    image = b"".join(c[1:] for c in chunks)
+    assert image[14] == 48  # a 48-px-high name image
+    assert resp["send"] == []
+
+
+def test_no_chunks_when_the_scale_already_has_the_image(
+    client: TestClient, scale_on, person
+):
+    headers, _ = person
+    state = _exchange(client, headers, [F.HELLO]).json()
+    resp = _exchange(
+        client,
+        headers,
+        [F.AD_ALREADY_HAS_IMAGE],
+        phone_seq=state["phone_seq"],
+        sequence_sent=True,
+    ).json()
+    assert resp["image_chunks"] == []

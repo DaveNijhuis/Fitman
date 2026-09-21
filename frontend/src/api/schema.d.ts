@@ -672,6 +672,11 @@ export interface components {
         ExchangeOut: {
             /** Error */
             error?: string | null;
+            /**
+             * Image Chunks
+             * @default []
+             */
+            image_chunks: string[];
             measurement?: components["schemas"]["MeasurementOut"] | null;
             /** Phone Seq */
             phone_seq: number;

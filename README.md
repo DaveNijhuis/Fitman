@@ -75,14 +75,17 @@ cd Fitman
 cp .env.example .env
 ```
 
-Edit `.env` and set one required value:
+Edit `.env` and set two required values, each generated:
 
 ```bash
-# Generate a secure key:
-python3 -c "import secrets; print(secrets.token_hex(32))"
+python3 -c "import secrets; print(secrets.token_hex(32))"   # → SECRET_KEY
+python3 -c "import secrets; print(secrets.token_hex(24))"   # → POSTGRES_PASSWORD
 
-SECRET_KEY=<paste generated key here>
+SECRET_KEY=<first value>
+POSTGRES_PASSWORD=<second value>
 ```
+
+The stack refuses to start without `POSTGRES_PASSWORD`. Keep it hex (as generated): it goes into the backend's connection URL.
 
 Then start the app:
 
@@ -219,6 +222,34 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 ---
+
+
+### Database access
+
+The production database is published on `127.0.0.1:5433`: reachable from the server itself, never from the network.
+
+- **On the server:** connect any client (e.g. DBeaver) to `localhost:5433`, database `fitman`, user `fitman`, password `POSTGRES_PASSWORD` from `.env`.
+- **From another machine:** use an SSH tunnel to the server over Tailscale. In DBeaver: host `localhost`, port `5433`, and on the **SSH** tab the server's Tailscale name, port 22, key authentication. The server needs an SSH server (`sudo systemctl enable --now sshd`); plain OpenSSH works where Tailscale SSH's browser re-check can't.
+
+Tick **Read-only connection** in DBeaver unless you mean to change data.
+
+### Changing the database password
+
+PostgreSQL applies `POSTGRES_PASSWORD` only when it first creates the database. For an existing one, including every instance deployed before this setting existed with the old default `fitman`, change it in place:
+
+```bash
+# 1. Generate a password and set it in .env as POSTGRES_PASSWORD=<value>
+python3 -c "import secrets; print(secrets.token_hex(24))"
+
+# 2. Apply it to the running database (local connections inside the container need no password)
+docker compose -f docker-compose.prod.yml exec postgres \
+  psql -U fitman -d fitman -c "ALTER USER fitman WITH PASSWORD '<value>'"
+
+# 3. Restart, so the backend connects with the new password
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Set it in `.env` first: once `POSTGRES_PASSWORD` is required, Compose won't run any command without it.
 
 ## Development setup
 

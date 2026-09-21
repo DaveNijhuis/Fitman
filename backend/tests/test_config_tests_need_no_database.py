@@ -27,6 +27,7 @@ _CONFIG_ONLY = [
     "tests/test_gitignore.py",
     "tests/test_lint_config.py",
     "tests/test_nginx_conf.py",
+    "tests/test_prod_db_credentials.py",
     "tests/test_readme_https.py",
     "tests/test_scale_handshake.py",
     "tests/test_scale_protocol.py",

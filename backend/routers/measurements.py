@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -8,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
+from config import settings
 from database import get_db
 from formulas import ImpedanceInputs, UserProfile, calculate_all
 from models.measurement import BodyMeasurement
@@ -86,8 +86,7 @@ class MeasurementPage(BaseModel):
 
 def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> None:
     """If all required inputs are present, calculate and fill derived fields."""
-    _env_h = float(os.getenv("SCALE_HEIGHT_CM", "0"))
-    height: float | None = measurement.height_cm or (_env_h or None)
+    height: float | None = measurement.height_cm or (settings.scale_height_cm or None)
 
     required = [
         age,
@@ -156,7 +155,7 @@ def log_measurement(
     elif current_user.birth_year:
         age = datetime.now(timezone.utc).year - current_user.birth_year
     else:
-        age = int(os.getenv("SCALE_AGE", "0")) or None
+        age = settings.scale_age or None
 
     # Sex: request → profile sex → env
     if sex_from_request is not None:
@@ -164,7 +163,7 @@ def log_measurement(
     elif current_user.sex in _SEX_MAP:
         sex = _SEX_MAP[current_user.sex]
     else:
-        sex = int(os.getenv("SCALE_SEX", "1"))
+        sex = settings.scale_sex
     db.add(measurement)
     db.commit()
     db.refresh(measurement)

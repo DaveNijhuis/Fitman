@@ -49,6 +49,12 @@ def log_set(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
+    # A finished workout stays finished: its History entry, records and volume
+    # must not change after the fact (#338).
+    if workout.ended_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Session already ended"
+        )
     log = Log(
         exercise_id=body.exercise_id,
         session_id=body.session_id,

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, Check, Clock, Dumbbell } from 'lucide-react'
 import { getExercises, type Exercise } from '../api/exercises'
 import { getLastSet, logSet, type LogEntry } from '../api/logs'
-import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSessionLogs, type SessionLogEntry } from '../api/workoutSessions'
+import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSession, getSessionLogs, saveActiveWorkout, type SessionLogEntry } from '../api/workoutSessions'
 import FinishWorkoutSheet from '../components/FinishWorkoutSheet'
 
 interface SetRow {
@@ -68,9 +68,31 @@ export default function ActiveWorkoutPage() {
   const [sets, setSets] = useState<Record<number, SetRow[]>>({})
   const [rest, setRest] = useState(0)
   const [exercisesLoading, setExercisesLoading] = useState(true)
-  const [setLogError, setSetLogError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
   const [finishing, setFinishing] = useState(false)
+
+  /**
+   * Leave a workout that is no longer in progress (#338). The in-progress
+   * marker can outlive it, so Resume would keep reopening it; clear the marker,
+   * but only if it is this workout's.
+   */
+  function leave(to: string) {
+    if (getActiveWorkout()?.id === id) clearActiveWorkout()
+    navigate(to, { replace: true })
+  }
+
+  // Resumed a workout that has since been finished, or deleted? Nothing to log to.
+  useEffect(() => {
+    let alive = true
+    getSession(id)
+      .then(w => { if (alive && w.ended_at) leave(`/history/${id}`) })
+      .catch((err: unknown) => {
+        // Only "not found" means it's gone; offline, say, proves nothing.
+        if (alive && err instanceof Error && err.message === 'Session not found') leave('/')
+      })
+    return () => { alive = false }
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Elapsed timer
   useEffect(() => {
@@ -160,9 +182,14 @@ export default function ActiveWorkoutPage() {
         return { ...prev, [exerciseId]: exSets }
       })
       setRest(90)
-    } catch {
-      setSetLogError('Set not saved — please retry.')
-      setTimeout(() => setSetLogError(null), 4000)
+    } catch (err) {
+      // Finished elsewhere, e.g. on another device: retrying can't help.
+      if (err instanceof Error && err.message === 'Session already ended') {
+        leave(`/history/${id}`)
+        return
+      }
+      setSaveError('Set not saved — please retry.')
+      setTimeout(() => setSaveError(null), 4000)
     }
   }
 
@@ -194,10 +221,22 @@ export default function ActiveWorkoutPage() {
 
   async function handleConfirmFinish() {
     setFinishing(true)
+    // Cleared first: leaving the page while the server ends the session must
+    // not leave Resume on offer for a finished workout (#338).
+    const marker = getActiveWorkout()
+    clearActiveWorkout()
     try {
       await endSession(id)
-      clearActiveWorkout()
       navigate('/')
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Session already ended') {
+        leave(`/history/${id}`)
+        return
+      }
+      if (marker) saveActiveWorkout(marker.id, marker.session, marker.startedAt)
+      setShowSummary(false)
+      setSaveError('Workout not finished — please retry.')
+      setTimeout(() => setSaveError(null), 4000)
     } finally {
       setFinishing(false)
     }
@@ -268,9 +307,9 @@ export default function ActiveWorkoutPage() {
           </div>
         )}
 
-        {setLogError && (
+        {saveError && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-[14px] bg-red-50 border border-red-200 text-red-600 text-sm font-semibold">
-            {setLogError}
+            {saveError}
           </div>
         )}
 
@@ -358,6 +397,7 @@ export default function ActiveWorkoutPage() {
                       <button
                         onClick={() => toggleSet(ex.id, si)}
                         disabled={row.done}
+                        aria-label={`Log ${ex.name} set ${si + 1}`}
                         className={`w-[34px] h-[34px] rounded-[9px] flex items-center justify-center transition-all duration-[140ms] ${
                           row.done
                             ? 'bg-[var(--color-good)]'

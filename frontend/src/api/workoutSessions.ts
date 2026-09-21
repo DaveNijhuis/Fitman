@@ -46,6 +46,11 @@ export function getSessionLogs(sessionId: number): Promise<SessionLogEntry[]> {
   return request<SessionLogEntry[]>(`/api/sessions/${sessionId}/logs`)
 }
 
+/** One session, to tell whether it is still in progress (#338). */
+export function getSession(sessionId: number): Promise<WorkoutSession> {
+  return request<WorkoutSession>(`/api/sessions/${sessionId}`)
+}
+
 export function startSession(session: string): Promise<WorkoutSession> {
   return request<WorkoutSession>('/api/sessions', {
     method: 'POST',

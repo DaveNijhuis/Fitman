@@ -54,13 +54,17 @@ check = sum(type + payload) & 0x1F
 | `BF` | phone | **The profile body fat is computed from:** `01 01 [height cm] [last weight u16 BE ÷ 100] [sex\|age] 00 00 00 00 0F [user id, 4 B] 01 01`. sex\|age = `0x80` if male, OR'd with the age. |
 | `A0` | scale | Acknowledge a phone message by its seq |
 | `BD` | phone | `09`. The scale answers `A8` with the name image id it holds for the user. |
-| `BC` | phone | Offer a name image (#324). The scale answers `AD`. |
+| `BC` | phone | Offer the name image: `01 00`, size u32 BE (twice), 16-bit byte sum, user id, image id. The scale answers `AD`: `01 00 20 00 95` asks for it (0x95 = 149-byte chunks), `01 04 …` means it already holds that image id. |
 | `A7` | scale | **Result** (below). Acknowledge it with `B0`. |
 | `A5` | scale | A weigh-in stored while nothing was connected: same layout as `A7`, no user id. Re-offered every ~10 s until acknowledged. |
 
 The handshake, as Fitdays does it: `AA` → `B0`, `BE` (guest), `BF`, `BE` (user), `BD`, `BC`; after the weigh-in, `A7` → `B0`.
 
 An earlier version of this document described an `FE [unit] 00 [age] [height] [sex] [xor]` profile command. It is not part of this protocol: the scale ignored it and used whatever profile Fitdays had stored.
+
+### Name on the display
+
+Fitman shows each user's display name (or username) on the scale, as Fitdays does (#324). The name is rendered as a 1-bit bitmap in Noto Sans Bold: an 18-byte header `41 00 41 00 01 00 00 00 0C 00 00 00 [w] [w] [h] 00 00 00`, then rows top to bottom, MSB = leftmost pixel, 48 px high. The image id is its byte sum, so the scale only asks for the image again when the name changes. The exchange returns the chunks as `image_chunks`, and the phone writes them to FFB4 without response.
 
 ### Result (`A7`, 43 bytes)
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { weighIn, type ExchangeFn } from '../relay'
-import { FFB0, FFB1, FFB2, FFB3 } from '../bluetooth'
+import { FFB0, FFB1, FFB2, FFB3, FFB4 } from '../bluetooth'
 
 /**
  * The phone's side of a weigh-in (#322): relay every frame the scale sends to
@@ -32,10 +32,16 @@ class FakeCharacteristic {
     this.listeners.push(fn)
   }
   async writeValueWithResponse(data: BufferSource) {
+    this.record(data, 'write')
+  }
+  async writeValueWithoutResponse(data: BufferSource) {
+    this.record(data, 'write-no-response')
+  }
+  private record(data: BufferSource, how: string) {
     const bytes = new Uint8Array(data instanceof ArrayBuffer ? data : (data as ArrayBufferView).buffer)
     const hex = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('')
     this.written.push(hex)
-    this.log.push(`write ${hex}`)
+    this.log.push(`${how} ${this.uuid === FFB4 ? 'FFB4' : 'FFB1'} ${hex}`)
   }
   emit(hex: string) {
     const bytes = new Uint8Array(hex.match(/../g)!.map(h => parseInt(h, 16)))
@@ -45,7 +51,7 @@ class FakeCharacteristic {
 
 function fakeScale() {
   const log: string[] = []
-  const chars = new Map([FFB1, FFB2, FFB3].map(u => [u, new FakeCharacteristic(u, log)]))
+  const chars = new Map([FFB1, FFB2, FFB3, FFB4].map(u => [u, new FakeCharacteristic(u, log)]))
   const deviceListeners: Record<string, (() => void)[]> = {}
   const gatt = {
     connected: false,
@@ -70,6 +76,7 @@ function fakeScale() {
     ffb1: chars.get(FFB1)!,
     ffb2: chars.get(FFB2)!,
     ffb3: chars.get(FFB3)!,
+    ffb4: chars.get(FFB4)!,
     dropConnection: () => deviceListeners['gattserverdisconnected']?.forEach(fn => fn()),
   }
 }
@@ -87,7 +94,7 @@ afterEach(() => { vi.useRealTimers() })
 describe('connecting', () => {
   it('asks the browser for an e.volve scale with the FFB0 service', async () => {
     const s = fakeScale()
-    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
+    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], image_chunks: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
     void weighIn({ bluetooth: s.bluetooth, exchange }).catch(() => {})
     await settle()
     expect(s.requestDevice).toHaveBeenCalledWith({
@@ -102,7 +109,7 @@ describe('relaying', () => {
   it('posts each scale frame and writes the returned frames to FFB1 in order', async () => {
     const s = fakeScale()
     const exchange: ExchangeFn = vi.fn(async () => ({
-      send: ['aa01', 'bb02', 'cc03'], phone_seq: 6, sequence_sent: true, measurement: null, error: null,
+      send: ['aa01', 'bb02', 'cc03'], image_chunks: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null,
     }))
     void weighIn({ bluetooth: s.bluetooth, exchange, utcOffsetMin: 120 }).catch(() => {})
     await settle()
@@ -117,8 +124,8 @@ describe('relaying', () => {
   it('carries the handshake state into the next exchange', async () => {
     const s = fakeScale()
     const exchange = vi.fn<ExchangeFn>()
-      .mockResolvedValueOnce({ send: ['aa01'], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
-      .mockResolvedValue({ send: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
+      .mockResolvedValueOnce({ send: ['aa01'], image_chunks: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
+      .mockResolvedValue({ send: [], image_chunks: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
     void weighIn({ bluetooth: s.bluetooth, exchange, utcOffsetMin: 0 }).catch(() => {})
     await settle()
     s.ffb3.emit(HELLO)
@@ -133,9 +140,9 @@ describe('relaying', () => {
     let release!: () => void
     const exchange = vi.fn<ExchangeFn>()
       .mockImplementationOnce(() => new Promise(r => {
-        release = () => r({ send: ['aa01'], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
+        release = () => r({ send: ['aa01'], image_chunks: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
       }))
-      .mockResolvedValue({ send: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
+      .mockResolvedValue({ send: [], image_chunks: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
     void weighIn({ bluetooth: s.bluetooth, exchange }).catch(() => {})
     await settle()
     s.ffb3.emit(HELLO)
@@ -145,12 +152,12 @@ describe('relaying', () => {
     release()
     await settle()
     expect(exchange).toHaveBeenCalledTimes(2)
-    expect(s.log[0]).toBe('write aa01')  // the first's write happened before the second exchange
+    expect(s.log[0]).toBe('write FFB1 aa01')  // the first's write happened before the second exchange
   })
 
   it('starts unprompted when no hello arrives', async () => {
     const s = fakeScale()
-    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], phone_seq: 5, sequence_sent: true, measurement: null, error: null }))
+    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], image_chunks: [], phone_seq: 5, sequence_sent: true, measurement: null, error: null }))
     void weighIn({ bluetooth: s.bluetooth, exchange }).catch(() => {})
     await settle()
     expect(exchange).not.toHaveBeenCalled()
@@ -158,10 +165,27 @@ describe('relaying', () => {
     expect(exchange).toHaveBeenCalledWith(expect.objectContaining({ frames: [] }))
   })
 
+  it('writes name image chunks to FFB4 without response, after the FFB1 frames (#324)', async () => {
+    const s = fakeScale()
+    const exchange: ExchangeFn = vi.fn(async () => ({
+      send: ['aa01'], image_chunks: ['00c0ffee', '01beef'],
+      phone_seq: 6, sequence_sent: true, measurement: null, error: null,
+    }))
+    void weighIn({ bluetooth: s.bluetooth, exchange }).catch(() => {})
+    await settle()
+    s.ffb3.emit('63000600ad010020009503')
+    await settle()
+    expect(s.log).toEqual([
+      'write FFB1 aa01',
+      'write-no-response FFB4 00c0ffee',
+      'write-no-response FFB4 01beef',
+    ])
+  })
+
   it('reports live weight from FFB2', async () => {
     const s = fakeScale()
     const onLiveWeight = vi.fn()
-    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
+    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], image_chunks: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
     void weighIn({ bluetooth: s.bluetooth, exchange, onLiveWeight }).catch(() => {})
     await settle()
     s.ffb2.emit('ba000700a20025611b340007')  // status bit 0 carries 65536 g
@@ -173,8 +197,8 @@ describe('finishing', () => {
   it('resolves with the stored measurement and disconnects', async () => {
     const s = fakeScale()
     const exchange = vi.fn<ExchangeFn>()
-      .mockResolvedValueOnce({ send: ['aa01'], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
-      .mockResolvedValue({ send: ['b006'], phone_seq: 7, sequence_sent: true, measurement: MEASUREMENT, error: null })
+      .mockResolvedValueOnce({ send: ['aa01'], image_chunks: [], phone_seq: 6, sequence_sent: true, measurement: null, error: null })
+      .mockResolvedValue({ send: ['b006'], image_chunks: [], phone_seq: 7, sequence_sent: true, measurement: MEASUREMENT, error: null })
     const done = weighIn({ bluetooth: s.bluetooth, exchange })
     await settle()
     s.ffb3.emit(HELLO)
@@ -200,7 +224,7 @@ describe('finishing', () => {
   it('rejects when the result was for someone else', async () => {
     const s = fakeScale()
     const exchange: ExchangeFn = vi.fn(async () => ({
-      send: ['b006'], phone_seq: 7, sequence_sent: true, measurement: null,
+      send: ['b006'], image_chunks: [], phone_seq: 7, sequence_sent: true, measurement: null,
       error: 'The scale attributed this weigh-in to a different scale user; not stored.',
     }))
     const done = weighIn({ bluetooth: s.bluetooth, exchange })
@@ -212,7 +236,7 @@ describe('finishing', () => {
 
   it('rejects when the connection drops before a result', async () => {
     const s = fakeScale()
-    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
+    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], image_chunks: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
     const done = weighIn({ bluetooth: s.bluetooth, exchange })
     await settle()
     s.dropConnection()
@@ -221,7 +245,7 @@ describe('finishing', () => {
 
   it('gives up with a message rather than waiting forever', async () => {
     const s = fakeScale()
-    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
+    const exchange: ExchangeFn = vi.fn(async () => ({ send: [], image_chunks: [], phone_seq: 0, sequence_sent: false, measurement: null, error: null }))
     const done = weighIn({ bluetooth: s.bluetooth, exchange, timeoutMs: 5000 })
     const check = expect(done).rejects.toThrow(/no reading/i)
     await vi.advanceTimersByTimeAsync(5100)

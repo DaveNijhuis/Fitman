@@ -265,3 +265,19 @@ def decode_measurement(f: Frame) -> Measurement:
         rl_z100=_ohm(p, 25),
         ll_z100=_ohm(p, 27),
     )
+
+
+def name_offer(seq: int, *, image: bytes, user_id: bytes, image_id: int) -> bytes:
+    """BC offering a name image (#324): 01 00, size u32 BE twice, byte sum u16 BE,
+    user id, image id. The scale answers AD 01 00 .. [chunk len] to ask for it,
+    or AD 01 04 .. when it already holds that image id for the user."""
+    size = len(image).to_bytes(4, "big")
+    payload = (
+        bytes([0x01, 0x00])
+        + size
+        + size
+        + (sum(image) & 0xFFFF).to_bytes(2, "big")
+        + _uid(user_id)
+        + (image_id & 0xFFFF).to_bytes(2, "big")
+    )
+    return frame(seq, 0xBC, payload)

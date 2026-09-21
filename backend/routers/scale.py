@@ -62,6 +62,9 @@ class ExchangeIn(BaseModel):
 
 class ExchangeOut(BaseModel):
     send: list[str]  # hex frames to write to FFB1, in order
+    # Name image chunks (#324), hex, to write to FFB4 without response, in
+    # order, after `send` — only once the scale has asked for the image.
+    image_chunks: list[str] = []
     phone_seq: int
     sequence_sent: bool
     measurement: MeasurementOut | None = None
@@ -167,6 +170,9 @@ def exchange(
             utc_offset_min=body.utc_offset_min,
             seq=body.phone_seq,
             sent_sequence=body.sequence_sent,
+            # Rendered every request (it's small); the image id only changes
+            # with the name, so the scale only asks for it again then.
+            name=user.display_name or user.username,
         )
         frames = [protocol.parse(bytes.fromhex(f)) for f in body.frames]
         send = hs.start() if not frames else []
@@ -191,6 +197,7 @@ def exchange(
 
     return ExchangeOut(
         send=[f.hex() for f in send],
+        image_chunks=[c.hex() for c in hs.take_image_chunks()],
         phone_seq=hs.seq,
         sequence_sent=hs.sent_sequence,
         measurement=MeasurementOut.model_validate(measurement) if measurement else None,

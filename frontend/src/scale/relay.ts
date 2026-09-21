@@ -1,7 +1,7 @@
 import type { Measurement } from '../api/measurements'
 import type { ExchangeRequest, ExchangeResponse } from '../api/scale'
 import {
-  FFB0, FFB1, FFB2, FFB3,
+  FFB0, FFB1, FFB2, FFB3, FFB4,
   type BluetoothLike, type GattCharacteristic, type ValueChangedEvent,
 } from './bluetooth'
 
@@ -68,6 +68,7 @@ export async function weighIn(options: WeighInOptions): Promise<Measurement> {
     let state = { phone_seq: 0, sequence_sent: false }
     let queue: Promise<void> = Promise.resolve()
     let ffb1: GattCharacteristic | null = null
+    let ffb4: GattCharacteristic | null = null
     const timers: ReturnType<typeof setTimeout>[] = []
 
     const finish = (settle: () => void) => {
@@ -86,6 +87,9 @@ export async function weighIn(options: WeighInOptions): Promise<Measurement> {
       const resp = await exchange({ frames, ...state, utc_offset_min: utcOffsetMin })
       state = { phone_seq: resp.phone_seq, sequence_sent: resp.sequence_sent }
       for (const frame of resp.send) await ffb1?.writeValueWithResponse(fromHex(frame))
+      // The name for the scale's display (#324), once the scale has asked for
+      // it. FFB4 only takes writes without response.
+      for (const chunk of resp.image_chunks ?? []) await ffb4?.writeValueWithoutResponse(fromHex(chunk))
       if (resp.measurement) {
         const measurement = resp.measurement
         finish(() => resolve(measurement))
@@ -108,6 +112,7 @@ export async function weighIn(options: WeighInOptions): Promise<Measurement> {
       const server = await gatt.connect()
       const service = await server.getPrimaryService(FFB0)
       ffb1 = await service.getCharacteristic(FFB1)
+      ffb4 = await service.getCharacteristic(FFB4)
       const ffb2 = await service.getCharacteristic(FFB2)
       const ffb3 = await service.getCharacteristic(FFB3)
       ffb2.addEventListener('characteristicvaluechanged', (e: ValueChangedEvent) => {

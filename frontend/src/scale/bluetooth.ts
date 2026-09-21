@@ -10,6 +10,7 @@ export const FFB0 = '0000ffb0-0000-1000-8000-00805f9b34fb'  // the scale's servi
 export const FFB1 = '0000ffb1-0000-1000-8000-00805f9b34fb'  // write: frames to the scale
 export const FFB2 = '0000ffb2-0000-1000-8000-00805f9b34fb'  // notify: live weight
 export const FFB3 = '0000ffb3-0000-1000-8000-00805f9b34fb'  // indicate: frames from the scale
+export const FFB4 = '0000ffb4-0000-1000-8000-00805f9b34fb'  // write without response: name image (#324)
 
 export interface ValueChangedEvent {
   target: { value: DataView }
@@ -19,6 +20,7 @@ export interface GattCharacteristic {
   startNotifications(): Promise<unknown>
   addEventListener(type: 'characteristicvaluechanged', listener: (event: ValueChangedEvent) => void): void
   writeValueWithResponse(value: BufferSource): Promise<void>
+  writeValueWithoutResponse(value: BufferSource): Promise<void>
 }
 
 export interface GattService {

@@ -322,6 +322,14 @@
             ],
             "title": "Error"
           },
+          "image_chunks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Chunks",
+            "type": "array"
+          },
           "measurement": {
             "anyOf": [
               {

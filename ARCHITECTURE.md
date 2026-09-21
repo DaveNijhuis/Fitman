@@ -78,7 +78,9 @@ Fitman/
 │   │   └── gdpr.py          # Data export and account erasure
 │   ├── scale/               # Smart scale protocol, no radio code (see SCALE.md)
 │   │   ├── protocol.py      # Framing, messages, result decoding
-│   │   └── handshake.py     # What to send back for each scale message
+│   │   ├── handshake.py     # What to send back for each scale message
+│   │   ├── name_image.py    # The user's name as a bitmap for the scale's display (#324)
+│   │   └── fonts/           # Noto Sans Bold + its SIL Open Font License (OFL.txt)
 │   ├── models/              # SQLAlchemy database models
 │   │   ├── exercise.py
 │   │   ├── workout.py

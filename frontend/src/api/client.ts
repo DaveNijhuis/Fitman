@@ -12,6 +12,33 @@ export function clearToken(): void {
   localStorage.removeItem('token')
 }
 
+export const session = {
+  /**
+   * A full page load rather than a router navigation: it also abandons every
+   * request the dead session still has in flight, each of which would
+   * otherwise come back 401 and try to redirect again.
+   *
+   * An object property so tests can replace it; jsdom does not navigate.
+   */
+  redirectToLogin(url: string): void {
+    window.location.assign(url)
+  },
+}
+
+/**
+ * End a session the backend no longer accepts (#317).
+ *
+ * The route guard only checks that a token exists, so a stored token that is
+ * expired, signed with a rotated SECRET_KEY, or invalidated by a password
+ * change let the user through to pages whose every request failed — reported
+ * as "check your connection", with no way back to the login screen.
+ */
+export function endRejectedSession(): void {
+  clearToken()
+  const here = window.location.pathname + window.location.search
+  session.redirectToLogin(`/login?expired=1&next=${encodeURIComponent(here)}`)
+}
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -21,6 +48,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(path, { ...options, headers })
+
+  // Only a 401 on a request that carried a token means the session is dead.
+  // Without one, a 401 is an ordinary answer — a wrong password, for instance.
+  if (res.status === 401 && token) endRejectedSession()
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Request failed' }))

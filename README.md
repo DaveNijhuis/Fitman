@@ -228,7 +228,7 @@ Run the test suites:
 
 ```bash
 cd backend  && .venv/bin/pytest    # 356 tests, 90% coverage floor
-cd frontend && npm test            # 31 tests, Vitest + jsdom
+cd frontend && npm test            # 50 tests, Vitest + jsdom
 ```
 
 The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.

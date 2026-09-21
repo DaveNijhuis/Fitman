@@ -3,8 +3,8 @@
 [![CI](https://github.com/DaveNijhuis/Fitman/actions/workflows/ci.yml/badge.svg)](https://github.com/DaveNijhuis/Fitman/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -23,10 +23,11 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 - **Workout logging** — log sets, reps, and weight per exercise in real time with a rest timer
 - **Cardio tracking** — log runs, rides, swims and more with distance and duration
 - **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, personal records, and interactive body composition trends
-- **Body composition analysis** — connect an e.volve BLE smart scale to capture segmental impedance data; BIA formulae (Janssen, Watson, Katch-McArdle) derive fat mass, muscle mass, BMR, visceral fat grade, and more
+- **Smart scale weigh-in (opt-in)** — weigh in on an e.volve (iCOMON) Bluetooth scale straight from the web app, no Fitdays account or cloud: your phone's browser relays the scale to your server. The scale shows your name, keeps each user apart, and live weight shows while you stand. Needs HTTPS and a Web Bluetooth browser (Chrome on Android, Bluefy on iPhone); see [SCALE.md](SCALE.md)
+- **Body composition analysis** — the scale's body fat and limb impedances feed BIA formulae (Janssen, Watson, Katch-McArdle, and iCOMON's WLA25 for visceral and trunk estimates) that derive fat mass, muscle mass, BMR, visceral fat grade, and more
 - **Body measurements** — manually log weight and body fat % over time with trend charts
 - **Exercise library** — browse and search all exercises with muscle and equipment info
-- **Workout history** — review past sessions with full set-by-set detail
+- **Workout history** — review past sessions with full set-by-set detail, and delete one after a confirmation
 - **User profile** — set display name, birth year, sex, and height; profile fields are used as fallback inputs for BIA body composition formulas
 - **Multi-user support** — admin can invite users, enable/disable accounts, and delete users with full data cascade; each user's data is fully isolated
 - **Password management** — users can change their own password from settings; admin can set a temporary password when creating accounts
@@ -38,7 +39,7 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 | Layer | Technology |
 |---|---|
 | Backend API | Python 3.11 + FastAPI |
-| Frontend | React 18 + TypeScript + Tailwind CSS |
+| Frontend | React 19 + TypeScript 6 + Vite + Tailwind CSS 4 |
 | Database | PostgreSQL 16 (via SQLAlchemy) |
 | Auth | JWT |
 | Infra | Docker Compose + nginx + Tailscale |
@@ -305,8 +306,8 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 356 tests, 90% coverage floor
-cd frontend && npm test            # 77 tests, Vitest + jsdom
+cd backend  && .venv/bin/pytest    # 506 tests, 90% coverage floor
+cd frontend && npm test            # 86 tests, Vitest + jsdom
 ```
 
 The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.
@@ -327,7 +328,7 @@ E2E tests require the app running via the dedicated test stack (isolated from pr
 # Start the E2E stack (fresh DB, rate limiting disabled, port 8080)
 docker compose -f docker-compose.e2e.yml up -d --build
 
-# Run all 10 E2E tests
+# Run all 13 E2E tests
 cd e2e
 npm install
 npx playwright test
@@ -348,7 +349,8 @@ See [SCALE.md](SCALE.md) for the smart scale BLE protocol, packet decoding, and 
 
 If you share this app with others on your Tailscale network, users should know:
 
-- **What is stored:** workout sessions, sets, cardio entries, body measurements (weight, body fat %, BIA impedance readings), and profile fields (display name, birth year, sex, height)
+- **What is stored:** workout sessions, sets, cardio entries, body measurements (weight, body fat %, BIA impedance readings), profile fields (display name, birth year, sex, height), and, if you use the smart scale, a random id the scale knows you by
+- **What goes to the smart scale:** weighing in sends the scale your height, age, sex, last weight and display name (shown on its screen), over Bluetooth from your phone. The scale keeps them, with its own history of your weigh-ins, until it is reset
 - **Where it is stored:** exclusively on your self-hosted server — no data is sent to any third party
 - **User rights:** each user can export all their data (`GET /api/gdpr/export`) or permanently delete their account and all associated data (`DELETE /api/gdpr/erase`) at any time
 - **Encryption:** data is stored in a PostgreSQL database running on your server; protect it with filesystem-level encryption on the host (see [ARCHITECTURE.md](ARCHITECTURE.md) for the full decision)
@@ -359,8 +361,7 @@ If you share this app with others on your Tailscale network, users should know:
 |---|---|
 | `main` | Stable, production-ready |
 | `dev` | Integration and testing |
-| `feature/<name>` | One branch per new feature |
-| `fix/<name>` | Bug fixes |
+| `<type>/<issue>-<name>` | One branch per issue, e.g. `feat/322-weigh-in-relay`, `fix/338-stale-resume-after-finish`; types `feat`, `fix`, `chore`, `docs`, `refactor` |
 
 All work flows through feature branches → `dev` → `main` via pull request.
 

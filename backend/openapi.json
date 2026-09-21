@@ -276,6 +276,86 @@
         "title": "CreateUserRequest",
         "type": "object"
       },
+      "ExchangeIn": {
+        "properties": {
+          "frames": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Frames",
+            "type": "array"
+          },
+          "phone_seq": {
+            "default": 0,
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Phone Seq",
+            "type": "integer"
+          },
+          "sequence_sent": {
+            "default": false,
+            "title": "Sequence Sent",
+            "type": "boolean"
+          },
+          "utc_offset_min": {
+            "default": 0,
+            "maximum": 840.0,
+            "minimum": -720.0,
+            "title": "Utc Offset Min",
+            "type": "integer"
+          }
+        },
+        "title": "ExchangeIn",
+        "type": "object"
+      },
+      "ExchangeOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeasurementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone_seq": {
+            "title": "Phone Seq",
+            "type": "integer"
+          },
+          "send": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Send",
+            "type": "array"
+          },
+          "sequence_sent": {
+            "title": "Sequence Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "send",
+          "phone_seq",
+          "sequence_sent"
+        ],
+        "title": "ExchangeOut",
+        "type": "object"
+      },
       "ExerciseOut": {
         "properties": {
           "equip": {
@@ -3253,6 +3333,52 @@
         "summary": "Volume Over Time",
         "tags": [
           "progress"
+        ]
+      }
+    },
+    "/api/scale/exchange": {
+      "post": {
+        "operationId": "exchange_api_scale_exchange_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Exchange",
+        "tags": [
+          "scale"
         ]
       }
     },

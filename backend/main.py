@@ -28,6 +28,7 @@ from routers import logs as logs_router
 from routers import measurements as measurements_router
 from routers import profile as profile_router
 from routers import progress as progress_router
+from routers import scale as scale_router
 from routers import sessions as sessions_router
 from routers import stats as stats_router
 from seed import seed_exercises
@@ -115,6 +116,7 @@ app.include_router(admin_router.router)
 app.include_router(auth_router.router)
 app.include_router(exercises_router.router)
 app.include_router(features_router.router)
+app.include_router(scale_router.router)
 app.include_router(sessions_router.router)
 app.include_router(logs_router.router)
 app.include_router(progress_router.router)

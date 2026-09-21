@@ -18,6 +18,8 @@ Step on barefoot and grip the handle bar. The scale passes a small current at tw
 
 **The scale computes body fat itself**, from the profile (height, age, sex) it is sent at the start of each connection. Fitman sends the logged-in user's own profile, so each person on the same scale gets their own result. Fitman stores the weight, the scale's body fat and the limb impedances, and derives the other metrics in `backend/formulas.py`.
 
+**The exchange (#323).** Each request to `POST /api/scale/exchange` carries the frames the scale sent (hex), the handshake state the phone keeps (`phone_seq`, `sequence_sent`) and the phone's UTC offset. The response carries the frames to write to FFB1, the updated state, and a stored measurement once a result arrives. The backend stays stateless. Each user gets a `scale_user_id` (4 random bytes) on their first weigh-in; the scale keeps history per id and tags results with it. A result is stored only if it carries the logged-in user's id. `A5` stored weigh-ins are acknowledged but not stored, since they carry no user id. Height, birth year and sex (male or female) must be set in the profile; there are no fallback values.
+
 Bluetooth is short-range, so something near the scale has to talk to it. Fitman's plan (#59) is the phone: the web app relays frames between the scale and the backend over Web Bluetooth (#322). On iPhone, that needs the Bluefy browser (Safari has no Web Bluetooth) and HTTPS (#321). The backend owns the protocol (`backend/scale/`, #319) and the exchange (#323).
 
 ## BLE protocol

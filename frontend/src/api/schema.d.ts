@@ -441,6 +441,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scale/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange */
+        post: operations["exchange_api_scale_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions": {
         parameters: {
             query?: never;
@@ -630,6 +647,38 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /** ExchangeIn */
+        ExchangeIn: {
+            /** Frames */
+            frames?: string[];
+            /**
+             * Phone Seq
+             * @default 0
+             */
+            phone_seq: number;
+            /**
+             * Sequence Sent
+             * @default false
+             */
+            sequence_sent: boolean;
+            /**
+             * Utc Offset Min
+             * @default 0
+             */
+            utc_offset_min: number;
+        };
+        /** ExchangeOut */
+        ExchangeOut: {
+            /** Error */
+            error?: string | null;
+            measurement?: components["schemas"]["MeasurementOut"] | null;
+            /** Phone Seq */
+            phone_seq: number;
+            /** Send */
+            send: string[];
+            /** Sequence Sent */
+            sequence_sent: boolean;
         };
         /** ExerciseOut */
         ExerciseOut: {
@@ -1943,6 +1992,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VolumePoint"][];
+                };
+            };
+        };
+    };
+    exchange_api_scale_exchange_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExchangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

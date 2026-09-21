@@ -133,6 +133,8 @@ npx vitest            # watch mode
 | `src/api/__tests__/generated-types.test.ts` | Asserts `schema.d.ts` exists, carries the `CardioPage` and `MeasurementPage` envelopes, and that the cardio and measurements modules derive their types from it instead of hand-declaring response shapes |
 | `src/api/__tests__/session.test.ts` | A 401 on a request that carried a token clears it and redirects to `/login?expired=1&next=<current page>`, including from the data export, which bypasses `request()`; a 401 with no token, a 403, a 500 and a network failure all leave the session alone; `login()` does not send a stale token with the credentials, so a wrong password stays a form error (#317) |
 | `src/pages/__tests__/LoginPage.test.tsx` | The expiry notice appears only after a rejected session; signing in returns to `next`, or home without one; `next` is ignored unless it is a same-site path — another origin, `//host`, `/\host`, a relative path and `/login` itself all go home; a wrong password still shows its error |
+| `src/scale/__tests__/relay.test.ts` | The Weigh-in relay against a fake Web Bluetooth scale: asks for an `e.volve` device with the FFB0 service; posts each FFB3 frame to the exchange and writes the returned frames to FFB1 in order, with response; carries the handshake state; handles one frame at a time; starts unprompted when no hello arrives; reports live weight from FFB2 (status bit 16 included); resolves with the stored measurement and disconnects; rejects on a backend error, a result for another scale user (still acknowledged), a dropped connection, a timeout, or a closed device chooser (#322) |
+| `src/components/__tests__/WeighIn.test.tsx` | The Weigh-in button appears only when `/api/features` reports the scale on and the browser has Web Bluetooth; without it, a note names Bluefy; a weigh-in shows the stored weight and body fat and hands the measurement to the page; the phone's UTC offset is sent; an incomplete profile links to `/settings`; other failures are shown and the button is re-enabled (#322) |
 
 `strict` is asserted explicitly because TypeScript 6 enables it by default — the
 declaration is what keeps the guarantee if the compiler is ever pinned back to 5.x.
@@ -175,7 +177,7 @@ Each test gets a fresh `e2e_<timestamp>` user created via the admin API before t
 |---|---|
 | `tests/auth.spec.ts` | Unauthenticated redirect to `/login`; wrong password shows error; correct credentials navigate home; a stale token lands on `/login` with the expiry notice instead of the "Could not load data" banner, and signing in returns to the original page (#317) |
 | `tests/workout.spec.ts` | Workout page loads after starting a session; finishing a session returns to home |
-| `tests/progress.spec.ts` | Progress page loads and renders heading |
+| `tests/progress.spec.ts` | Progress page loads and renders heading; with the scale feature off (the E2E default), the page offers Log measurement and shows no Weigh in button or Web Bluetooth note (#326) |
 | `tests/account.spec.ts` | Delete button disabled until `DELETE` is typed; account deletion redirects to `/login` |
 | `tests/accessibility.spec.ts` | axe-core WCAG 2.1 A/AA scans on login page and home page |
 

@@ -106,8 +106,8 @@ Fitman/
 │   ├── Dockerfile           # Dev only: Vite dev server
 │   └── package.json
 │
-├── docker-compose.yml       # Development: Vite dev server + backend + postgres
-├── docker-compose.prod.yml  # Production: nginx static build + backend + postgres
+├── docker-compose.yml       # Production: nginx static build + backend + postgres (`docker compose up -d`)
+├── docker-compose.dev.yml   # Development: Vite dev server + backend + postgres, project fitman-dev
 ├── docker-compose.e2e.yml   # E2E testing: isolated stack, tmpfs DB, port 8080
 ├── e2e/                     # Playwright E2E test suite (TypeScript)
 │   ├── tests/               # Test files (auth, workout, progress, account, accessibility)
@@ -115,7 +115,7 @@ Fitman/
 │   ├── fixtures/            # Per-test user isolation via admin API
 │   ├── global-setup.ts      # Seeds admin user before test run
 │   └── playwright.config.ts
-├── .env                     # Secrets and config (project root) — read by docker-compose.prod.yml via env_file; never committed (gitignored)
+├── .env                     # Secrets and config (project root) — read by docker-compose.yml via env_file; never committed (gitignored)
 ├── .env.example             # Template documenting all variables
 ├── README.md
 ├── ARCHITECTURE.md
@@ -386,27 +386,27 @@ Since Tailscale already restricts who can reach the server, JWT here primarily p
 
 ## Docker Compose
 
-Three compose files — one per environment:
+Three compose files — one per environment. The default file is production, so
+the plain command launches the app (#339):
 
 ```
-# Development (npm run dev inside Docker, hot reload)
-docker compose up
-
 # Production (static build served by nginx)
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
+
+# Development (npm run dev inside Docker, hot reload)
+docker compose -f docker-compose.dev.yml up
 
 # E2E testing (isolated stack, tmpfs DB, rate limiting off, port 8080)
 docker compose -f docker-compose.e2e.yml up -d --build
 ```
 
-The E2E stack uses project name `fitman-e2e` to avoid colliding with a running production stack. Its PostgreSQL database lives on tmpfs so it is wiped on every `down -v`.
+Production takes its project name from the clone's directory (normally `fitman`), and its data lives in the `<project>_db_data` volume. The file pins no name on purpose: pinning one would move an instance cloned elsewhere onto a new, empty volume. The development and E2E stacks pin `fitman-dev` and `fitman-e2e`, so neither can replace production's containers or reach its data. The E2E database lives on tmpfs, so it is wiped on every `down -v`.
 
-In production, only nginx (port 80) is exposed to the host. The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
+In production, nginx (port 80) is exposed to the host, and PostgreSQL on `127.0.0.1:5433` only, for database clients on the server or through an SSH tunnel (#335). The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
 
 On every container start, `entrypoint.sh` runs `alembic upgrade head` before starting uvicorn, so database migrations apply automatically on deploy.
 
-A `db-guard` service runs before PostgreSQL in the development and production
-stacks, and postgres waits on its successful completion. It inspects the
+A `db-guard` service runs before PostgreSQL in the production stack, and postgres waits on its successful completion. It inspects the
 `db_data` volume and refuses to let the stack start if the volume holds
 something that is not a PostgreSQL cluster — typically `fitman.db` left by the
 pre-PostgreSQL version. Without it, postgres reports `initdb: directory exists
@@ -444,7 +444,7 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 
 ## Hosting & access
 
-- The server runs Docker Compose continuously (`docker compose -f docker-compose.prod.yml up -d`)
+- The server runs Docker Compose continuously (`docker compose up -d`)
 - Tailscale is installed on the server and on your phone/laptop
 - No port forwarding or public IP needed — Tailscale creates a private encrypted network
 - Access the app at `https://<host>.<tailnet>.ts.net`: `tailscale serve` terminates HTTPS in front of nginx (README, step 5)

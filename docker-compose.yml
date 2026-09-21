@@ -1,3 +1,14 @@
+# Fitman: the production stack. From the repo root, with .env set up (README,
+# step 4), this starts everything: database, backend and the web app on port 80.
+#
+#   docker compose up -d
+#
+# Development is docker-compose.dev.yml; E2E tests use docker-compose.e2e.yml.
+#
+# No `name:` on purpose: the project, and so the data volume <project>_db_data,
+# is named after the clone's directory, as it always has been. Pinning a name
+# would move an existing instance onto a new, empty volume.
+
 services:
   # Refuses to let the stack start on a data volume PostgreSQL cannot use.
   # A pre-PostgreSQL instance still has fitman.db here, and postgres responds
@@ -32,7 +43,14 @@ services:
     environment:
       POSTGRES_DB: fitman
       POSTGRES_USER: fitman
-      POSTGRES_PASSWORD: fitman
+      # The operator's own secret (#335); the stack refuses to start without it.
+      # Applied only when the volume is first initialised: to change it on an
+      # existing database, see "Changing the database password" in README.md.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see README.md, step 4)}
+    # Queryable from the server itself, or through an SSH tunnel, never from
+    # the network: bound to 127.0.0.1. 5433 leaves 5432 free for a dev database.
+    ports:
+      - "127.0.0.1:5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     depends_on:
@@ -47,10 +65,13 @@ services:
 
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
     env_file:
       - .env
+    environment:
+      # Built from the same password as the database, so the two can't drift;
+      # overrides any DATABASE_URL in .env. Use a hex password (README step 4):
+      # anything else would need URL-encoding here.
+      DATABASE_URL: postgresql://fitman:${POSTGRES_PASSWORD}@postgres:5432/fitman
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,14 +84,11 @@ services:
       start_period: 15s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
     ports:
-      - "3000:3000"
-    environment:
-      # This container runs the Vite dev server, which proxies /api. Inside the
-      # compose network the backend is reachable by service name; localhost
-      # would resolve to this container, where nothing listens on 8000 (#274).
-      VITE_API_PROXY_TARGET: http://backend:8000
+      - "80:80"
     depends_on:
       backend:
         condition: service_healthy

@@ -87,11 +87,13 @@ POSTGRES_PASSWORD=<second value>
 
 The stack refuses to start without `POSTGRES_PASSWORD`. Keep it hex (as generated): it goes into the backend's connection URL.
 
-Then start the app:
+Then start the app, from the repo directory:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
+
+That one command starts everything: the PostgreSQL database, the backend, and the web app on port 80. The database is also queryable from the server itself on `localhost:5433` (see [Database access](#database-access)). Migrations run automatically on every start.
 
 ### 5. Turn on HTTPS (recommended; required for the smart scale)
 
@@ -123,18 +125,31 @@ Each address is its own origin to the browser, so you log in separately on each.
 
 Install the Tailscale app on your iPhone or laptop and sign in with the same account — you'll have access from anywhere without opening any ports to the internet.
 
-### Updating to a new version
+### Everyday commands
+
+Run these from the repo directory.
+
+| To | Run |
+|---|---|
+| Start, or apply a changed `.env` | `docker compose up -d` |
+| Update to a new version | `git pull && docker compose up -d --build` |
+| Stop (data is kept) | `docker compose down` |
+| See what's running | `docker compose ps` |
+| Follow the logs | `docker compose logs -f backend` |
+| Open a database shell | `docker compose exec postgres psql -U fitman fitman` |
+
+Never add `-v` to `down`: that deletes the database volume.
+
+### Upgrading from docker-compose.prod.yml
+
+Before [#339](https://github.com/DaveNijhuis/Fitman/issues/339), production was started by naming `docker-compose.prod.yml` explicitly, and plain `docker compose` meant the development stack. Now `docker-compose.yml` is production, and the old file is gone. To switch over, update and start as usual:
 
 ```bash
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up -d --build
 ```
 
-### Stopping the app
-
-```bash
-docker compose -f docker-compose.prod.yml down
-```
+The project name and the `db_data` volume are unchanged, so Compose replaces the running containers in place and your data stays where it is. Update any scripts, cron jobs or aliases that still name `docker-compose.prod.yml`: that file no longer exists, so they'll fail rather than do the wrong thing. From #335 on, `.env` must also set `POSTGRES_PASSWORD` (see [Changing the database password](#changing-the-database-password)).
 
 ### Migrating from SQLite (M18 → M19 upgrade)
 
@@ -170,7 +185,7 @@ docker volume rm fitman_db_data
 **Step 3 — Start the new version**
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up -d --build
 ```
 
 Visit `/setup` to create your admin account.
@@ -190,10 +205,11 @@ scripting an import. The file keeps the rest indefinitely if you change your min
 
 ### Backups
 
-Back up the database with `pg_dump` — safe to run while the app is live:
+Back up the database with `pg_dump` — safe to run while the app is live. From the repo directory:
 
 ```bash
-docker exec fitman-postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y%m%d_%H%M%S).sql
+mkdir -p backups
+docker compose exec -T postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 **Set up a daily automatic backup with cron:**
@@ -202,23 +218,25 @@ docker exec fitman-postgres pg_dump -U fitman fitman > backups/fitman_$(date +%Y
 crontab -e
 ```
 
-Add this line to run every day at 3am:
+Add this line to run every day at 3am. cron starts in your home directory, so it changes into the repo first; Compose finds the stack from there:
 
 ```
-0 3 * * * docker exec fitman-postgres pg_dump -U fitman fitman > /path/to/Fitman/backups/fitman_$(date +\%Y\%m\%d_\%H\%M\%S).sql
+0 3 * * * cd /path/to/Fitman && docker compose exec -T postgres pg_dump -U fitman fitman > backups/fitman_$(date +\%Y\%m\%d_\%H\%M\%S).sql
 ```
+
+Check the first file isn't empty: a dump that failed still leaves one behind.
 
 **Restoring from a backup:**
 
 ```bash
 # 1. Stop the backend (keep postgres running)
-docker compose -f docker-compose.prod.yml stop backend frontend
+docker compose stop backend frontend
 
 # 2. Restore the dump
-docker exec -i fitman-postgres psql -U fitman fitman < backups/fitman_YYYYMMDD_HHMMSS.sql
+docker compose exec -T postgres psql -U fitman fitman < backups/fitman_YYYYMMDD_HHMMSS.sql
 
 # 3. Start the app again
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
 
 ---
@@ -242,16 +260,26 @@ PostgreSQL applies `POSTGRES_PASSWORD` only when it first creates the database. 
 python3 -c "import secrets; print(secrets.token_hex(24))"
 
 # 2. Apply it to the running database (local connections inside the container need no password)
-docker compose -f docker-compose.prod.yml exec postgres \
+docker compose exec postgres \
   psql -U fitman -d fitman -c "ALTER USER fitman WITH PASSWORD '<value>'"
 
 # 3. Restart, so the backend connects with the new password
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
 
 Set it in `.env` first: once `POSTGRES_PASSWORD` is required, Compose won't run any command without it.
 
 ## Development setup
+
+The quickest way is the development stack in Docker: the Vite dev server with hot reload on `http://localhost:3000`, the backend on port 8000, and a throwaway database.
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+It's a separate Compose project (`fitman-dev`), with its own containers and database, so it can run beside production without touching it. Stop it with `docker compose -f docker-compose.dev.yml down`; add `-v` to wipe its database.
+
+To run the backend and frontend on the host instead:
 
 ```bash
 # Start PostgreSQL for local development (requires Docker)

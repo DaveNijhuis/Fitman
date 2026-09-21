@@ -1,0 +1,12 @@
+# Dependencies are installed in the image from package-lock.json. Without this,
+# `COPY . .` copies the host's node_modules over them, file by file, leaving a
+# tree that matches neither (#315).
+node_modules
+
+# Host build output and caches: stale, and not the image's to reuse.
+dist
+coverage
+.vite
+
+# Secrets never enter the build context.
+.env*

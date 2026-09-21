@@ -23,6 +23,7 @@ _CONFIG_ONLY = [
     "tests/test_compose_config.py",
     "tests/test_db_volume_guard.py",
     "tests/test_dockerignore.py",
+    "tests/test_frontend_dockerignore.py",
     "tests/test_gitignore.py",
     "tests/test_lint_config.py",
     "tests/test_nginx_conf.py",

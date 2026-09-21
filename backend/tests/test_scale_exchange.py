@@ -98,7 +98,11 @@ def _types(send: list[str]) -> list[int]:
 # ── Opt-in and auth ───────────────────────────────────────────────────────────
 
 
-def test_endpoint_does_not_exist_while_the_scale_is_off(client: TestClient, person):
+def test_endpoint_does_not_exist_while_the_scale_is_off(
+    client: TestClient, person, monkeypatch: pytest.MonkeyPatch
+):
+    # Explicitly off: a developer's .env may have SCALE_ENABLED=true.
+    monkeypatch.setattr(settings, "scale_enabled", False)
     assert _exchange(client, person[0], [F.HELLO]).status_code == 404
 
 

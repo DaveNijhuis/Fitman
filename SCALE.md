@@ -83,7 +83,9 @@ Which limb each impedance position belongs to is not confirmed (#325). Fitman st
 |---|---|
 | Body fat % | **The scale**, from the `BF` profile |
 | Fat mass, lean mass, BMR, body water, protein, minerals | `formulas.py`, from weight and body fat |
-| Skeletal muscle mass | Janssen et al. (2000), using impedance |
-| Visceral fat, trunk fat | iCOMON's WLA25 estimates planned (#325): they reproduce Fitdays' visceral fat exactly |
+| Skeletal muscle mass | Janssen et al. (2000); needs trunk impedance, so empty for scale weigh-ins |
+| Visceral fat | iCOMON's WLA25 (ported from sacoma-lib, MIT): reproduces Fitdays exactly |
+| Trunk fat, trunk muscle | WLA25 with the trunk-impedance terms off: within ~0.6 kg of Fitdays |
+| Arm and leg fat and muscle | What's left after the trunk: fat by relative density, lean by each limb's impedance index |
 
 BIA from hand and foot electrodes cannot localise abdominal or visceral fat: the trunk is about half the body's mass but a small share of the measured impedance. Every such figure, including Fitdays', is an estimate from whole-body fat and lean mass.

@@ -165,3 +165,110 @@ def test_all_fields_returned(result):
     ]
     for key in expected_keys:
         assert key in result, f"Missing key: {key}"
+
+
+# ── Without trunk impedance (#325) ────────────────────────────────────────────
+# The scale's trunk bytes are unresolved (#320), so scale weigh-ins store no
+# trunk impedance. Only skeletal muscle (Janssen needs the whole-body path)
+# may go missing because of it; everything else must still be derived.
+
+NO_TRUNK = ImpedanceInputs(
+    ra_z20=307.5,
+    la_z20=324.9,
+    rl_z20=259.9,
+    ll_z20=259.4,
+    trunk_z20=None,
+    ra_z100=299.5,
+    la_z100=262.3,
+    rl_z100=250.9,
+    ll_z100=236.4,
+    trunk_z100=None,
+    body_fat_pct=24.2,
+)
+
+
+def test_derived_metrics_do_not_need_trunk_impedance():
+    r = calculate_all(
+        UserProfile(age=35, height_cm=194, sex=1, weight_kg=99.89), NO_TRUNK
+    )
+    for field in (
+        "bmi",
+        "fat_mass_kg",
+        "lean_mass_kg",
+        "bmr_kcal",
+        "body_water_pct",
+        "visceral_fat_grade",
+        "body_age",
+        "trunk_fat_kg",
+        "trunk_muscle_kg",
+        "ra_fat_kg",
+        "ll_muscle_kg",
+    ):
+        assert r[field] is not None, field
+
+
+def test_skeletal_muscle_needs_trunk_so_is_left_empty():
+    r = calculate_all(
+        UserProfile(age=35, height_cm=194, sex=1, weight_kg=99.89), NO_TRUNK
+    )
+    assert r["skeletal_muscle_kg"] is None
+    assert r["smi"] is None
+
+
+def test_segments_still_sum_to_the_totals_without_trunk():
+    r = calculate_all(
+        UserProfile(age=35, height_cm=194, sex=1, weight_kg=99.89), NO_TRUNK
+    )
+    fat = sum(r[f"{s}_fat_kg"] for s in ("ra", "la", "rl", "ll", "trunk"))
+    lean = sum(r[f"{s}_muscle_kg"] for s in ("ra", "la", "rl", "ll", "trunk"))
+    assert fat == pytest.approx(r["fat_mass_kg"], abs=0.05)
+    assert lean == pytest.approx(r["lean_mass_kg"], abs=0.05)
+
+
+# ── iCOMON WLA25 estimates, checked against Fitdays (#325) ────────────────────
+# Two Fitdays readings of the same scale, same weigh-in weight (99.75 kg),
+# male, 34, at 195 cm and 180 cm, with the scale's body fat for each. Fitdays
+# uses iCOMON's WLA25 algorithm; Fitman ports its formulas from sacoma-lib (MIT).
+
+FITDAYS = [
+    # height, body fat %, visceral, trunk fat kg, trunk muscle kg
+    (195, 23.9, 9, 13.0, 33.1),
+    (180, 37.4, 16, 20.3, 27.2),
+]
+
+
+@pytest.mark.parametrize(
+    ("height", "fat_pct", "visceral", "trunk_fat", "trunk_muscle"), FITDAYS
+)
+def test_visceral_fat_matches_fitdays_exactly(
+    height, fat_pct, visceral, trunk_fat, trunk_muscle
+):
+    r = calculate_all(
+        UserProfile(age=34, height_cm=height, sex=1, weight_kg=99.75),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
+    )
+    assert r["visceral_fat_grade"] == visceral
+
+
+@pytest.mark.parametrize(
+    ("height", "fat_pct", "visceral", "trunk_fat", "trunk_muscle"), FITDAYS
+)
+def test_trunk_estimates_are_close_to_fitdays(
+    height, fat_pct, visceral, trunk_fat, trunk_muscle
+):
+    """Trunk impedance terms are off (unresolved, #320), hence 'close', not exact."""
+    r = calculate_all(
+        UserProfile(age=34, height_cm=height, sex=1, weight_kg=99.75),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
+    )
+    assert r["trunk_fat_kg"] == pytest.approx(trunk_fat, abs=0.7)
+    assert r["trunk_muscle_kg"] == pytest.approx(trunk_muscle, abs=0.2)
+
+
+@pytest.mark.parametrize(("fat_pct", "expected"), [(3.0, 1), (70.0, 20)])
+def test_visceral_fat_stays_on_the_1_to_20_scale(fat_pct, expected):
+    r = calculate_all(
+        UserProfile(age=34, height_cm=180, sex=1, weight_kg=150.0),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
+    )
+    assert r["visceral_fat_grade"] == expected

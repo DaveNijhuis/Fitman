@@ -97,12 +97,10 @@ def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> 
         measurement.la_z20,
         measurement.rl_z20,
         measurement.ll_z20,
-        measurement.trunk_z20,
         measurement.ra_z100,
         measurement.la_z100,
         measurement.rl_z100,
         measurement.ll_z100,
-        measurement.trunk_z100,
     ]
     if not all(x is not None for x in required):
         return
@@ -118,12 +116,12 @@ def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> 
         la_z20=cast(float, measurement.la_z20),
         rl_z20=cast(float, measurement.rl_z20),
         ll_z20=cast(float, measurement.ll_z20),
-        trunk_z20=cast(float, measurement.trunk_z20),
+        trunk_z20=measurement.trunk_z20,  # optional: scale weigh-ins have none (#325)
         ra_z100=cast(float, measurement.ra_z100),
         la_z100=cast(float, measurement.la_z100),
         rl_z100=cast(float, measurement.rl_z100),
         ll_z100=cast(float, measurement.ll_z100),
-        trunk_z100=cast(float, measurement.trunk_z100),
+        trunk_z100=measurement.trunk_z100,
         body_fat_pct=cast(float, measurement.body_fat_pct),
     )
     derived = calculate_all(profile, inputs)

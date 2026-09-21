@@ -13,6 +13,9 @@ Sources:
   Watson (1980)     Am J Clin Nutr. 33(1):27-39
   Katch-McArdle     Exercise Physiology, McArdle et al. 1996
   Wang (1999)       Am J Clin Nutr. 69(5):833-841
+  WLA25             iCOMON's body-composition algorithm (used by Fitdays for this
+                    scale), ported from sacoma-lib (MIT, github.com/ynsgnr/sacoma-lib):
+                    visceral fat, trunk fat and trunk muscle (#325)
 """
 
 from dataclasses import dataclass
@@ -32,12 +35,12 @@ class ImpedanceInputs:
     la_z20: float  # Left arm 20 kHz (Ω)
     rl_z20: float  # Right leg 20 kHz (Ω)
     ll_z20: float  # Left leg 20 kHz (Ω)
-    trunk_z20: float  # Trunk 20 kHz (Ω)
+    trunk_z20: float | None  # Trunk 20 kHz (Ω); None for scale weigh-ins (#320)
     ra_z100: float
     la_z100: float
     rl_z100: float
     ll_z100: float
-    trunk_z100: float
+    trunk_z100: float | None
     body_fat_pct: float  # Scale's own BIA result (FFB3 bytes 40-41)
 
 
@@ -88,23 +91,29 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     # H = height in cm; R = whole-body resistance (Ω)
     # Approximated from the right-side BIA path at 20 kHz (paper used 50 kHz
     # wrist-to-ankle; 20 kHz gives a conservative overestimate of resistance).
-    R = inputs.ra_z20 + inputs.trunk_z20 + inputs.rl_z20
-    smm = (
-        (profile.height_cm**2 / R * 0.401)
-        + (profile.sex * 3.825)
-        - (profile.age * 0.071)
-        + 5.102
-    )
-    skeletal_muscle_kg = _r(max(0.0, smm))
+    # Needs the whole-body path through the trunk, so it is left empty when
+    # trunk impedance is unknown — as for scale weigh-ins (#320, #325).
+    skeletal_muscle_kg: float | None = None
+    smi: float | None = None
+    if inputs.trunk_z20 is not None:
+        R = inputs.ra_z20 + inputs.trunk_z20 + inputs.rl_z20
+        smm = (
+            (profile.height_cm**2 / R * 0.401)
+            + (profile.sex * 3.825)
+            - (profile.age * 0.071)
+            + 5.102
+        )
+        skeletal_muscle_kg = _r(max(0.0, smm))
+        # SMI — Skeletal Muscle Index (kg/m²); low SMI flags sarcopenia risk
+        smi = _r(skeletal_muscle_kg / h_m**2)
 
-    # SMI — Skeletal Muscle Index (kg/m²); low SMI flags sarcopenia risk
-    smi = _r(skeletal_muscle_kg / h_m**2)
-
-    # ── Visceral fat grade (approximation) ────────────────────────────────────
-    # No standard BIA-to-grade formula is published; consumer scales use
-    # proprietary algorithms. This correlates grade 1–59 with BMI + fat % + age.
-    grade = (bmi * 0.45) + (fat_pct * 0.25) + (profile.age * 0.10) - 10
-    visceral_fat_grade = _r(_clamp(grade, 1.0, 59.0))
+    # ── Visceral fat grade — iCOMON WLA25 ─────────────────────────────────────
+    # Hand and foot electrodes cannot localise abdominal fat; every consumer
+    # scale estimates it from whole-body fat and lean mass. WLA25 is the one
+    # this scale's own app uses, truncated to a 1–20 grade. It reproduced
+    # Fitdays exactly on both readings checked (9 and 16).
+    grade = int(lean_mass_kg * -0.029 + fat_mass_kg * 0.502 - 0.477)
+    visceral_fat_grade = float(_clamp(grade, 1, 20))
 
     # ── Subcutaneous fat % ─────────────────────────────────────────────────────
     # Subcutaneous fat ≈ 85% of total fat (Shen 2003).
@@ -135,26 +144,36 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     )
     whr_estimate = _r(waist_cm / hip_cm)
 
-    # ── Segmental lean mass ────────────────────────────────────────────────────
-    # Impedance index for each segment: II = H² / Z (20 kHz)
-    # Lean mass distributed proportionally to II (Janssen 2002).
+    # ── Segmental — trunk from WLA25, limbs share the rest ────────────────────
+    # Trunk fat and trunk muscle use WLA25's regressions with the trunk-
+    # impedance terms off: which scale bytes hold trunk impedance is unresolved
+    # (#320), and in WLA25 those terms only nudge a value dominated by
+    # whole-body fat and lean mass (within ~0.6 kg of Fitdays without them).
+    trunk_fat = _clamp(fat_mass_kg * 0.552545 + 0.322704, 0.1, fat_mass_kg)
+    trunk_lean = _clamp(lean_mass_kg * 0.440922 - 0.275461, 0.7, lean_mass_kg)
+
+    # Limbs share what's left, so the segments still sum to the totals. Fat by
+    # relative density (Wang 2001: arms ≈ 65 % of legs); lean by each limb's
+    # impedance index II = H² / Z at 20 kHz (Janssen 2002).
+    fat_density = {"ra": 0.65, "la": 0.65, "rl": 1.0, "ll": 1.0}
+    fd_total = sum(fat_density.values())
+    seg_fat = {
+        k: _r((fat_mass_kg - trunk_fat) * v / fd_total) for k, v in fat_density.items()
+    }
+    seg_fat["trunk"] = _r(trunk_fat)
+
     h2 = profile.height_cm**2
     ii = {
         "ra": h2 / inputs.ra_z20,
         "la": h2 / inputs.la_z20,
         "rl": h2 / inputs.rl_z20,
         "ll": h2 / inputs.ll_z20,
-        "trunk": h2 / inputs.trunk_z20,
     }
     ii_total = sum(ii.values())
-    seg_lean = {k: _r(lean_mass_kg * v / ii_total) for k, v in ii.items()}
-
-    # ── Segmental fat mass ─────────────────────────────────────────────────────
-    # Relative fat density by segment (Wang 2001):
-    # arms ≈ 65% of average density, legs ≈ 100%, trunk ≈ 140%.
-    fat_density = {"ra": 0.65, "la": 0.65, "rl": 1.0, "ll": 1.0, "trunk": 1.4}
-    fd_total = sum(fat_density.values())
-    seg_fat = {k: _r(fat_mass_kg * v / fd_total) for k, v in fat_density.items()}
+    seg_lean = {
+        k: _r((lean_mass_kg - trunk_lean) * v / ii_total) for k, v in ii.items()
+    }
+    seg_lean["trunk"] = _r(trunk_lean)
 
     return {
         "bmi": bmi,

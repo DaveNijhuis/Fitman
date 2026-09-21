@@ -43,7 +43,8 @@ test('a finished workout can be deleted from its detail page (#336)', async ({ p
 
   await page.goto('/history')
   await expect(page.getByText('1 workouts logged')).toBeVisible()
-  await page.getByRole('button', { name: /Push A/ }).click()
+  // Anchored: the sidebar's "Resume Push A" must never match the History entry.
+  await page.getByRole('button', { name: /^Push A/ }).click()
   await expect(page).toHaveURL(/\/history\/\d+/)
 
   await page.getByRole('button', { name: /delete workout/i }).click()

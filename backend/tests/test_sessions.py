@@ -244,11 +244,71 @@ def test_delete_other_users_session_returns_404(client: TestClient):
     assert resp.status_code == 404
 
 
-def test_delete_ended_session_returns_400(client: TestClient):
+# ── Delete a finished workout (#336) ──────────────────────────────────────────
+# Ended sessions used to be refused (400), leaving test or mistaken workouts in
+# History and statistics for good. Nothing stored is derived from a session —
+# records, volume and consistency are computed from logs on read, and logs
+# cascade — so deleting one is clean.
+
+
+def test_delete_ended_session_removes_it_from_history(client: TestClient):
+    exercise_id = _first_exercise_id(client)
+    session = _start(client)
+    _log_set(client, session["id"], exercise_id)
+    client.patch(f"/api/sessions/{session['id']}/end", headers=_auth(client))
+    listed = [
+        s["id"] for s in client.get("/api/sessions", headers=_auth(client)).json()
+    ]
+    assert session["id"] in listed
+
+    resp = client.delete(f"/api/sessions/{session['id']}", headers=_auth(client))
+    assert resp.status_code == 204
+    listed = [
+        s["id"] for s in client.get("/api/sessions", headers=_auth(client)).json()
+    ]
+    assert session["id"] not in listed
+    logs = client.get(f"/api/sessions/{session['id']}/logs", headers=_auth(client))
+    assert logs.status_code == 404
+
+
+def test_deleting_a_workout_removes_the_record_it_set(client: TestClient):
+    """Records are computed from logs, so the deleted workout's record goes with it."""
+    exercise_id = _first_exercise_id(client)
+    session = _start(client)
+    client.post(
+        "/api/logs",
+        json={
+            "session_id": session["id"],
+            "exercise_id": exercise_id,
+            "weight": 987.5,
+            "reps": 1,
+        },
+        headers=_auth(client),
+    )
+    client.patch(f"/api/sessions/{session['id']}/end", headers=_auth(client))
+
+    def record_weights() -> list[float]:
+        prs = client.get("/api/progress/prs", headers=_auth(client)).json()
+        return [p["weight"] for p in prs if p["exercise_id"] == exercise_id]
+
+    assert 987.5 in record_weights()
+    client.delete(f"/api/sessions/{session['id']}", headers=_auth(client))
+    assert 987.5 not in record_weights()
+
+
+def test_other_users_cannot_delete_a_finished_workout(client: TestClient):
     session = _start(client)
     client.patch(f"/api/sessions/{session['id']}/end", headers=_auth(client))
-    resp = client.delete(f"/api/sessions/{session['id']}", headers=_auth(client))
-    assert resp.status_code == 400
+    assert (
+        client.delete(
+            f"/api/sessions/{session['id']}", headers=_auth_b(client)
+        ).status_code
+        == 404
+    )
+    listed = [
+        s["id"] for s in client.get("/api/sessions", headers=_auth(client)).json()
+    ]
+    assert session["id"] in listed
 
 
 # ── Full flow ─────────────────────────────────────────────────────────────────

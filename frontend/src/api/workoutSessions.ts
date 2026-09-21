@@ -59,6 +59,10 @@ export function endSession(sessionId: number): Promise<WorkoutSession> {
   })
 }
 
-export function discardSession(sessionId: number): Promise<void> {
+/** Delete a session and its sets: a finished workout from History (#336). */
+export function deleteSession(sessionId: number): Promise<void> {
   return request<void>(`/api/sessions/${sessionId}`, { method: 'DELETE' })
 }
+
+/** Throw away the workout in progress. The same endpoint as deleteSession. */
+export const discardSession = deleteSession

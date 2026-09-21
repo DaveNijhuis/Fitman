@@ -143,10 +143,10 @@ def delete_session(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
-    if workout.ended_at:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Session already ended"
-        )
+    # Active (discarding a workout in progress) or finished (deleting it from
+    # History, #336) alike. Nothing stored is derived from a session: records,
+    # volume and consistency are computed from logs on read, so they drop the
+    # deleted workout on the next load.
     db.query(Log).filter(Log.session_id == session_id).delete()
     db.delete(workout)
     db.commit()

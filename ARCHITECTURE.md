@@ -445,4 +445,4 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 - The server runs Docker Compose continuously (`docker compose -f docker-compose.prod.yml up -d`)
 - Tailscale is installed on the server and on your phone/laptop
 - No port forwarding or public IP needed — Tailscale creates a private encrypted network
-- Access the app at `http://fitman.local` (or whatever Tailscale hostname you configure)
+- Access the app at `https://<host>.<tailnet>.ts.net`: `tailscale serve` terminates HTTPS in front of nginx (README, step 5)

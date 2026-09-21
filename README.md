@@ -62,7 +62,7 @@ Log in when prompted. Your server will get a Tailscale IP (e.g. `100.x.x.x`) and
 
 ### 3. Set a Tailscale hostname (optional but recommended)
 
-In the [Tailscale admin console](https://login.tailscale.com/admin/machines), rename your server to `fitman`. The app will then be reachable at `http://fitman` from any device on your Tailscale network.
+In the [Tailscale admin console](https://login.tailscale.com/admin/machines), rename your server, e.g. to `fitman`. That name becomes part of its HTTPS address in step 5.
 
 ### 4. Deploy Fitman
 
@@ -90,14 +90,33 @@ Then start the app:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### 5. Create your account
+### 5. Turn on HTTPS (recommended; required for the smart scale)
 
-On first launch, visit `http://localhost/setup` (or `http://fitman/setup` via Tailscale) to create the admin account. Credentials are stored in the database — no plaintext passwords in `.env`.
+Tailscale can put a real HTTPS certificate in front of Fitman, with no change to Fitman or Docker. It's worth doing anyway, and the smart scale's Weigh-in needs it: browsers only allow Web Bluetooth on HTTPS pages (see [SCALE.md](SCALE.md)).
 
-### 6. Access the app
+1. In the [Tailscale admin console](https://login.tailscale.com/admin/dns), under **DNS**, enable **HTTPS Certificates**. MagicDNS must be on.
+2. On the server, forward HTTPS to Fitman's nginx on port 80:
 
-- From your server: `http://localhost`
-- From any device on Tailscale: `http://fitman` (or `http://<tailscale-ip>`)
+   ```bash
+   sudo tailscale serve --bg 80
+   ```
+
+   `tailscale serve status` should show `https://<host>.<tailnet>.ts.net` proxying to `http://127.0.0.1:80`. To undo it: `sudo tailscale serve reset`.
+
+**Privacy note:** issued certificates are recorded in public Certificate Transparency logs, so your machine's name and your tailnet's name become publicly visible. The app itself stays reachable only from your tailnet.
+
+The API is proxied by nginx on the page's own origin, so `CORS_ORIGINS` needs no change for HTTPS.
+
+### 6. Create your account
+
+On first launch, visit `https://<host>.<tailnet>.ts.net/setup` (or `http://localhost/setup` on the server itself) to create the admin account. Credentials are stored in the database — no plaintext passwords in `.env`.
+
+### 7. Access the app
+
+- From any device on your tailnet: `https://<host>.<tailnet>.ts.net`
+- From the server itself: `http://localhost`
+
+Each address is its own origin to the browser, so you log in separately on each.
 
 Install the Tailscale app on your iPhone or laptop and sign in with the same account — you'll have access from anywhere without opening any ports to the internet.
 

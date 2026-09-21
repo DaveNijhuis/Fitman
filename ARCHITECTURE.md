@@ -331,23 +331,35 @@ it peer-requires TypeScript 5.x and this project is on 6.x.
 
 ## Environment variables
 
-All configuration lives in `.env` at the project root. See `.env.example` for a documented template.
+All configuration lives in `.env` at the project root. See `.env.example` for a documented template. Variables set in the environment (for example by compose) take precedence over the file.
+
+`backend/config.py` is the only module that reads the environment: it validates every variable below into a pydantic-settings `Settings` object at import, and the rest of the backend reads `config.settings`. `tests/test_settings.py` fails if any other application module calls `os.getenv` / `os.environ` or loads a `.env` itself.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SECRET_KEY` | ✅ | — | Random string for signing JWT tokens. Changing it invalidates all sessions. |
 | `DATABASE_URL` | ✅ | — | PostgreSQL connection string, e.g. `postgresql://fitman:fitman@postgres:5432/fitman` |
 | `JWT_EXPIRE_DAYS` | | `7` | Token validity in days |
-| `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins |
-| `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size |
+| `CORS_ORIGINS` | | `http://localhost:3000` | Allowed frontend origins, comma-separated |
+| `DB_POOL_SIZE` | | `5` | SQLAlchemy connection pool size (at least 1) |
 | `DB_MAX_OVERFLOW` | | `10` | Max connections above pool size before blocking |
 | `DB_POOL_TIMEOUT` | | `30` | Seconds to wait for a connection before raising an error |
-| `RATE_LIMIT_DISABLED` | | `false` | Set to `true` to disable SlowAPI rate limiting (E2E stack only) |
-| `FITMAN_LOG_FORMAT` | | `json` | Log output format. Any value other than `text` produces structured JSON; set `text` for human-readable local development. |
+| `RATE_LIMIT_DISABLED` | | `false` | Set to `true` to disable SlowAPI rate limiting (E2E stack only). Accepts `true`/`false`/`1`/`0`; anything else is rejected |
+| `FITMAN_LOG_FORMAT` | | `json` | Log output format: `json` (structured, one object per line) or `text` for human-readable local development. Any other value is rejected. |
+| `SCALE_HEIGHT_CM` | | `0` | Fallback height for body-composition formulas when neither request nor profile has one; `0` = not set |
+| `SCALE_AGE` | | `0` | Fallback age, same rules; `0` = not set |
+| `SCALE_SEX` | | `1` | Fallback sex for the formulas: `1` = male, `0` = female |
 
 User credentials are stored in the database. On first launch, visit `/setup` to create the admin account. `ADMIN_USERNAME` and `ADMIN_PASSWORD` are no longer used.
 
-The backend refuses to start if `SECRET_KEY` is missing.
+The backend refuses to start if any variable is missing or invalid, with one message listing every problem by variable name and the value it got, rather than stopping at the first:
+
+```
+ERROR: invalid configuration:
+  SECRET_KEY: String should have at least 1 character (got '')
+  DB_POOL_SIZE: Input should be a valid integer, unable to parse string as an integer (got 'abc')
+Copy .env.example to .env and fill in the values.
+```
 
 ## Auth flow
 

@@ -1,7 +1,7 @@
 # Repo-wide ruff settings.
 #
-# backend/pyproject.toml governs backend/ only. Anything outside it — the smart
-# scale scripts in scripts/ — previously fell back to ruff's built-in defaults,
+# backend/pyproject.toml governs backend/ only. Anything outside it — once the
+# smart scale scripts, now any future Python there — fell back to ruff's built-in defaults,
 # which are not a stable contract: the 0.15 -> 0.16 bump widened them and broke
 # the pre-commit hook on files nobody had touched. The hook runs
 # `ruff check --fix` from the repo root with no arguments (pass_filenames:

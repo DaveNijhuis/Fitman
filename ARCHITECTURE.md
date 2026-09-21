@@ -74,6 +74,9 @@ Fitman/
 │   │   ├── profile.py       # GET/PATCH /api/profile
 │   │   ├── admin.py         # Admin user management
 │   │   └── gdpr.py          # Data export and account erasure
+│   ├── scale/               # Smart scale protocol, no radio code (see SCALE.md)
+│   │   ├── protocol.py      # Framing, messages, result decoding
+│   │   └── handshake.py     # What to send back for each scale message
 │   ├── models/              # SQLAlchemy database models
 │   │   ├── exercise.py
 │   │   ├── workout.py

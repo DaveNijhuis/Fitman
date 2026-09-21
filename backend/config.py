@@ -25,8 +25,9 @@ ENV_FILE: Path = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    # extra="ignore": the root .env also serves scripts/scale_ingest.py, whose
-    # ADMIN_USERNAME / ADMIN_PASSWORD would otherwise be rejected as unknown.
+    # extra="ignore": existing .env files still carry keys the backend doesn't
+    # read (ADMIN_USERNAME / ADMIN_PASSWORD from the retired scale script), which
+    # would otherwise be rejected as unknown and stop startup.
     model_config = SettingsConfigDict(extra="ignore")
 
     secret_key: str = Field(min_length=1)

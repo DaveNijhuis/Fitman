@@ -73,6 +73,8 @@ All tests live in `backend/tests/`. The suite runs against a real PostgreSQL dat
 | `test_ci_security_scanning.py` | Structural parse of `.github/workflows/ci.yml`: asserts the backend job runs `pip-audit` and the frontend job runs `npm audit --audit-level=high`, each positioned after its dependency install; asserts `pip-audit` is pinned in `requirements-dev.txt` and that `.github/dependabot.yml` covers `/backend`, `/frontend` and `/e2e` weekly |
 | `test_lint_config.py` | Parses `pyproject.toml`: asserts ruff selects `B` and `S`, that `fastapi.Depends` is exempt from `B008`, that `S101` is ignored for tests, and that mypy sets `disallow_untyped_defs` with a `tests.*` override enabling `check_untyped_defs` |
 | `test_settings.py` | `config.Settings`: documented defaults; comma-split `CORS_ORIGINS`; every missing or invalid variable reported together, by variable name with the bad value, pointing at `.env.example`; empty `SECRET_KEY` treated as missing; out-of-range values rejected; `.env` read from the repo root, env vars overriding it, unrelated keys (`ADMIN_USERNAME`) ignored, absence tolerated; importing `main` with bad config exits 1 without a traceback; AST scan that no application module other than `config.py` reads `os.getenv`/`os.environ` or loads a `.env`; every setting documented in `.env.example` |
+| `test_scale_protocol.py` | iCOMON scale framing: the check-byte rule on unaltered captured frames; parse round-trips and rejects a bad check byte, length or truncation; every message builder (ack, guest and user records, profile, BD, name offer) equals a fixture frame; results decode weight (including the status bit), body fat, user id and impedances; `A5` is marked stored; trunk impedance is not exposed; the old `scale_ingest.py` is gone. Fixtures in `scale_frames.py` keep the captured structure, with body values replaced by a made-up person (the repo is public) |
+| `test_scale_handshake.py` | The Fitdays handshake order in answer to the hello (ack, guest record, profile, user record, BD, name offer), with sequence numbers and exact frames; sent once; unprompted start; the `A7` result is acknowledged and kept; `A5` stored weigh-ins are acknowledged, kept once and never taken as the result |
 | `test_gitignore.py` | Asserts `.coverage` and `.coverage.*` are gitignored **and** that `backend/.coverage` is absent from the git index — ignoring a tracked file has no effect, so both halves are checked |
 | `test_openapi_snapshot.py` | Asserts the committed `backend/openapi.json` matches what the FastAPI app currently produces, that `/api/cardio` and `/api/measurements` still return paginated envelopes, and that CI regenerates the frontend types and fails on a diff |
 | `test_compose_config.py` | Static parse of `docker-compose.yml`: the frontend sets `VITE_API_PROXY_TARGET`, it names the `backend` service rather than `localhost`, and the host it names is a service the compose file actually defines |
@@ -253,8 +255,8 @@ dev tree would make the check noise rather than signal.
 
 Two ruff configs exist: `ruff.toml` at the repo root and `[tool.ruff]` in
 `backend/pyproject.toml`. Ruff applies the nearest config to each file, so
-without the root one, anything outside `backend/` — the smart scale scripts —
-fell back to ruff's built-in defaults. Those are not a stable contract: bumping
+without the root one, anything outside `backend/` (at the time, the smart scale
+scripts, since replaced by `backend/scale/`) fell back to ruff's built-in defaults. Those are not a stable contract: bumping
 ruff from 0.15 to 0.16 widened them and the pre-commit hook began failing on
 files nobody had touched, under rules absent from the project's own `select`
 list. The hook runs `ruff check --fix` from the repo root with

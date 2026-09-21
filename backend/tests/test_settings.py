@@ -187,7 +187,8 @@ def test_env_file_values_are_read(clean_env, tmp_path):
 
 
 def test_env_file_keys_for_other_tools_are_ignored(clean_env, tmp_path):
-    """The root .env also serves scripts/scale_ingest.py (ADMIN_USERNAME etc.).
+    """Existing .env files carry keys the backend doesn't read (ADMIN_USERNAME etc.,
+    from the retired scale_ingest.py).
 
     pydantic-settings rejects unknown env-file keys by default, which would
     turn a working .env into a startup failure.

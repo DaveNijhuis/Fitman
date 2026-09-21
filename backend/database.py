@@ -1,25 +1,21 @@
-import os
 from collections.abc import Iterator
 
-from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-load_dotenv(find_dotenv())
-
-DATABASE_URL = os.environ["DATABASE_URL"]
+from config import Settings, settings
 
 
-def _make_engine(url: str) -> Engine:
+def _make_engine(config: Settings) -> Engine:
     return create_engine(
-        url,
-        pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
-        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
-        pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "30")),
+        config.database_url,
+        pool_size=config.db_pool_size,
+        max_overflow=config.db_max_overflow,
+        pool_timeout=config.db_pool_timeout,
     )
 
 
-engine = _make_engine(DATABASE_URL)
+engine = _make_engine(settings)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

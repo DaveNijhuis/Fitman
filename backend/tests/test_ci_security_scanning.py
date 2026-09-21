@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -107,3 +108,96 @@ def test_dependabot_targets_the_dev_integration_branch():
             "The key is target-branch (hyphen); Dependabot silently ignores "
             "unrecognised keys such as target_branch."
         )
+
+
+def test_react_packages_are_updated_as_one_group():
+    """React refuses to start unless react and react-dom match exactly.
+
+    Updated as separate PRs, Dependabot bumps one and leaves the other, and the
+    app dies at runtime with "Incompatible React versions" — PR #293. Grouping
+    is what keeps them in step.
+    """
+    config = yaml.safe_load(_DEPENDABOT.read_text())
+    frontend = next(
+        entry
+        for entry in config["updates"]
+        if entry["package-ecosystem"] == "npm" and entry["directory"] == "/frontend"
+    )
+    patterns = frontend["groups"]["react"]["patterns"]
+    assert "react" in patterns
+    assert "react-dom" in patterns
+
+
+def _update_entry(ecosystem: str, directory: str) -> dict[str, Any]:
+    config = yaml.safe_load(_DEPENDABOT.read_text())
+    return next(
+        entry
+        for entry in config["updates"]
+        if entry["package-ecosystem"] == ecosystem and entry["directory"] == directory
+    )
+
+
+@pytest.mark.parametrize(
+    ("ecosystem", "directory"),
+    [("pip", "/backend"), ("npm", "/frontend"), ("npm", "/e2e")],
+)
+def test_routine_updates_are_grouped(ecosystem: str, directory: str) -> None:
+    """One PR per group, not one per package.
+
+    Ungrouped, every routine bump is its own PR touching the same lockfile, so
+    merging one invalidates the rest and the batch degenerates into conflict
+    churn. Grouping resolves the lockfile once per group instead.
+    """
+    groups = _update_entry(ecosystem, directory).get("groups", {})
+    assert groups, f"{ecosystem} {directory} has no groups"
+    grouped_types = {tuple(sorted(g.get("update-types", []))) for g in groups.values()}
+    assert ("minor", "patch") in grouped_types, (
+        f"{ecosystem} {directory} does not group minor and patch updates"
+    )
+
+
+@pytest.mark.parametrize(
+    ("ecosystem", "directory"),
+    [("pip", "/backend"), ("npm", "/frontend"), ("npm", "/e2e")],
+)
+def test_only_react_may_batch_major_updates(ecosystem: str, directory: str) -> None:
+    """Majors otherwise arrive one per PR.
+
+    vitest 4 to 5 needed a real fix; buried in a group of eight routine bumps
+    it would have failed the whole batch with no indication of which package
+    caused it.
+
+    A group with no `update-types` filter takes every update including majors,
+    so absence of the key is what this checks — not merely that "major" is
+    missing from a list that may not exist. `react` is the one exception, and
+    deliberately so: react and react-dom must move together across a major
+    too, which is precisely when a mismatch is most likely.
+    """
+    for name, group in _update_entry(ecosystem, directory).get("groups", {}).items():
+        if name == "react":
+            assert "update-types" not in group, (
+                "the react group must stay unfiltered so majors move together"
+            )
+            continue
+        update_types = group.get("update-types")
+        assert update_types is not None, (
+            f"group {name!r} in {ecosystem} {directory} has no update-types, "
+            "so it silently batches majors"
+        )
+        assert "major" not in update_types, (
+            f"group {name!r} in {ecosystem} {directory} includes major updates"
+        )
+
+
+def test_ci_enforces_the_bundle_size_budget() -> None:
+    """Vite's chunk-size notice is a warning and was ignored for months.
+
+    A lazily-loaded route is one eager import away from being pulled back into
+    the entry chunk, and nothing about that change looks wrong in review (#271).
+    """
+    runs = _run_commands("frontend")
+    build = _index_of_run("frontend", "npm run build")
+    budget = _index_of_run("frontend", "check:bundle")
+    assert budget != -1, "no CI step enforces the bundle size budget"
+    assert budget > build, "the budget check must run after the build"
+    assert runs

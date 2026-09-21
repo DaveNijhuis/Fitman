@@ -7,11 +7,22 @@ on the models — not only in Alembic — to be picked up here.
 import importlib.util
 from pathlib import Path
 
+import pytest
 from alembic.operations import Operations
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect
 
 from database import engine
+
+
+@pytest.fixture(autouse=True)
+def _schema(database: None) -> None:
+    """This module inspects the live schema, so it needs the database built.
+
+    Requested explicitly rather than inherited through `client`: conftest no
+    longer builds the schema at import (#283), and nothing here goes through
+    the HTTP client.
+    """
 
 
 def _indexed_columns(table: str) -> set[str]:

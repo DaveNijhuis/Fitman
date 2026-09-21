@@ -1,17 +1,64 @@
 version: 2
+
+# Grouping keeps routine maintenance to a handful of PRs a week rather than one
+# per package. Ungrouped, every bump touches the same lockfile, so merging one
+# invalidates the rest and the batch degenerates into conflict churn.
+#
+# Majors stay outside the routine groups and arrive one per PR. That is
+# deliberate: vitest 4 to 5 needed a real fix, and buried in a batch of eight it
+# would have failed the whole group with nothing indicating which package caused
+# it.
 updates:
   - package-ecosystem: pip
     directory: /backend
     target-branch: dev
     schedule:
       interval: weekly
+    groups:
+      backend-routine:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: npm
     directory: /frontend
     target-branch: dev
     schedule:
       interval: weekly
+    groups:
+      # Listed first: a dependency joins the first group it matches, and these
+      # must not be swept into the catch-all below.
+      #
+      # React refuses to run unless react and react-dom are the exact same
+      # version. Updated separately, Dependabot bumps one and leaves the other,
+      # and the app dies with "Incompatible React versions" — which is how PR
+      # #293 failed. No update-types filter here on purpose: they have to move
+      # together across a major too, which is exactly when a mismatch is most
+      # likely.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      frontend-routine:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: npm
     directory: /e2e
     target-branch: dev
     schedule:
       interval: weekly
+    groups:
+      e2e-routine:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

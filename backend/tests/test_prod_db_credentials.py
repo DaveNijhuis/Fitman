@@ -19,7 +19,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-PROD = ROOT / "docker-compose.prod.yml"
+PROD = ROOT / "docker-compose.yml"  # production (#339)
 README = (ROOT / "README.md").read_text()
 ENV_EXAMPLE = (ROOT / ".env.example").read_text()
 
@@ -29,18 +29,10 @@ needs_docker = pytest.mark.skipif(
 
 
 def _config(tmp_path: Path, env: str) -> subprocess.CompletedProcess[str]:
-    shutil.copy(PROD, tmp_path / "docker-compose.prod.yml")
+    shutil.copy(PROD, tmp_path / "docker-compose.yml")
     (tmp_path / ".env").write_text(env)
     return subprocess.run(  # noqa: S603, S607 — fixed arguments
-        [
-            "docker",
-            "compose",
-            "-f",
-            "docker-compose.prod.yml",
-            "config",
-            "--format",
-            "json",
-        ],
+        ["docker", "compose", "config", "--format", "json"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -86,7 +78,7 @@ def test_the_database_is_queryable_from_the_server_only(tmp_path: Path):
 
 def test_throwaway_stacks_keep_their_fixed_password():
     """Dev and E2E databases are disposable; only production takes a secret."""
-    for name in ("docker-compose.yml", "docker-compose.e2e.yml"):
+    for name in ("docker-compose.dev.yml", "docker-compose.e2e.yml"):
         env = yaml.safe_load((ROOT / name).read_text())["services"]["postgres"][
             "environment"
         ]

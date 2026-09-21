@@ -1,0 +1,58 @@
+# Development stack: the Vite dev server with hot reload, the backend and a
+# throwaway database. Production is docker-compose.yml (#339).
+#
+#   docker compose -f docker-compose.dev.yml up
+#
+# Its own project name gives it its own containers and its own db_data volume,
+# so it can run beside production and never touches production's data.
+name: fitman-dev
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: fitman
+      POSTGRES_USER: fitman
+      POSTGRES_PASSWORD: fitman
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitman"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # This container runs the Vite dev server, which proxies /api. Inside the
+      # compose network the backend is reachable by service name; localhost
+      # would resolve to this container, where nothing listens on 8000 (#274).
+      VITE_API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db_data:

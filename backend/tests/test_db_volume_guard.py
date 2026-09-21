@@ -20,7 +20,9 @@ import yaml
 
 _ROOT = Path(__file__).resolve().parents[2]
 _README = _ROOT / "README.md"
-_COMPOSE_FILES = ("docker-compose.yml", "docker-compose.prod.yml")
+# Production only: the dev stack has had its own project, and so its own fresh
+# volume, since #339. No SQLite-era file can be sitting in it.
+_COMPOSE_FILES = ("docker-compose.yml",)
 
 _GUARD_SERVICE = "db-guard"
 

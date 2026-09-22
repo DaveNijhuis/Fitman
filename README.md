@@ -68,11 +68,24 @@ In the [Tailscale admin console](https://login.tailscale.com/admin/machines), re
 ### 4. Deploy Fitman
 
 ```bash
-# Clone the repo on your server
 git clone https://github.com/DaveNijhuis/Fitman.git
 cd Fitman
+./setup.sh
+```
 
-# Set up environment variables
+`setup.sh` walks you through the rest:
+- It checks Docker is installed and usable.
+- It writes `.env` and generates its secrets.
+- It picks ports that are free and says what holds any that aren't (see [Ports](#ports)).
+- It asks whether other devices may reach the app, and whether to enable the smart scale.
+- It starts everything and tells you where to create your account.
+- If Tailscale is installed, it offers to turn on HTTPS (step 5).
+
+It's safe to run again: an existing `.env` keeps its secrets and settings. `./setup.sh --help` lists options for an unattended run, such as `./setup.sh --yes --local-only --scale`.
+
+#### Or by hand
+
+```bash
 cp .env.example .env
 ```
 

@@ -48,9 +48,11 @@ services:
       # existing database, see "Changing the database password" in README.md.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see README.md, step 4)}
     # Queryable from the server itself, or through an SSH tunnel, never from
-    # the network: bound to 127.0.0.1. 5433 leaves 5432 free for a dev database.
+    # the network: bound to 127.0.0.1. 5433 leaves 5432 free for a dev database;
+    # FITMAN_DB_PORT moves it (#347). A port only: an address there would make
+    # this spec invalid, so the database can't be opened up by accident.
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${FITMAN_DB_PORT:-5433}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     depends_on:
@@ -87,8 +89,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+    # FITMAN_HTTP_PORT moves the web app off 80 when something else holds it,
+    # such as a reverse proxy (#347): a port (8081), or an address and port
+    # (127.0.0.1:8081) to take connections from this machine only.
     ports:
-      - "80:80"
+      - "${FITMAN_HTTP_PORT:-80}:80"
     depends_on:
       backend:
         condition: service_healthy

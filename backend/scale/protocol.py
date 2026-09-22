@@ -256,12 +256,15 @@ def decode_measurement(f: Frame) -> Measurement:
         body_fat_pct=int(struct.unpack_from(">H", p, 35)[0]) / 10,
         user_id=bytes(p[30:34]),
         stored=f.type == STORED,
-        ra_z20=_ohm(p, 11),
-        la_z20=_ohm(p, 13),
+        # Frame bytes 16-23 at 20 kHz, 26-33 at 100 kHz: left arm, right arm,
+        # right leg, left leg. Byte 16 is the left arm: fitting WLA25 to
+        # Fitdays says so (#332).
+        la_z20=_ohm(p, 11),
+        ra_z20=_ohm(p, 13),
         rl_z20=_ohm(p, 15),
         ll_z20=_ohm(p, 17),
-        ra_z100=_ohm(p, 21),
-        la_z100=_ohm(p, 23),
+        la_z100=_ohm(p, 21),
+        ra_z100=_ohm(p, 23),
         rl_z100=_ohm(p, 25),
         ll_z100=_ohm(p, 27),
     )

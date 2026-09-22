@@ -255,20 +255,20 @@ def test_bia_formulae_run_when_body_fat_pct_is_zero(client: TestClient):
 def test_measurement_without_trunk_impedance_still_gets_derived_fields(client):
     """Scale weigh-ins store no trunk impedance (#320); that used to blank every derived field."""
     headers = {"Authorization": f"Bearer {_token(client)}"}
-    body = {
-        "weight_kg": 99.89,
-        "body_fat_pct": 24.2,
-        "height_cm": 194,
-        "user_age": 35,
+    body = {  # a made-up person: this repo is public
+        "weight_kg": 72.5,
+        "body_fat_pct": 18.5,
+        "height_cm": 170,
+        "user_age": 40,
         "user_sex": 1,
-        "ra_z20": 307.5,
-        "la_z20": 324.9,
-        "rl_z20": 259.9,
-        "ll_z20": 259.4,
-        "ra_z100": 299.5,
-        "la_z100": 262.3,
-        "rl_z100": 250.9,
-        "ll_z100": 236.4,
+        "la_z20": 350.0,
+        "ra_z20": 340.0,
+        "rl_z20": 260.0,
+        "ll_z20": 255.0,
+        "la_z100": 320.0,
+        "ra_z100": 310.0,
+        "rl_z100": 235.0,
+        "ll_z100": 230.0,
     }
     resp = client.post("/api/measurements", json=body, headers=headers)
     assert resp.status_code == 201, resp.text
@@ -276,4 +276,7 @@ def test_measurement_without_trunk_impedance_still_gets_derived_fields(client):
     assert m["bmi"] is not None
     assert m["fat_mass_kg"] is not None
     assert m["visceral_fat_grade"] is not None
-    assert m["skeletal_muscle_kg"] is None  # needs trunk
+    assert (
+        m["skeletal_muscle_kg"] == 33.5
+    )  # from body water since #344; no trunk needed
+    assert (m["muscle_mass_kg"], m["bone_mass_kg"]) == (55.1, 4.0)

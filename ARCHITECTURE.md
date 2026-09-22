@@ -118,6 +118,8 @@ Fitman/
 │   ├── Dockerfile           # Dev only: Vite dev server
 │   └── package.json
 │
+├── setup.sh                 # Guided first-time installation: .env, secrets, free ports, start, HTTPS (#349)
+├── update.sh                # Safe update: checks .env against the new version, backs up, pulls, restarts (#350)
 ├── docker-compose.yml       # Production: nginx static build + backend + postgres (`docker compose up -d`)
 ├── docker-compose.dev.yml   # Development: Vite dev server + backend + postgres, project fitman-dev
 ├── docker-compose.e2e.yml   # E2E testing: isolated stack, tmpfs DB, port 8080
@@ -221,8 +223,10 @@ body_measurements
   visceral_fat_grade  REAL
   subcutaneous_fat_pct REAL
   body_age            INTEGER
-  whr_estimate        REAL
+  whr_estimate        REAL              -- no longer estimated (#344); older rows keep theirs
   smi                 REAL
+  muscle_mass_kg      REAL              -- WLA25 (#344)
+  bone_mass_kg        REAL              -- WLA25 (#344)
   -- Segmental fat (kg) — 5 body segments
   ra_fat_kg / la_fat_kg / trunk_fat_kg / rl_fat_kg / ll_fat_kg  REAL
   -- Segmental muscle (kg)
@@ -450,7 +454,7 @@ docker compose -f docker-compose.e2e.yml up -d --build
 
 Production takes its project name from the clone's directory (normally `fitman`), and its data lives in the `<project>_db_data` volume. The file pins no name on purpose: pinning one would move an instance cloned elsewhere onto a new, empty volume. The development and E2E stacks pin `fitman-dev` and `fitman-e2e`, so neither can replace production's containers or reach its data. The E2E database lives on tmpfs, so it is wiped on every `down -v`.
 
-In production, nginx (port 80) is exposed to the host, and PostgreSQL on `127.0.0.1:5433` only, for database clients on the server or through an SSH tunnel (#335). The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
+In production, nginx (port 80) is exposed to the host, and PostgreSQL on `127.0.0.1:5433` only, for database clients on the server or through an SSH tunnel (#335). `FITMAN_HTTP_PORT` and `FITMAN_DB_PORT` in `.env` move them, for example off a port a reverse proxy already holds; the database stays on `127.0.0.1` whatever the value (#347). The backend runs on an internal Docker network — nginx proxies `/api/` requests to it.
 
 On every container start, `entrypoint.sh` runs `alembic upgrade head` before starting uvicorn, so database migrations apply automatically on deploy.
 

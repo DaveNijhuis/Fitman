@@ -24,7 +24,7 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 - **Cardio tracking** — log runs, rides, swims and more with distance and duration
 - **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, personal records, and interactive body composition trends
 - **Smart scale weigh-in (opt-in)** — weigh in on an e.volve (iCOMON) Bluetooth scale straight from the web app, no Fitdays account or cloud: your phone's browser relays the scale to your server. The scale shows your name, keeps each user apart, and live weight shows while you stand. Needs HTTPS and a Web Bluetooth browser (Chrome on Android, Bluefy on iPhone); see [SCALE.md](SCALE.md)
-- **Body composition analysis** — the scale's body fat and limb impedances feed BIA formulae (Janssen, Watson, Katch-McArdle, and iCOMON's WLA25 for visceral and trunk estimates) that derive fat mass, muscle mass, BMR, visceral fat grade, and more
+- **Body composition analysis** — from the scale's body fat and limb impedances, iCOMON's WLA25 algorithm (the one the scale's own app, Fitdays, uses) derives fat and muscle mass, body water, bone mass, BMR, visceral fat, body age, and fat and muscle per arm, leg and trunk, matching Fitdays to within rounding
 - **Body measurements** — manually log weight and body fat % over time with trend charts
 - **Exercise library** — browse and search all exercises with muscle and equipment info
 - **Workout history** — review past sessions with full set-by-set detail, and delete one after a confirmation
@@ -68,11 +68,24 @@ In the [Tailscale admin console](https://login.tailscale.com/admin/machines), re
 ### 4. Deploy Fitman
 
 ```bash
-# Clone the repo on your server
 git clone https://github.com/DaveNijhuis/Fitman.git
 cd Fitman
+./setup.sh
+```
 
-# Set up environment variables
+`setup.sh` walks you through the rest:
+- It checks Docker is installed and usable.
+- It writes `.env` and generates its secrets.
+- It picks ports that are free and says what holds any that aren't (see [Ports](#ports)).
+- It asks whether other devices may reach the app, and whether to enable the smart scale.
+- It starts everything and tells you where to create your account.
+- If Tailscale is installed, it offers to turn on HTTPS (step 5).
+
+It's safe to run again: an existing `.env` keeps its secrets and settings. `./setup.sh --help` lists options for an unattended run, such as `./setup.sh --yes --local-only --scale`.
+
+#### Or by hand
+
+```bash
 cp .env.example .env
 ```
 
@@ -109,6 +122,8 @@ Tailscale can put a real HTTPS certificate in front of Fitman, with no change to
 
    `tailscale serve status` should show `https://<host>.<tailnet>.ts.net` proxying to `http://127.0.0.1:80`. To undo it: `sudo tailscale serve reset`.
 
+   If you moved the web app with `FITMAN_HTTP_PORT`, forward to that port instead. If another program already serves HTTPS on this server, either let it serve Fitman too (see [Behind an existing reverse proxy](#behind-an-existing-reverse-proxy)), or give Tailscale another HTTPS port, for example `sudo tailscale serve --bg --https=8443 8081`, reached at `https://<host>.<tailnet>.ts.net:8443`.
+
 **Privacy note:** issued certificates are recorded in public Certificate Transparency logs, so your machine's name and your tailnet's name become publicly visible. The app itself stays reachable only from your tailnet.
 
 The API is proxied by nginx on the page's own origin, so `CORS_ORIGINS` needs no change for HTTPS.
@@ -126,6 +141,68 @@ Each address is its own origin to the browser, so you log in separately on each.
 
 Install the Tailscale app on your iPhone or laptop and sign in with the same account — you'll have access from anywhere without opening any ports to the internet.
 
+### Ports
+
+What each stack publishes on the server, and how to move it:
+
+| Stack | Port | What | To change |
+|---|---|---|---|
+| Production | `80`, all interfaces | The web app (nginx) | `FITMAN_HTTP_PORT` in `.env` |
+| Production | `5433`, on `127.0.0.1` only | PostgreSQL, for database clients ([Database access](#database-access)) | `FITMAN_DB_PORT` in `.env` |
+| Production, HTTPS | `443` on the Tailscale address | `tailscale serve` (step 5) | `--https=<port>` |
+| Development | `3000`, `8000` | Vite dev server, backend | `docker-compose.dev.yml` |
+| E2E tests | `8080` | The app under test | `docker-compose.e2e.yml` |
+
+If `docker compose up -d` stops with **port is already allocated**, something else holds that port. Find out what:
+
+```bash
+sudo ss -ltnp 'sport = :80'
+```
+
+Then move Fitman, for example with `FITMAN_HTTP_PORT=8081` in `.env`, and run `docker compose up -d` again. `FITMAN_HTTP_PORT` takes a port (`8081`, reachable from the network) or an address and port (`127.0.0.1:8081`, reachable from this machine only). `FITMAN_DB_PORT` takes a port only, so the database always stays on `127.0.0.1`.
+
+### Behind an existing reverse proxy
+
+If the server already runs a reverse proxy such as Caddy, nginx or Traefik (often the thing holding ports 80 and 443), let it serve Fitman too. It then provides HTTPS, which the smart scale needs, and you don't need `tailscale serve`.
+
+**The proxy runs directly on the server.** Publish Fitman on a local port and point the proxy at it:
+
+```bash
+# .env
+FITMAN_HTTP_PORT=127.0.0.1:8081
+```
+
+```
+# Caddyfile
+fitman.example.com {
+    reverse_proxy 127.0.0.1:8081
+}
+```
+
+**The proxy runs in Docker.** Inside its container, `127.0.0.1` is the container itself, so it can't reach a port published on the server's `127.0.0.1`. Put the proxy on Fitman's Docker network instead, and address the web app by its service name:
+
+```yaml
+# the proxy's docker-compose.yml
+services:
+  caddy:
+    networks: [default, fitman]
+networks:
+  fitman:
+    external: true
+    name: fitman_default   # <project>_default; the project is Fitman's directory name
+```
+
+```
+# Caddyfile
+fitman.example.com {
+    reverse_proxy frontend:80
+}
+```
+
+Still move Fitman off port 80 (`FITMAN_HTTP_PORT=127.0.0.1:8081`), so the two don't collide. Start Fitman first, since the proxy's stack needs Fitman's network to exist.
+
+nginx proxies `/api` itself, so the reverse proxy needs nothing Fitman-specific and `CORS_ORIGINS` stays as it is.
+
 ### Everyday commands
 
 Run these from the repo directory.
@@ -133,13 +210,21 @@ Run these from the repo directory.
 | To | Run |
 |---|---|
 | Start, or apply a changed `.env` | `docker compose up -d` |
-| Update to a new version | `git pull && docker compose up -d --build` |
+| Update to a new version | `./update.sh` |
 | Stop (data is kept) | `docker compose down` |
 | See what's running | `docker compose ps` |
 | Follow the logs | `docker compose logs -f backend` |
 | Open a database shell | `docker compose exec postgres psql -U fitman fitman` |
 
 Never add `-v` to `down`: that deletes the database volume.
+
+`./update.sh` updates safely:
+- It fetches the new version and checks it against your `.env` before changing anything. If the new version needs a setting you don't have, it stops and says which.
+- It backs up the database to `backups/`.
+- It updates the code, rebuilds, restarts, and shows the database migrations that ran.
+- If the new version won't start, it prints the exact commands to go back to the version you had, database included.
+
+It refuses to run over local changes to Fitman's own files; settings belong in `.env`. By hand, the same update is `git pull && docker compose up -d --build`, without the checks or the backup.
 
 ### Upgrading from docker-compose.prod.yml
 
@@ -306,8 +391,8 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 506 tests, 90% coverage floor
-cd frontend && npm test            # 86 tests, Vitest + jsdom
+cd backend  && .venv/bin/pytest    # 523 tests, 90% coverage floor
+cd frontend && npm test            # 88 tests, Vitest + jsdom
 ```
 
 The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.

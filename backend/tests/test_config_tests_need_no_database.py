@@ -22,6 +22,7 @@ _CONFIG_ONLY = [
     "tests/test_ci_security_scanning.py",
     "tests/test_compose_config.py",
     "tests/test_compose_launch.py",
+    "tests/test_compose_ports.py",
     "tests/test_db_volume_guard.py",
     "tests/test_dockerignore.py",
     "tests/test_frontend_dockerignore.py",
@@ -32,6 +33,8 @@ _CONFIG_ONLY = [
     "tests/test_readme_https.py",
     "tests/test_scale_handshake.py",
     "tests/test_scale_protocol.py",
+    "tests/test_setup_script.py",
+    "tests/test_update_script.py",
 ]
 
 # Nothing listens here, so any connection attempt fails immediately rather than

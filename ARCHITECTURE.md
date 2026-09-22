@@ -119,6 +119,7 @@ Fitman/
 │   └── package.json
 │
 ├── setup.sh                 # Guided first-time installation: .env, secrets, free ports, start, HTTPS (#349)
+├── update.sh                # Safe update: checks .env against the new version, backs up, pulls, restarts (#350)
 ├── docker-compose.yml       # Production: nginx static build + backend + postgres (`docker compose up -d`)
 ├── docker-compose.dev.yml   # Development: Vite dev server + backend + postgres, project fitman-dev
 ├── docker-compose.e2e.yml   # E2E testing: isolated stack, tmpfs DB, port 8080

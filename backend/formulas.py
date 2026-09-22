@@ -6,16 +6,17 @@ published research formulae. The developers are not medical professionals.
 These values are not clinically validated and must not be used for medical
 diagnosis or treatment. Always consult a qualified healthcare professional.
 
-Results will differ from Fitdays, which uses proprietary undisclosed algorithms.
+Body fat comes from the scale itself; everything else follows the scale's own
+app (Fitdays) to within rounding, checked against real weigh-ins (#344, #332).
 
 Sources:
-  Janssen (2000)    doi:10.1152/jappl.2000.89.2.465
-  Watson (1980)     Am J Clin Nutr. 33(1):27-39
-  Katch-McArdle     Exercise Physiology, McArdle et al. 1996
-  Wang (1999)       Am J Clin Nutr. 69(5):833-841
   WLA25             iCOMON's body-composition algorithm (used by Fitdays for this
                     scale), ported from sacoma-lib (MIT, github.com/ynsgnr/sacoma-lib):
-                    visceral fat, trunk fat and trunk muscle (#325)
+                    the whole-body chain (#344), visceral fat, trunk (#325) and
+                    per-limb fat and muscle (#332)
+  Katch-McArdle     Exercise Physiology, McArdle et al. 1996: WLA25's BMR is
+                    the same 370 + 21.6 × lean mass
+  Wang (1999)       Am J Clin Nutr. 69(5):833-841: minerals, which WLA25 lacks
 """
 
 import math

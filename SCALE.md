@@ -4,7 +4,7 @@ Fitman reads body composition directly from the **e.volve Bluetooth smart scale*
 
 ## ⚠️ Medical disclaimer
 
-**The developers of Fitman are not medical professionals.** All body composition metrics beyond raw weight (body fat %, muscle mass, body water, BMR, visceral fat, WHR estimate, etc.) are estimates derived from bioelectrical impedance analysis (BIA) and published or vendor formulas. They are not clinically validated measurements and **must not be used for medical diagnosis, treatment decisions, or as a substitute for professional medical advice.** Always consult a qualified healthcare professional.
+**The developers of Fitman are not medical professionals.** All body composition metrics beyond raw weight (body fat %, muscle mass, body water, BMR, visceral fat, per-limb values, etc.) are estimates derived from bioelectrical impedance analysis (BIA) and published or vendor formulas. They are not clinically validated measurements and **must not be used for medical diagnosis, treatment decisions, or as a substitute for professional medical advice.** Always consult a qualified healthcare professional.
 
 ---
 
@@ -95,6 +95,6 @@ Fitman shows each user's display name (or username) on the scale, as Fitdays doe
 | WHR | Not estimated: WLA25 has no formula, and Fitman's old estimate was far from Fitdays' (#344) |
 | Visceral fat | iCOMON's WLA25 (ported from sacoma-lib, MIT): reproduces Fitdays exactly |
 | Trunk fat, trunk muscle | WLA25 with the trunk-impedance terms off: within ~0.6 kg of Fitdays |
-| Arm and leg fat and muscle | WLA25's per-limb regressions, each limb from its own 20 and 100 kHz readings, with the vendor's left/right reconciliation and floors: 36 of 40 values match Fitdays exactly, the rest within 0.2 kg (#332) |
+| Arm and leg fat and muscle | WLA25's per-limb regressions, each limb from its own 20 and 100 kHz readings, with the vendor's left/right reconciliation and floors: every limb value within 0.1 kg of Fitdays on three reports (#332) |
 
 BIA from hand and foot electrodes cannot localise abdominal or visceral fat: the trunk is about half the body's mass but a small share of the measured impedance. Every such figure, including Fitdays', is an estimate from whole-body fat and lean mass.

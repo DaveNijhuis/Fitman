@@ -24,7 +24,7 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 - **Cardio tracking** — log runs, rides, swims and more with distance and duration
 - **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, personal records, and interactive body composition trends
 - **Smart scale weigh-in (opt-in)** — weigh in on an e.volve (iCOMON) Bluetooth scale straight from the web app, no Fitdays account or cloud: your phone's browser relays the scale to your server. The scale shows your name, keeps each user apart, and live weight shows while you stand. Needs HTTPS and a Web Bluetooth browser (Chrome on Android, Bluefy on iPhone); see [SCALE.md](SCALE.md)
-- **Body composition analysis** — the scale's body fat and limb impedances feed BIA formulae (Janssen, Watson, Katch-McArdle, and iCOMON's WLA25 for visceral and trunk estimates) that derive fat mass, muscle mass, BMR, visceral fat grade, and more
+- **Body composition analysis** — from the scale's body fat and limb impedances, iCOMON's WLA25 algorithm (the one the scale's own app, Fitdays, uses) derives fat and muscle mass, body water, bone mass, BMR, visceral fat, body age, and fat and muscle per arm, leg and trunk, matching Fitdays to within rounding
 - **Body measurements** — manually log weight and body fat % over time with trend charts
 - **Exercise library** — browse and search all exercises with muscle and equipment info
 - **Workout history** — review past sessions with full set-by-set detail, and delete one after a confirmation
@@ -306,8 +306,8 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 506 tests, 90% coverage floor
-cd frontend && npm test            # 86 tests, Vitest + jsdom
+cd backend  && .venv/bin/pytest    # 523 tests, 90% coverage floor
+cd frontend && npm test            # 88 tests, Vitest + jsdom
 ```
 
 The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.

@@ -276,4 +276,7 @@ def test_measurement_without_trunk_impedance_still_gets_derived_fields(client):
     assert m["bmi"] is not None
     assert m["fat_mass_kg"] is not None
     assert m["visceral_fat_grade"] is not None
-    assert m["skeletal_muscle_kg"] is None  # needs trunk
+    assert (
+        m["skeletal_muscle_kg"] == 33.5
+    )  # from body water since #344; no trunk needed
+    assert (m["muscle_mass_kg"], m["bone_mass_kg"]) == (55.1, 4.0)

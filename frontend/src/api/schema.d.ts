@@ -782,6 +782,8 @@ export interface components {
             body_fat_pct?: number | null;
             /** Body Water Pct */
             body_water_pct?: number | null;
+            /** Bone Mass Kg */
+            bone_mass_kg?: number | null;
             /** Fat Free Weight Kg */
             fat_free_weight_kg?: number | null;
             /** Fat Mass Kg */
@@ -808,6 +810,8 @@ export interface components {
             ll_z100?: number | null;
             /** Ll Z20 */
             ll_z20?: number | null;
+            /** Muscle Mass Kg */
+            muscle_mass_kg?: number | null;
             /** Notes */
             notes?: string | null;
             /** Protein Kg */
@@ -867,6 +871,8 @@ export interface components {
             body_fat_pct?: number | null;
             /** Body Water Pct */
             body_water_pct?: number | null;
+            /** Bone Mass Kg */
+            bone_mass_kg?: number | null;
             /** Fat Free Weight Kg */
             fat_free_weight_kg?: number | null;
             /** Fat Mass Kg */
@@ -895,6 +901,8 @@ export interface components {
             ll_z100?: number | null;
             /** Ll Z20 */
             ll_z20?: number | null;
+            /** Muscle Mass Kg */
+            muscle_mass_kg?: number | null;
             /** Notes */
             notes?: string | null;
             /** Protein Kg */

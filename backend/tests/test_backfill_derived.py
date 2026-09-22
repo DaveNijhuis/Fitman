@@ -185,3 +185,37 @@ def test_without_any_age_nothing_is_derived(
     with SessionLocal() as db:
         backfill_derived(db)
     assert _get(mid).bmi is None
+
+
+# ── Fields added later (#344) ─────────────────────────────────────────────────
+
+
+def test_rows_derived_before_344_get_the_new_fields_and_nothing_else(user):
+    """Muscle and bone mass are new, and skeletal muscle no longer needs trunk
+    impedance. Rows derived earlier get those; every value they already have
+    stays, including ones the current formulas would now compute differently."""
+    mid = _add(user, **RAW, bmi=12.34, body_water_pct=99.0)
+    with SessionLocal() as db:
+        assert backfill_derived(db) >= 1
+    m = _get(mid)
+    assert (m.muscle_mass_kg, m.bone_mass_kg) == (55.1, 4.0)
+    assert m.skeletal_muscle_kg == 33.5
+    assert (m.bmi, m.body_water_pct) == (12.34, 99.0)
+    assert m.visceral_fat_grade is None
+
+
+def test_rows_with_the_new_fields_are_not_touched_again(user):
+    _add(user, **RAW)
+    with SessionLocal() as db:
+        backfill_derived(db)
+    with SessionLocal() as db:
+        assert backfill_derived(db) == 0
+
+
+def test_a_derived_row_without_impedances_is_left_as_it_is(user):
+    """Weight, body fat and a BMI but no impedances: nothing to derive from."""
+    mid = _add(user, weight_kg=80.0, body_fat_pct=20.0, bmi=24.7)
+    with SessionLocal() as db:
+        assert backfill_derived(db) == 0
+    m = _get(mid)
+    assert (m.bmi, m.muscle_mass_kg) == (24.7, None)

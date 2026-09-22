@@ -618,6 +618,17 @@
             ],
             "title": "Body Water Pct"
           },
+          "bone_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bone Mass Kg"
+          },
           "fat_free_weight_kg": {
             "anyOf": [
               {
@@ -760,6 +771,17 @@
               }
             ],
             "title": "Ll Z20"
+          },
+          "muscle_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muscle Mass Kg"
           },
           "notes": {
             "anyOf": [
@@ -1076,6 +1098,17 @@
             ],
             "title": "Body Water Pct"
           },
+          "bone_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bone Mass Kg"
+          },
           "fat_free_weight_kg": {
             "anyOf": [
               {
@@ -1222,6 +1255,17 @@
               }
             ],
             "title": "Ll Z20"
+          },
+          "muscle_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muscle Mass Kg"
           },
           "notes": {
             "anyOf": [

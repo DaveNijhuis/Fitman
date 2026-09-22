@@ -109,6 +109,8 @@ Tailscale can put a real HTTPS certificate in front of Fitman, with no change to
 
    `tailscale serve status` should show `https://<host>.<tailnet>.ts.net` proxying to `http://127.0.0.1:80`. To undo it: `sudo tailscale serve reset`.
 
+   If you moved the web app with `FITMAN_HTTP_PORT`, forward to that port instead. If another program already serves HTTPS on this server, either let it serve Fitman too (see [Behind an existing reverse proxy](#behind-an-existing-reverse-proxy)), or give Tailscale another HTTPS port, for example `sudo tailscale serve --bg --https=8443 8081`, reached at `https://<host>.<tailnet>.ts.net:8443`.
+
 **Privacy note:** issued certificates are recorded in public Certificate Transparency logs, so your machine's name and your tailnet's name become publicly visible. The app itself stays reachable only from your tailnet.
 
 The API is proxied by nginx on the page's own origin, so `CORS_ORIGINS` needs no change for HTTPS.
@@ -125,6 +127,68 @@ On first launch, visit `https://<host>.<tailnet>.ts.net/setup` (or `http://local
 Each address is its own origin to the browser, so you log in separately on each.
 
 Install the Tailscale app on your iPhone or laptop and sign in with the same account — you'll have access from anywhere without opening any ports to the internet.
+
+### Ports
+
+What each stack publishes on the server, and how to move it:
+
+| Stack | Port | What | To change |
+|---|---|---|---|
+| Production | `80`, all interfaces | The web app (nginx) | `FITMAN_HTTP_PORT` in `.env` |
+| Production | `5433`, on `127.0.0.1` only | PostgreSQL, for database clients ([Database access](#database-access)) | `FITMAN_DB_PORT` in `.env` |
+| Production, HTTPS | `443` on the Tailscale address | `tailscale serve` (step 5) | `--https=<port>` |
+| Development | `3000`, `8000` | Vite dev server, backend | `docker-compose.dev.yml` |
+| E2E tests | `8080` | The app under test | `docker-compose.e2e.yml` |
+
+If `docker compose up -d` stops with **port is already allocated**, something else holds that port. Find out what:
+
+```bash
+sudo ss -ltnp 'sport = :80'
+```
+
+Then move Fitman, for example with `FITMAN_HTTP_PORT=8081` in `.env`, and run `docker compose up -d` again. `FITMAN_HTTP_PORT` takes a port (`8081`, reachable from the network) or an address and port (`127.0.0.1:8081`, reachable from this machine only). `FITMAN_DB_PORT` takes a port only, so the database always stays on `127.0.0.1`.
+
+### Behind an existing reverse proxy
+
+If the server already runs a reverse proxy such as Caddy, nginx or Traefik (often the thing holding ports 80 and 443), let it serve Fitman too. It then provides HTTPS, which the smart scale needs, and you don't need `tailscale serve`.
+
+**The proxy runs directly on the server.** Publish Fitman on a local port and point the proxy at it:
+
+```bash
+# .env
+FITMAN_HTTP_PORT=127.0.0.1:8081
+```
+
+```
+# Caddyfile
+fitman.example.com {
+    reverse_proxy 127.0.0.1:8081
+}
+```
+
+**The proxy runs in Docker.** Inside its container, `127.0.0.1` is the container itself, so it can't reach a port published on the server's `127.0.0.1`. Put the proxy on Fitman's Docker network instead, and address the web app by its service name:
+
+```yaml
+# the proxy's docker-compose.yml
+services:
+  caddy:
+    networks: [default, fitman]
+networks:
+  fitman:
+    external: true
+    name: fitman_default   # <project>_default; the project is Fitman's directory name
+```
+
+```
+# Caddyfile
+fitman.example.com {
+    reverse_proxy frontend:80
+}
+```
+
+Still move Fitman off port 80 (`FITMAN_HTTP_PORT=127.0.0.1:8081`), so the two don't collide. Start Fitman first, since the proxy's stack needs Fitman's network to exist.
+
+nginx proxies `/api` itself, so the reverse proxy needs nothing Fitman-specific and `CORS_ORIGINS` stays as it is.
 
 ### Everyday commands
 

@@ -42,6 +42,8 @@ class _MeasurementFields(BaseModel):
     body_age: int | None = None
     whr_estimate: float | None = None
     smi: float | None = None
+    muscle_mass_kg: float | None = None
+    bone_mass_kg: float | None = None
     ra_fat_kg: float | None = None
     la_fat_kg: float | None = None
     trunk_fat_kg: float | None = None
@@ -86,6 +88,14 @@ class MeasurementPage(BaseModel):
 
 def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> None:
     """If all required inputs are present, calculate and fill derived fields."""
+    for field, value in (derive(measurement, age, sex) or {}).items():
+        setattr(measurement, field, value)
+
+
+def derive(
+    measurement: BodyMeasurement, age: int | None, sex: int
+) -> dict[str, Any] | None:
+    """The derived fields for a measurement, or None when an input is missing."""
     height: float | None = measurement.height_cm or (settings.scale_height_cm or None)
 
     required = [
@@ -103,7 +113,7 @@ def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> 
         measurement.ll_z100,
     ]
     if not all(x is not None for x in required):
-        return
+        return None
 
     profile = UserProfile(
         age=cast(int, age),
@@ -124,9 +134,7 @@ def _apply_formulae(measurement: BodyMeasurement, age: int | None, sex: int) -> 
         trunk_z100=measurement.trunk_z100,
         body_fat_pct=cast(float, measurement.body_fat_pct),
     )
-    derived = calculate_all(profile, inputs)
-    for field, value in derived.items():
-        setattr(measurement, field, value)
+    return calculate_all(profile, inputs)
 
 
 @router.post("", response_model=MeasurementOut, status_code=status.HTTP_201_CREATED)

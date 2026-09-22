@@ -221,8 +221,10 @@ body_measurements
   visceral_fat_grade  REAL
   subcutaneous_fat_pct REAL
   body_age            INTEGER
-  whr_estimate        REAL
+  whr_estimate        REAL              -- no longer estimated (#344); older rows keep theirs
   smi                 REAL
+  muscle_mass_kg      REAL              -- WLA25 (#344)
+  bone_mass_kg        REAL              -- WLA25 (#344)
   -- Segmental fat (kg) — 5 body segments
   ra_fat_kg / la_fat_kg / trunk_fat_kg / rl_fat_kg / ll_fat_kg  REAL
   -- Segmental muscle (kg)

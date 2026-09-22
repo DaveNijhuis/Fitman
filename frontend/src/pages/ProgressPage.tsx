@@ -212,12 +212,13 @@ export default function ProgressPage() {
     fat_mass_kg:        toTrend('fat_mass_kg'),
     lean_mass_kg:       toTrend('lean_mass_kg'),
     skeletal_muscle_kg: toTrend('skeletal_muscle_kg'),
+    muscle_mass_kg:     toTrend('muscle_mass_kg'),
+    bone_mass_kg:       toTrend('bone_mass_kg'),
     bmi:                toTrend('bmi'),
     body_water_pct:     toTrend('body_water_pct'),
     bmr_kcal:           toTrend('bmr_kcal'),
     visceral_fat_grade: toTrend('visceral_fat_grade'),
     body_age:           toTrend('body_age'),
-    whr_estimate:       toTrend('whr_estimate'),
   }
 
   async function handleLogMeasurement() {
@@ -511,13 +512,14 @@ export default function ProgressPage() {
                     { key: 'body_fat_pct',       label: 'Body fat',        unit: '%',     color: '#f97316', lowerBetter: true,  prev: prev?.body_fat_pct ?? null,       value: latest.body_fat_pct },
                     { key: 'fat_mass_kg',         label: 'Fat mass',        unit: ' kg',   color: '#f97316', lowerBetter: true,  prev: prev?.fat_mass_kg ?? null,         value: latest.fat_mass_kg },
                     { key: 'lean_mass_kg',        label: 'Lean mass',       unit: ' kg',   color: '#22c55e', lowerBetter: false, prev: prev?.lean_mass_kg ?? null,        value: latest.lean_mass_kg },
+                    { key: 'muscle_mass_kg',      label: 'Muscle mass',     unit: ' kg',   color: '#22c55e', lowerBetter: false, prev: prev?.muscle_mass_kg ?? null,      value: latest.muscle_mass_kg },
                     { key: 'skeletal_muscle_kg',  label: 'Skeletal muscle', unit: ' kg',   color: '#22c55e', lowerBetter: false, prev: prev?.skeletal_muscle_kg ?? null,  value: latest.skeletal_muscle_kg },
+                    { key: 'bone_mass_kg',        label: 'Bone mass',       unit: ' kg',   color: '#60a5fa', lowerBetter: false, prev: prev?.bone_mass_kg ?? null,        value: latest.bone_mass_kg },
                     { key: 'bmi',                 label: 'BMI',             unit: '',      color: '#60a5fa', lowerBetter: true,  prev: prev?.bmi ?? null,                 value: latest.bmi },
                     { key: 'body_water_pct',      label: 'Body water',      unit: '%',     color: '#60a5fa', lowerBetter: false, prev: prev?.body_water_pct ?? null,      value: latest.body_water_pct },
                     { key: 'bmr_kcal',            label: 'BMR',             unit: ' kcal', color: '#22c55e', lowerBetter: false, prev: prev?.bmr_kcal ?? null,            value: latest.bmr_kcal },
                     { key: 'visceral_fat_grade',  label: 'Visceral fat',    unit: '',      color: '#f97316', lowerBetter: true,  prev: prev?.visceral_fat_grade ?? null,  value: latest.visceral_fat_grade },
                     { key: 'body_age',            label: 'Body age',        unit: ' yrs',  color: '#f97316', lowerBetter: true,  prev: prev?.body_age ?? null,            value: latest.body_age },
-                    { key: 'whr_estimate',        label: 'WHR estimate',    unit: '',      color: '#f97316', lowerBetter: true,  prev: prev?.whr_estimate ?? null,        value: latest.whr_estimate },
                   ].filter(m => m.value != null)
 
                   const active = METRICS.find(m => m.key === selectedBodyMetric) ?? METRICS[0]

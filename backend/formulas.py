@@ -18,6 +18,7 @@ Sources:
                     visceral fat, trunk fat and trunk muscle (#325)
 """
 
+import math
 from dataclasses import dataclass
 
 
@@ -48,6 +49,29 @@ def _r(x: float) -> float:
     return round(x, 2)
 
 
+def _round1(x: float) -> float:
+    """One decimal, half up: the vendor's rounding, not Python's half-even."""
+    return math.floor(x * 10 + 0.5) / 10
+
+
+# WLA25's body-age offsets: body fat below each bound → age + offset; above
+# the last, + 5. No band gives 0 except women's 45–46 %, which is the vendor's
+# own quirk, kept as it is.
+_BODY_AGE_BANDS = {
+    1: ((14, -3), (19, -2), (24, -1), (27, 1), (30, 2), (33, 3), (36, 4)),
+    0: ((24, -3), (28, -2), (32, -1), (35, 1), (38, 2), (42, 3), (45, 4), (46, 0)),
+}
+
+
+def _body_age(age: int, body_fat_pct: float, sex: int) -> int:
+    if age < 10:
+        return age
+    for bound, offset in _BODY_AGE_BANDS[sex]:
+        if body_fat_pct < bound:
+            return age + offset
+    return age + 5
+
+
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
@@ -61,88 +85,46 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     w = profile.weight_kg
     fat_pct = inputs.body_fat_pct
 
-    # ── Basic ──────────────────────────────────────────────────────────────────
+    # ── Whole body — iCOMON WLA25's derivation chain (#344) ──────────────────
+    # The scale's own app (Fitdays) derives every whole-body metric from
+    # fat-free mass. Ported from sacoma-lib (MIT); against Fitdays, 39 of 45
+    # values exact and the rest within 0.1 (or 2 kcal). Fat mass is rounded
+    # before lean mass is taken from it, as the vendor does.
     bmi = _r(w / h_m**2)
-    fat_mass_kg = _r(w * fat_pct / 100)
+    fat_mass_kg = _round1(w * fat_pct / 100)
     lean_mass_kg = _r(w - fat_mass_kg)
     fat_free_weight_kg = lean_mass_kg
+    water_kg = lean_mass_kg * 0.733
 
-    # ── BMR — Katch-McArdle (1996) ─────────────────────────────────────────────
-    bmr_kcal = _r(370 + 21.6 * lean_mass_kg)
+    body_water_pct = _round1(water_kg / w * 100)
+    muscle_mass_kg = _round1(lean_mass_kg * 0.933)
+    bone_mass_kg = _round1(lean_mass_kg * 0.067)
+    protein_kg = _round1(lean_mass_kg * 0.2)
+    bmr_kcal = float(int(lean_mass_kg * 21.6 + 370))
+    bf = _round1(fat_pct)
+    subcutaneous_fat_pct = _round1((bf * -0.0002 + 0.72) * bf)
+    body_age = _body_age(profile.age, bf, profile.sex)
 
-    # ── Total Body Water — Watson (1980) ───────────────────────────────────────
-    # Male:   TBW = 2.447 − 0.09156×age + 0.1074×height_cm + 0.3362×weight_kg
-    # Female: TBW = −2.097 + 0.1069×height_cm + 0.2466×weight_kg
-    if profile.sex == 1:
-        tbw_kg = 2.447 - 0.09156 * profile.age + 0.1074 * profile.height_cm + 0.3362 * w
-    else:
-        tbw_kg = -2.097 + 0.1069 * profile.height_cm + 0.2466 * w
-    tbw_kg = max(0.0, tbw_kg)
-    body_water_pct = _r(tbw_kg / w * 100)
-
-    # ── Protein and mineral mass — Wang (1999) ─────────────────────────────────
-    # Five-compartment model fractions of lean mass:
-    # water ≈ 73%, protein ≈ 19%, minerals ≈ 6%
-    protein_kg = _r(lean_mass_kg * 0.19)
+    # Minerals — Wang (1999): ≈ 6 % of lean mass. Not a WLA25 metric.
     inorganic_salt_kg = _r(lean_mass_kg * 0.06)
 
-    # ── Skeletal Muscle Mass — Janssen (2000) ──────────────────────────────────
-    # SMM (kg) = (H²/R × 0.401) + (sex × 3.825) − (age × 0.071) + 5.102
-    # H = height in cm; R = whole-body resistance (Ω)
-    # Approximated from the right-side BIA path at 20 kHz (paper used 50 kHz
-    # wrist-to-ankle; 20 kHz gives a conservative overestimate of resistance).
-    # Needs the whole-body path through the trunk, so it is left empty when
-    # trunk impedance is unknown — as for scale weigh-ins (#320, #325).
-    skeletal_muscle_kg: float | None = None
-    smi: float | None = None
-    if inputs.trunk_z20 is not None:
-        R = inputs.ra_z20 + inputs.trunk_z20 + inputs.rl_z20
-        smm = (
-            (profile.height_cm**2 / R * 0.401)
-            + (profile.sex * 3.825)
-            - (profile.age * 0.071)
-            + 5.102
-        )
-        skeletal_muscle_kg = _r(max(0.0, smm))
-        # SMI — Skeletal Muscle Index (kg/m²); low SMI flags sarcopenia risk
-        smi = _r(skeletal_muscle_kg / h_m**2)
+    # Skeletal muscle from body water: needs no trunk impedance, unlike
+    # Janssen (2000), which left it empty for every scale weigh-in (#325).
+    skeletal_muscle_kg = _r(water_kg * 0.834 - 2.627)
+    # SMI — Skeletal Muscle Index (kg/m²); low SMI flags sarcopenia risk
+    smi = _r(skeletal_muscle_kg / h_m**2)
 
     # ── Visceral fat grade — iCOMON WLA25 ─────────────────────────────────────
     # Hand and foot electrodes cannot localise abdominal fat; every consumer
     # scale estimates it from whole-body fat and lean mass. WLA25 is the one
-    # this scale's own app uses, truncated to a 1–20 grade. It reproduced
-    # Fitdays exactly on both readings checked (9 and 16).
+    # this scale's own app uses, truncated to a 1–20 grade.
     grade = int(lean_mass_kg * -0.029 + fat_mass_kg * 0.502 - 0.477)
     visceral_fat_grade = float(_clamp(grade, 1, 20))
 
-    # ── Subcutaneous fat % ─────────────────────────────────────────────────────
-    # Subcutaneous fat ≈ 85% of total fat (Shen 2003).
-    subcutaneous_fat_pct = _r(fat_pct * 0.85)
-
-    # ── Body age estimate ──────────────────────────────────────────────────────
-    # Compares body_fat_pct to ACSM age/sex norms (men ~15%, women ~23%).
-    ref_fat = 15.0 if profile.sex == 1 else 23.0
-    body_age = round(_clamp(profile.age + (fat_pct - ref_fat) * 0.5, 15, 99))
-
-    # ── WHR estimate ───────────────────────────────────────────────────────────
-    # Waist and hip estimated from anthropometrics + trunk/leg fat fraction.
-    # Based on Heitmann (1990) and Lean (1995) trunk fat / waist correlations.
-    # Values are rough estimates only.
-    trunk_fat_est = fat_mass_kg * 0.42
-    waist_cm = (
-        0.84 * profile.height_cm
-        - 0.18 * w
-        + 0.22 * (trunk_fat_est / w * 100)
-        + (5.0 if profile.sex == 1 else 0.0)
-    )
-    leg_fat_est = fat_mass_kg * 0.34
-    hip_cm = (
-        0.67 * profile.height_cm
-        - 0.10 * w
-        + 0.25 * (leg_fat_est / w * 100)
-        + (2.0 if profile.sex == 1 else 5.0)
-    )
-    whr_estimate = _r(waist_cm / hip_cm)
+    # ── WHR — not estimated (#344) ─────────────────────────────────────────────
+    # The old anthropometric estimate was far from Fitdays' (1.22 against
+    # 0.94), and WLA25 has no WHR formula. No number beats a wrong one.
+    whr_estimate: float | None = None
 
     # ── Segmental — WLA25 ─────────────────────────────────────────────────────
     # Trunk fat and trunk muscle use WLA25's regressions with the trunk-
@@ -170,6 +152,8 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
         "body_age": body_age,
         "whr_estimate": whr_estimate,
         "smi": smi,
+        "muscle_mass_kg": muscle_mass_kg,
+        "bone_mass_kg": bone_mass_kg,
         "ra_muscle_kg": seg_lean["ra"],
         "la_muscle_kg": seg_lean["la"],
         "rl_muscle_kg": seg_lean["rl"],

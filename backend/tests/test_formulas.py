@@ -34,8 +34,9 @@ def test_bmi(result):
     assert result["bmi"] == expected
 
 
-def test_fat_mass(result):
-    assert result["fat_mass_kg"] == pytest.approx(85.0 * 18.2 / 100, abs=0.01)
+def test_fat_mass_is_rounded_to_one_decimal_first(result):
+    """WLA25 rounds fat mass before taking lean from it (#344): 15.47 → 15.5."""
+    assert result["fat_mass_kg"] == 15.5
 
 
 def test_lean_mass(result):
@@ -48,62 +49,123 @@ def test_fat_free_equals_lean(result):
     assert result["fat_free_weight_kg"] == result["lean_mass_kg"]
 
 
-# ── BMR ───────────────────────────────────────────────────────────────────────
+# ── Whole body — WLA25's derivation chain (#344) ──────────────────────────────
+# Everything below follows from fat-free mass (weight minus the scale's body
+# fat), as in the scale's own app (Fitdays). Checked against Fitdays outside
+# this repo: 39 of 45 values exact, the rest within 0.1 (or 2 kcal). Expected
+# values are the formulas worked by hand, with the vendor's half-up rounding
+# to one decimal:
+#
+#   fat = round1(w·bf)   lean = w − fat   water = lean·0.733
+#   water % = water / w   muscle = lean·0.933   bone = lean·0.067
+#   protein = lean·0.2    skeletal muscle = water·0.834 − 2.627
+#   subcutaneous % = (bf·−0.0002 + 0.72)·bf    BMR = int(lean·21.6 + 370)
+
+WLA25_CHAIN = [
+    # (weight, bf %, height, sex), expected
+    (
+        (72.5, 18.5, 170, 1),
+        dict(
+            fat_mass_kg=13.4,
+            lean_mass_kg=59.1,
+            body_water_pct=59.8,
+            muscle_mass_kg=55.1,
+            bone_mass_kg=4.0,
+            protein_kg=11.8,
+            skeletal_muscle_kg=33.5,
+            smi=11.59,
+            subcutaneous_fat_pct=13.3,
+            bmr_kcal=1646,
+            body_age=38,
+        ),
+    ),
+    (
+        (95.0, 32.0, 180, 1),
+        dict(
+            fat_mass_kg=30.4,
+            lean_mass_kg=64.6,
+            body_water_pct=49.8,
+            muscle_mass_kg=60.3,
+            bone_mass_kg=4.3,
+            protein_kg=12.9,
+            skeletal_muscle_kg=36.86,
+            smi=11.38,
+            subcutaneous_fat_pct=22.8,
+            bmr_kcal=1765,
+            body_age=43,
+        ),
+    ),
+    (
+        (60.0, 30.0, 165, 0),
+        dict(
+            fat_mass_kg=18.0,
+            lean_mass_kg=42.0,
+            body_water_pct=51.3,
+            muscle_mass_kg=39.2,
+            bone_mass_kg=2.8,
+            protein_kg=8.4,
+            skeletal_muscle_kg=23.05,
+            smi=8.47,
+            subcutaneous_fat_pct=21.4,
+            bmr_kcal=1277,
+            body_age=39,
+        ),
+    ),
+]
 
 
-def test_bmr_katch_mcardle(result):
-    expected = round(370 + 21.6 * result["lean_mass_kg"], 2)
-    assert result["bmr_kcal"] == expected
-
-
-# ── Watson TBW ────────────────────────────────────────────────────────────────
-
-
-def test_body_water_pct_male_in_range(result):
-    # Healthy adult male TBW typically 50–70%
-    assert 45 < result["body_water_pct"] < 75
-
-
-def test_body_water_pct_female():
-    profile_f = UserProfile(age=30, height_cm=165, sex=0, weight_kg=65.0)
-    res = calculate_all(profile_f, INPUTS)
-    assert 40 < res["body_water_pct"] < 70
-
-
-# ── Janssen SMM ───────────────────────────────────────────────────────────────
-
-
-def test_skeletal_muscle_kg_positive(result):
-    assert result["skeletal_muscle_kg"] > 0
-
-
-def test_skeletal_muscle_kg_reasonable(result):
-    # SMM should be 30–60% of body weight for a healthy adult
-    assert (
-        0.25 * PROFILE.weight_kg
-        < result["skeletal_muscle_kg"]
-        < 0.65 * PROFILE.weight_kg
+@pytest.mark.parametrize(("person", "expected"), WLA25_CHAIN)
+def test_whole_body_follows_the_wla25_chain(person, expected):
+    weight, fat_pct, height, sex = person
+    r = calculate_all(
+        UserProfile(age=40, height_cm=height, sex=sex, weight_kg=weight),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
     )
+    assert {k: r[k] for k in expected} == expected
 
 
-def test_smi_positive(result):
-    assert result["smi"] > 0
+def test_bmr_is_whole_kcal(result):
+    assert result["bmr_kcal"] == int(result["bmr_kcal"])
 
 
-# ── Derived fields ────────────────────────────────────────────────────────────
+@pytest.mark.parametrize(
+    ("sex", "fat_pct", "offset"),
+    [
+        # Men: under 14 % → −3 ... 33–36 % → +4, 36 % and up → +5; no 0 band.
+        (1, 13.9, -3),
+        (1, 14.0, -2),
+        (1, 23.9, -1),
+        (1, 24.0, 1),
+        (1, 35.9, 4),
+        (1, 36.0, 5),
+        # Women: under 24 % → −3 ... 42–45 % → +4; 45–46 % is +0 (the vendor's
+        # own quirk), 46 % and up → +5.
+        (0, 23.9, -3),
+        (0, 44.9, 4),
+        (0, 45.5, 0),
+        (0, 46.0, 5),
+    ],
+)
+def test_body_age_is_age_plus_a_body_fat_band(sex, fat_pct, offset):
+    r = calculate_all(
+        UserProfile(age=40, height_cm=170, sex=sex, weight_kg=70.0),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
+    )
+    assert r["body_age"] == 40 + offset
 
 
-def test_visceral_fat_grade_in_range(result):
-    assert 1 <= result["visceral_fat_grade"] <= 59
+def test_body_age_under_ten_is_the_age():
+    r = calculate_all(
+        UserProfile(age=9, height_cm=130, sex=1, weight_kg=30.0),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": 30.0}),
+    )
+    assert r["body_age"] == 9
 
 
-def test_body_age_in_range(result):
-    assert 15 <= result["body_age"] <= 99
-
-
-def test_whr_estimate_plausible(result):
-    # Healthy WHR for males typically 0.80–1.00
-    assert 0.6 < result["whr_estimate"] < 1.3
+def test_whr_is_no_longer_estimated(result):
+    """Fitman's WHR estimate was far from Fitdays' (1.22 against 0.94), and
+    WLA25 has no WHR formula: no number beats a wrong one (#344)."""
+    assert result["whr_estimate"] is None
 
 
 def test_protein_and_salt_positive(result):
@@ -142,6 +204,8 @@ def test_all_fields_returned(result):
         "body_age",
         "whr_estimate",
         "smi",
+        "muscle_mass_kg",
+        "bone_mass_kg",
         "ra_muscle_kg",
         "la_muscle_kg",
         "rl_muscle_kg",
@@ -207,10 +271,12 @@ def test_derived_metrics_do_not_need_trunk_impedance():
         assert r[field] is not None, field
 
 
-def test_skeletal_muscle_needs_trunk_so_is_left_empty():
+def test_skeletal_muscle_no_longer_needs_trunk():
+    """Janssen needed the whole-body path through the trunk; WLA25's skeletal
+    muscle comes from body water, so scale weigh-ins get it too (#344)."""
     r = _scale()
-    assert r["skeletal_muscle_kg"] is None
-    assert r["smi"] is None
+    assert r["skeletal_muscle_kg"] == 33.5
+    assert r["smi"] == 11.59
 
 
 # ── iCOMON WLA25 estimates (#325) ─────────────────────────────────────────────

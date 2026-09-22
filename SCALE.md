@@ -90,8 +90,9 @@ Fitman shows each user's display name (or username) on the scale, as Fitdays doe
 | Metric | Source |
 |---|---|
 | Body fat % | **The scale**, from the `BF` profile |
-| Fat mass, lean mass, BMR, body water, protein, minerals | `formulas.py`, from weight and body fat |
-| Skeletal muscle mass | Janssen et al. (2000); needs trunk impedance, so empty for scale weigh-ins |
+| Fat mass, lean mass, body water, muscle mass, bone mass, protein, skeletal muscle, subcutaneous fat, BMR, body age | iCOMON's WLA25 derivation chain (sacoma-lib, MIT), from fat-free mass: 44 of 50 values match Fitdays exactly across five reports, the rest within 0.1 or 2 kcal (#344) |
+| Minerals | Wang (1999): 6 % of lean mass; Fitdays shows none |
+| WHR | Not estimated: WLA25 has no formula, and Fitman's old estimate was far from Fitdays' (#344) |
 | Visceral fat | iCOMON's WLA25 (ported from sacoma-lib, MIT): reproduces Fitdays exactly |
 | Trunk fat, trunk muscle | WLA25 with the trunk-impedance terms off: within ~0.6 kg of Fitdays |
 | Arm and leg fat and muscle | WLA25's per-limb regressions, each limb from its own 20 and 100 kHz readings, with the vendor's left/right reconciliation and floors: 36 of 40 values match Fitdays exactly, the rest within 0.2 kg (#332) |

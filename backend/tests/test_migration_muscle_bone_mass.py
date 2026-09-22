@@ -1,4 +1,4 @@
-"""Migration adding users.scale_user_id (#323).
+"""Migration adding muscle and bone mass to body_measurements (#344).
 
 The test database is built with create_all, so the model alone would pass
 every other test even with no migration at all. This runs the migration's own
@@ -19,7 +19,8 @@ from sqlalchemy import inspect
 from database import engine
 
 BACKEND = Path(__file__).resolve().parents[1]
-REVISION = "j6k8l0m2n4o5"
+REVISION = "k7l9m1n3o5p6"
+COLUMNS = {"muscle_mass_kg", "bone_mass_kg"}
 
 
 @pytest.fixture(autouse=True)
@@ -36,10 +37,10 @@ def _migration():
     return mod
 
 
-def test_it_follows_token_version_on_the_main_line():
+def test_it_is_the_single_head_after_scale_user_id():
     scripts = ScriptDirectory.from_config(Config(str(BACKEND / "alembic.ini")))
-    assert REVISION in {r.revision for r in scripts.walk_revisions()}
-    assert _migration().down_revision == "i5j7k9l1m3n4"
+    assert scripts.get_heads() == [REVISION]
+    assert _migration().down_revision == "j6k8l0m2n4o5"
 
 
 def test_downgrade_then_upgrade_round_trips():
@@ -49,13 +50,15 @@ def test_downgrade_then_upgrade_round_trips():
         try:
             with Operations.context(MigrationContext.configure(conn)):
                 mod.downgrade()
-                assert "scale_user_id" not in {
-                    c["name"] for c in inspect(conn).get_columns("users")
+                names = {
+                    c["name"] for c in inspect(conn).get_columns("body_measurements")
                 }
+                assert not COLUMNS & names
                 mod.upgrade()
-            cols = {c["name"]: c for c in inspect(conn).get_columns("users")}
-            assert cols["scale_user_id"]["nullable"] is True
-            uniques = inspect(conn).get_unique_constraints("users")
-            assert any(u["column_names"] == ["scale_user_id"] for u in uniques)
+            cols = {
+                c["name"]: c for c in inspect(conn).get_columns("body_measurements")
+            }
+            for name in COLUMNS:
+                assert cols[name]["nullable"] is True, name
         finally:
             trans.rollback()

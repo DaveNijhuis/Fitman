@@ -38,6 +38,8 @@ class BodyMeasurement(Base):
     body_age: Mapped[int | None] = mapped_column(Integer)
     whr_estimate: Mapped[float | None] = mapped_column(Float)
     smi: Mapped[float | None] = mapped_column(Float)
+    muscle_mass_kg: Mapped[float | None] = mapped_column(Float)  # WLA25 (#344)
+    bone_mass_kg: Mapped[float | None] = mapped_column(Float)  # WLA25 (#344)
 
     # ── Segmental fat (kg) ────────────────────────────────────────────────────
     ra_fat_kg: Mapped[float | None] = mapped_column(Float)

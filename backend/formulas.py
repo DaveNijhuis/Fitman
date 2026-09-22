@@ -144,35 +144,15 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
     )
     whr_estimate = _r(waist_cm / hip_cm)
 
-    # ── Segmental — trunk from WLA25, limbs share the rest ────────────────────
+    # ── Segmental — WLA25 ─────────────────────────────────────────────────────
     # Trunk fat and trunk muscle use WLA25's regressions with the trunk-
-    # impedance terms off: which scale bytes hold trunk impedance is unresolved
+    # impedance terms off: the scale's trunk bytes are not a usable impedance
     # (#320), and in WLA25 those terms only nudge a value dominated by
     # whole-body fat and lean mass (within ~0.6 kg of Fitdays without them).
     trunk_fat = _clamp(fat_mass_kg * 0.552545 + 0.322704, 0.1, fat_mass_kg)
     trunk_lean = _clamp(lean_mass_kg * 0.440922 - 0.275461, 0.7, lean_mass_kg)
-
-    # Limbs share what's left, so the segments still sum to the totals. Fat by
-    # relative density (Wang 2001: arms ≈ 65 % of legs); lean by each limb's
-    # impedance index II = H² / Z at 20 kHz (Janssen 2002).
-    fat_density = {"ra": 0.65, "la": 0.65, "rl": 1.0, "ll": 1.0}
-    fd_total = sum(fat_density.values())
-    seg_fat = {
-        k: _r((fat_mass_kg - trunk_fat) * v / fd_total) for k, v in fat_density.items()
-    }
+    seg_fat, seg_lean = _wla25_limbs(fat_mass_kg, lean_mass_kg, inputs)
     seg_fat["trunk"] = _r(trunk_fat)
-
-    h2 = profile.height_cm**2
-    ii = {
-        "ra": h2 / inputs.ra_z20,
-        "la": h2 / inputs.la_z20,
-        "rl": h2 / inputs.rl_z20,
-        "ll": h2 / inputs.ll_z20,
-    }
-    ii_total = sum(ii.values())
-    seg_lean = {
-        k: _r((lean_mass_kg - trunk_lean) * v / ii_total) for k, v in ii.items()
-    }
     seg_lean["trunk"] = _r(trunk_lean)
 
     return {
@@ -201,3 +181,75 @@ def calculate_all(profile: UserProfile, inputs: ImpedanceInputs) -> dict:
         "ll_fat_kg": seg_fat["ll"],
         "trunk_fat_kg": seg_fat["trunk"],
     }
+
+
+def _wla25_limbs(
+    fat: float, lean: float, z: ImpedanceInputs
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Per-limb fat and muscle: WLA25's regressions, each limb from its own
+    20 and 100 kHz readings (#332). Coefficients, the left/right reconciliation
+    and the floors, with their three divisors, are the vendor's as ported by
+    sacoma-lib; they reproduce Fitdays' limb values within 0.2 kg."""
+    arm_fat = {
+        side: z100 * 0.007476 + (fat * 0.081201 - z20 * 0.005752) - 0.662152
+        for side, z20, z100 in (
+            ("la", z.la_z20, z.la_z100),
+            ("ra", z.ra_z20, z.ra_z100),
+        )
+    }
+    leg_fat = {
+        side: z100 * 0.008645 + (fat * 0.135438 - z20 * 0.00801) + 0.492479
+        for side, z20, z100 in (
+            ("ll", z.ll_z20, z.ll_z100),
+            ("rl", z.rl_z20, z.rl_z100),
+        )
+    }
+    _reconcile(arm_fat, "la", "ra", z.la_z20, z.ra_z20, z.la_z100, z.ra_z100, 0.3)
+    _reconcile(leg_fat, "ll", "rl", z.ll_z20, z.rl_z20, z.ll_z100, z.rl_z100, 0.5)
+    muscle = {
+        "la": z.la_z20 * 0.002847 + lean * 0.058707 - z.la_z100 * 0.005857 + 0.561911,
+        "ra": z.ra_z20 * 0.002847 + lean * 0.058707 - z.ra_z100 * 0.005857 + 0.561911,
+        "ll": z.ll_z100 * 0.008157 + (lean * 0.176554 - z.ll_z20 * 0.007381) - 0.688932,
+        "rl": z.rl_z100 * 0.008157 + (lean * 0.176554 - z.rl_z20 * 0.007381) - 0.688932,
+    }
+    fat_by_limb = {**arm_fat, **leg_fat}
+
+    # Floors: left limbs divide by 20113, right limbs by 20213 (vendor's own).
+    readings = {
+        "la": (z.la_z20 + z.la_z100) / 20113,
+        "ra": (z.ra_z20 + z.ra_z100) / 20213,
+        "ll": (z.ll_z20 + z.ll_z100) / 20113,
+        "rl": (z.rl_z20 + z.rl_z100) / 20213,
+    }
+    for limb, term in readings.items():
+        if fat_by_limb[limb] < 0.1:
+            fat_by_limb[limb] = term + 0.1
+        if muscle[limb] < 0.2:
+            muscle[limb] = term + 0.2
+    return (
+        {k: _r(v) for k, v in fat_by_limb.items()},
+        {k: _r(v) for k, v in muscle.items()},
+    )
+
+
+def _reconcile(
+    fat: dict[str, float],
+    left: str,
+    right: str,
+    z20_left: float,
+    z20_right: float,
+    z100_left: float,
+    z100_right: float,
+    limit: float,
+) -> None:
+    """Set an implausibly different side from the other: the lower side takes
+    the higher one's value, nudged by (z20 + z100) / 20213, up if its 20 kHz
+    reading is the lower of the two, down otherwise."""
+    if abs(fat[right] - fat[left]) <= limit:
+        return
+    if fat[right] <= fat[left]:
+        t = (z20_right + z100_right) / 20213
+        fat[right] = (t if z20_right <= z20_left else -t) + fat[left]
+    else:
+        t = (z20_left + z100_left) / 20213
+        fat[left] = (t if z20_left <= z20_right else -t) + fat[right]

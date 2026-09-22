@@ -114,16 +114,6 @@ def test_protein_and_salt_positive(result):
 # ── Segmental consistency ─────────────────────────────────────────────────────
 
 
-def test_segmental_lean_sums_to_total(result):
-    total = sum(result[f"{s}_muscle_kg"] for s in ["ra", "la", "rl", "ll", "trunk"])
-    assert total == pytest.approx(result["lean_mass_kg"], abs=0.1)
-
-
-def test_segmental_fat_sums_to_total(result):
-    total = sum(result[f"{s}_fat_kg"] for s in ["ra", "la", "rl", "ll", "trunk"])
-    assert total == pytest.approx(result["fat_mass_kg"], abs=0.1)
-
-
 def test_trunk_lean_greater_than_arm_lean(result):
     # Trunk has more lean mass than any single limb
     assert result["trunk_muscle_kg"] > result["ra_muscle_kg"]
@@ -168,29 +158,39 @@ def test_all_fields_returned(result):
 
 
 # ── Without trunk impedance (#325) ────────────────────────────────────────────
-# The scale's trunk bytes are unresolved (#320), so scale weigh-ins store no
-# trunk impedance. Only skeletal muscle (Janssen needs the whole-body path)
-# may go missing because of it; everything else must still be derived.
+# The scale's trunk bytes are not a usable impedance (#320), so scale weigh-ins
+# store none. Only skeletal muscle (Janssen needs the whole-body path) may go
+# missing because of it; everything else must still be derived.
+#
+# A made-up person, as everywhere in this public repo: male, 40, 170 cm,
+# 72.5 kg, with the impedances of tests/scale_frames.py's result in packet
+# order (bytes 16, 18, 20, 22, then 26, 28, 30, 32).
+
+SCALE_PERSON = UserProfile(age=40, height_cm=170, sex=1, weight_kg=72.5)
 
 NO_TRUNK = ImpedanceInputs(
-    ra_z20=307.5,
-    la_z20=324.9,
-    rl_z20=259.9,
-    ll_z20=259.4,
+    la_z20=350.0,
+    ra_z20=340.0,
+    rl_z20=260.0,
+    ll_z20=255.0,
     trunk_z20=None,
-    ra_z100=299.5,
-    la_z100=262.3,
-    rl_z100=250.9,
-    ll_z100=236.4,
+    la_z100=320.0,
+    ra_z100=310.0,
+    rl_z100=235.0,
+    ll_z100=230.0,
     trunk_z100=None,
-    body_fat_pct=24.2,
+    body_fat_pct=18.5,
 )
 
 
-def test_derived_metrics_do_not_need_trunk_impedance():
-    r = calculate_all(
-        UserProfile(age=35, height_cm=194, sex=1, weight_kg=99.89), NO_TRUNK
+def _scale(**changes) -> dict:
+    return calculate_all(
+        SCALE_PERSON, ImpedanceInputs(**{**NO_TRUNK.__dict__, **changes})
     )
+
+
+def test_derived_metrics_do_not_need_trunk_impedance():
+    r = _scale()
     for field in (
         "bmi",
         "fat_mass_kg",
@@ -208,67 +208,152 @@ def test_derived_metrics_do_not_need_trunk_impedance():
 
 
 def test_skeletal_muscle_needs_trunk_so_is_left_empty():
-    r = calculate_all(
-        UserProfile(age=35, height_cm=194, sex=1, weight_kg=99.89), NO_TRUNK
-    )
+    r = _scale()
     assert r["skeletal_muscle_kg"] is None
     assert r["smi"] is None
 
 
-def test_segments_still_sum_to_the_totals_without_trunk():
-    r = calculate_all(
-        UserProfile(age=35, height_cm=194, sex=1, weight_kg=99.89), NO_TRUNK
-    )
-    fat = sum(r[f"{s}_fat_kg"] for s in ("ra", "la", "rl", "ll", "trunk"))
-    lean = sum(r[f"{s}_muscle_kg"] for s in ("ra", "la", "rl", "ll", "trunk"))
-    assert fat == pytest.approx(r["fat_mass_kg"], abs=0.05)
-    assert lean == pytest.approx(r["lean_mass_kg"], abs=0.05)
+# ── iCOMON WLA25 estimates (#325) ─────────────────────────────────────────────
+# Fitdays uses iCOMON's WLA25 algorithm; Fitman ports its formulas from
+# sacoma-lib (MIT). Matching Fitdays was checked against real weigh-ins
+# outside this repo; here the expected values are the formulas worked by hand.
 
-
-# ── iCOMON WLA25 estimates, checked against Fitdays (#325) ────────────────────
-# Two Fitdays readings of the same scale, same weigh-in weight (99.75 kg),
-# male, 34, at 195 cm and 180 cm, with the scale's body fat for each. Fitdays
-# uses iCOMON's WLA25 algorithm; Fitman ports its formulas from sacoma-lib (MIT).
-
-FITDAYS = [
-    # height, body fat %, visceral, trunk fat kg, trunk muscle kg
-    (195, 23.9, 9, 13.0, 33.1),
-    (180, 37.4, 16, 20.3, 27.2),
+WLA25_WHOLE_BODY = [
+    # weight, body fat %, visceral, trunk fat kg, trunk muscle kg
+    # fat = w·bf; lean = w − fat; visceral = int(lean·−0.029 + fat·0.502 − 0.477)
+    # trunk fat = fat·0.552545 + 0.322704; trunk muscle = lean·0.440922 − 0.275461
+    (72.5, 18.5, 4, 7.73, 25.78),
+    (95.0, 32.0, 12, 17.12, 28.21),
 ]
 
 
 @pytest.mark.parametrize(
-    ("height", "fat_pct", "visceral", "trunk_fat", "trunk_muscle"), FITDAYS
+    ("weight", "fat_pct", "visceral", "trunk_fat", "trunk_muscle"), WLA25_WHOLE_BODY
 )
-def test_visceral_fat_matches_fitdays_exactly(
-    height, fat_pct, visceral, trunk_fat, trunk_muscle
-):
+def test_visceral_fat_follows_wla25(weight, fat_pct, visceral, trunk_fat, trunk_muscle):
     r = calculate_all(
-        UserProfile(age=34, height_cm=height, sex=1, weight_kg=99.75),
+        UserProfile(age=40, height_cm=170, sex=1, weight_kg=weight),
         ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
     )
     assert r["visceral_fat_grade"] == visceral
 
 
 @pytest.mark.parametrize(
-    ("height", "fat_pct", "visceral", "trunk_fat", "trunk_muscle"), FITDAYS
+    ("weight", "fat_pct", "visceral", "trunk_fat", "trunk_muscle"), WLA25_WHOLE_BODY
 )
-def test_trunk_estimates_are_close_to_fitdays(
-    height, fat_pct, visceral, trunk_fat, trunk_muscle
+def test_trunk_follows_wla25_without_trunk_terms(
+    weight, fat_pct, visceral, trunk_fat, trunk_muscle
 ):
-    """Trunk impedance terms are off (unresolved, #320), hence 'close', not exact."""
+    """Trunk impedance terms off (#320); within ~0.6 kg of Fitdays that way."""
     r = calculate_all(
-        UserProfile(age=34, height_cm=height, sex=1, weight_kg=99.75),
+        UserProfile(age=40, height_cm=170, sex=1, weight_kg=weight),
         ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
     )
-    assert r["trunk_fat_kg"] == pytest.approx(trunk_fat, abs=0.7)
-    assert r["trunk_muscle_kg"] == pytest.approx(trunk_muscle, abs=0.2)
+    assert r["trunk_fat_kg"] == pytest.approx(trunk_fat, abs=0.01)
+    assert r["trunk_muscle_kg"] == pytest.approx(trunk_muscle, abs=0.01)
+
+
+# ── Per-limb fat and muscle: WLA25's regressions (#332) ───────────────────────
+# Each limb from its own two readings (20 and 100 kHz) and whole-body fat and
+# lean mass. Fitman used to share lean mass (bone and water included) across
+# the limbs, which put arm "muscle" at over twice Fitdays' value. Checked
+# against Fitdays outside this repo: 36 of 40 limb values exact, the rest
+# within 0.2 kg. Expected values below are the regressions worked by hand for
+# the made-up person (fat 13.41 kg, lean 59.09 kg).
+#
+#   arm fat    = z100·0.007476 + fat·0.081201 − z20·0.005752 − 0.662152
+#   leg fat    = z100·0.008645 + fat·0.135438 − z20·0.00801  + 0.492479
+#   arm muscle = z20·0.002847 + lean·0.058707 − z100·0.005857 + 0.561911
+#   leg muscle = z100·0.008157 + lean·0.176554 − z20·0.007381 − 0.688932
+
+
+def _limbs(r: dict) -> dict:
+    return {
+        k: r[f"{k}_kg"]
+        for k in (
+            "la_fat",
+            "ra_fat",
+            "ll_fat",
+            "rl_fat",
+            "la_muscle",
+            "ra_muscle",
+            "ll_muscle",
+            "rl_muscle",
+        )
+    }
+
+
+def test_limbs_follow_the_wla25_regressions():
+    assert _limbs(_scale()) == {
+        "la_fat": 0.81,
+        "ra_fat": 0.79,
+        "ll_fat": 2.25,
+        "rl_fat": 2.26,
+        "la_muscle": 3.15,
+        "ra_muscle": 3.18,
+        "ll_muscle": 9.74,
+        "rl_muscle": 9.74,
+    }
+
+
+def test_arm_muscle_is_no_longer_a_share_of_lean_mass():
+    """The old split gave each arm roughly lean × II share: ~8 kg here."""
+    r = _scale()
+    assert r["la_muscle_kg"] < 4.0
+    assert r["ra_muscle_kg"] < 4.0
+
+
+def test_each_limb_uses_its_own_readings():
+    """Raising the left arm's 20 kHz reading moves the left arm only."""
+    base, changed = _limbs(_scale()), _limbs(_scale(la_z20=360.0))
+    moved = {k for k in base if base[k] != changed[k]}
+    assert moved == {"la_fat", "la_muscle"}
+
+
+def test_implausible_arm_asymmetry_is_reconciled():
+    """Left arm fat alone would be 0.08 kg against the right's 0.79: over the
+    vendor's 0.3 kg limit, so it is set from the right arm, minus
+    (z20 + z100) / 20213 because its reading is the higher one."""
+    r = _limbs(_scale(la_z20=450.0, la_z100=300.0))
+    assert r["la_fat"] == 0.75
+    assert r["ra_fat"] == 0.79
+
+
+def test_asymmetry_is_reconciled_whichever_side_is_off():
+    """The mirror case: the right arm's fat alone would be implausibly low."""
+    r = _limbs(_scale(ra_z20=450.0, ra_z100=300.0))
+    assert r["ra_fat"] == 0.77
+    assert r["la_fat"] == 0.81
+
+
+def test_implausible_leg_asymmetry_is_reconciled():
+    """Legs use a 0.5 kg limit."""
+    r = _limbs(_scale(ll_z20=330.0, ll_z100=200.0))
+    assert r["ll_fat"] == 2.23
+    assert r["rl_fat"] == 2.26
+
+
+def test_limbs_have_a_floor():
+    """At 3 % body fat the arm regressions go negative; the vendor floors fat
+    at 0.1 kg plus a small impedance term."""
+    r = calculate_all(
+        UserProfile(age=40, height_cm=170, sex=1, weight_kg=60.0),
+        ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": 3.0}),
+    )
+    assert r["la_fat_kg"] == 0.13
+    assert r["ra_fat_kg"] == 0.13
 
 
 @pytest.mark.parametrize(("fat_pct", "expected"), [(3.0, 1), (70.0, 20)])
 def test_visceral_fat_stays_on_the_1_to_20_scale(fat_pct, expected):
     r = calculate_all(
-        UserProfile(age=34, height_cm=180, sex=1, weight_kg=150.0),
+        UserProfile(age=40, height_cm=170, sex=1, weight_kg=150.0),
         ImpedanceInputs(**{**NO_TRUNK.__dict__, "body_fat_pct": fat_pct}),
     )
     assert r["visceral_fat_grade"] == expected
+
+
+def test_limb_muscle_has_a_floor():
+    """A left-arm 100 kHz reading of 1000 Ω drives its muscle regression
+    negative; the floor is 0.2 kg plus (z20 + z100) / 20113."""
+    assert _limbs(_scale(la_z100=1000.0))["la_muscle"] == 0.27

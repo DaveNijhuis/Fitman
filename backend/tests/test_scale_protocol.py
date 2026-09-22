@@ -164,9 +164,12 @@ def test_result():
 
 
 def test_result_impedances_in_packet_order():
+    """Bytes 16, 18, 20, 22 (20 kHz), then 26, 28, 30, 32 (100 kHz): left arm,
+    right arm, right leg, left leg. The arms were the other way round until
+    fitting WLA25 to Fitdays showed byte 16 is the left arm (#332)."""
     m = protocol.decode_measurement(protocol.parse(F.RESULT))
-    assert (m.ra_z20, m.la_z20, m.rl_z20, m.ll_z20) == (350.0, 340.0, 260.0, 255.0)
-    assert (m.ra_z100, m.la_z100, m.rl_z100, m.ll_z100) == (320.0, 310.0, 235.0, 230.0)
+    assert (m.la_z20, m.ra_z20, m.rl_z20, m.ll_z20) == (350.0, 340.0, 260.0, 255.0)
+    assert (m.la_z100, m.ra_z100, m.rl_z100, m.ll_z100) == (320.0, 310.0, 235.0, 230.0)
 
 
 def test_trunk_impedance_is_not_exposed():

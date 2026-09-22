@@ -212,7 +212,12 @@ def test_result_for_this_user_is_stored_once(client: TestClient, scale_on, perso
     assert resp["measurement"]["body_fat_pct"] == 18.5
     assert resp["error"] is None
     [m] = _measurements(username)
-    assert (m.weight_kg, m.body_fat_pct, m.ra_z20, m.ll_z100) == (
+    assert (
+        m.weight_kg,
+        m.body_fat_pct,
+        m.la_z20,
+        m.ll_z100,
+    ) == (  # byte 16: left arm (#332)
         72.5,
         18.5,
         350.0,

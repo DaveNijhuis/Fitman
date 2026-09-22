@@ -17,18 +17,18 @@ from measurement_backfill import backfill_derived
 from models.measurement import BodyMeasurement
 from models.user import User
 
-RAW = dict(
-    weight_kg=99.89,
-    body_fat_pct=24.2,
-    height_cm=194.0,
-    ra_z20=307.5,
-    la_z20=324.9,
-    rl_z20=259.9,
-    ll_z20=259.4,
-    ra_z100=299.5,
-    la_z100=262.3,
-    rl_z100=250.9,
-    ll_z100=236.4,
+RAW = dict(  # a made-up person: this repo is public
+    weight_kg=72.5,
+    body_fat_pct=18.5,
+    height_cm=170.0,
+    la_z20=350.0,
+    ra_z20=340.0,
+    rl_z20=260.0,
+    ll_z20=255.0,
+    la_z100=320.0,
+    ra_z100=310.0,
+    rl_z100=235.0,
+    ll_z100=230.0,
 )
 
 
@@ -41,9 +41,9 @@ def user(database: None) -> int:
             is_active=True,
             is_admin=False,
             created_at=datetime.now(timezone.utc),
-            birth_year=1991,
+            birth_year=1986,
             sex="male",
-            height_cm=194.0,
+            height_cm=170.0,
         )
         db.add(u)
         db.commit()
@@ -72,13 +72,13 @@ def test_a_scale_weigh_in_without_derived_fields_gets_them(user):
     with SessionLocal() as db:
         assert backfill_derived(db) >= 1
     m = _get(mid)
-    assert m.bmi == pytest.approx(99.89 / 1.94**2, abs=0.01)
+    assert m.bmi == pytest.approx(72.5 / 1.70**2, abs=0.01)
     assert m.fat_mass_kg is not None and m.visceral_fat_grade is not None
-    assert m.weight_kg == 99.89 and m.body_fat_pct == 24.2  # raw inputs untouched
+    assert m.weight_kg == 72.5 and m.body_fat_pct == 18.5  # raw inputs untouched
 
 
 def test_age_is_taken_at_the_time_of_the_measurement(user):
-    """Born 1991, measured 2026: 35 — whatever year the backfill runs in."""
+    """Born 1986, measured 2026: 40 — whatever year the backfill runs in."""
     mid = _add(user, **RAW)
     with SessionLocal() as db:
         backfill_derived(db)
@@ -87,12 +87,12 @@ def test_age_is_taken_at_the_time_of_the_measurement(user):
     from formulas import ImpedanceInputs, UserProfile, calculate_all
 
     expected = calculate_all(
-        UserProfile(age=35, height_cm=194.0, sex=1, weight_kg=99.89),
+        UserProfile(age=40, height_cm=170.0, sex=1, weight_kg=72.5),
         ImpedanceInputs(
             **{k: v for k, v in RAW.items() if k.endswith(("z20", "z100"))},
             trunk_z20=None,
             trunk_z100=None,
-            body_fat_pct=24.2,
+            body_fat_pct=18.5,
         ),
     )
     assert m.body_age == expected["body_age"]
@@ -143,8 +143,8 @@ def test_height_comes_from_the_profile_when_the_measurement_has_none(user):
     with SessionLocal() as db:
         backfill_derived(db)
     m = _get(mid)
-    assert m.height_cm == 194.0
-    assert m.bmi == pytest.approx(99.89 / 1.94**2, abs=0.01)
+    assert m.height_cm == 170.0
+    assert m.bmi == pytest.approx(72.5 / 1.70**2, abs=0.01)
 
 
 def _user_without_birth_year() -> int:
@@ -156,7 +156,7 @@ def _user_without_birth_year() -> int:
             is_admin=False,
             created_at=datetime.now(timezone.utc),
             sex="male",
-            height_cm=194.0,
+            height_cm=170.0,
         )
         db.add(u)
         db.commit()

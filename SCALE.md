@@ -73,13 +73,17 @@ Fitman shows each user's display name (or username) on the scale, as Fitdays doe
 | 5–8 | Timestamp: the scale's clock, Unix u32 BE |
 | 10 | Status; bit 0 is weight bit 16 |
 | 11–12 | Weight in grams, low 16 bits (with the status bit: 65.536 kg and up) |
-| 16–23 | Four impedances at 20 kHz, int16 LE ÷ 10 → Ω |
-| 26–33 | Four impedances at 100 kHz, int16 LE ÷ 10 → Ω |
-| 24–25, 34 | Trunk impedance? **Unresolved** (#320) |
+| 16–23 | Four impedances at 20 kHz, int16 LE ÷ 10 → Ω: left arm, right arm, right leg, left leg |
+| 26–33 | Four impedances at 100 kHz, same order |
+| 24–25, 34 | Not a usable trunk impedance (#320); not decoded |
 | 35–38 | User id the result was computed for |
 | 40–41 | **Body fat %**, uint16 BE ÷ 10, computed by the scale from the `BF` profile |
 
-Which limb each impedance position belongs to is not confirmed (#325). Fitman stores them under `ra/la/rl/ll_z20/z100` in packet order.
+**Limbs (#332).** Fitting WLA25's per-limb regressions to Fitdays' own values settled the order. Arms are bytes 16–19 and 26–29, and legs are 20–23 and 30–33; nothing else comes close. Left and right are the best fit (byte 16 is the left arm), which is moderate evidence only, since the mirrored assignment is also within 0.2 kg of Fitdays. Fitman stores them as `la/ra/rl/ll_z20/z100`.
+
+**Trunk bytes (#320).** For one person within a day, byte 24 read 2.6, 24.7 and 5.8 Ω and byte 34 read 41, 7 and 55. That doesn't behave like an impedance. sacoma-lib found the same on a sibling iCOMON scale and concluded these are the wrong quantities, not correct values read in the wrong order. Fitdays' trunk values are reproduced without them (below), so Fitman ignores both.
+
+**Quick repeats reuse one impedance measurement.** Weigh-ins a minute or two apart came back with byte-identical impedances and different weights. So a repeat adds a new weight and body fat, but no new impedance reading.
 
 ## Body composition calculations
 
@@ -90,6 +94,6 @@ Which limb each impedance position belongs to is not confirmed (#325). Fitman st
 | Skeletal muscle mass | Janssen et al. (2000); needs trunk impedance, so empty for scale weigh-ins |
 | Visceral fat | iCOMON's WLA25 (ported from sacoma-lib, MIT): reproduces Fitdays exactly |
 | Trunk fat, trunk muscle | WLA25 with the trunk-impedance terms off: within ~0.6 kg of Fitdays |
-| Arm and leg fat and muscle | What's left after the trunk: fat by relative density, lean by each limb's impedance index |
+| Arm and leg fat and muscle | WLA25's per-limb regressions, each limb from its own 20 and 100 kHz readings, with the vendor's left/right reconciliation and floors: 36 of 40 values match Fitdays exactly, the rest within 0.2 kg (#332) |
 
 BIA from hand and foot electrodes cannot localise abdominal or visceral fat: the trunk is about half the body's mass but a small share of the measured impedance. Every such figure, including Fitdays', is an estimate from whole-body fat and lean mass.

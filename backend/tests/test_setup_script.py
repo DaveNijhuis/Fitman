@@ -335,10 +335,10 @@ def test_it_is_executable():
 
 
 def test_shellcheck_finds_nothing():
-    # From shellcheck-py (requirements-dev.txt), next to this Python.
-    shellcheck = shutil.which("shellcheck") or str(
-        Path(sys.executable).parent / "shellcheck"
-    )
+    # Always the pinned one from shellcheck-py (requirements-dev.txt), next to
+    # this Python: a runner's own shellcheck is another version with other
+    # rules, which is how CI disagreed with a local run.
+    shellcheck = str(Path(sys.executable).parent / "shellcheck")
     result = subprocess.run(  # noqa: S603 — fixed arguments
         [shellcheck, str(SCRIPT)], capture_output=True, text=True
     )

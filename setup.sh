@@ -166,8 +166,9 @@ choose_port() {
 
 say "Fitman setup"
 say ""
-[ -f docker-compose.yml ] && [ -f .env.example ] ||
+if [ ! -f docker-compose.yml ] || [ ! -f .env.example ]; then
     die "run this from the Fitman repository: docker-compose.yml and .env.example are missing."
+fi
 command -v docker >/dev/null 2>&1 ||
     die "Docker is not installed. Install Docker Engine: https://docs.docker.com/engine/install/"
 docker compose version >/dev/null 2>&1 ||
@@ -218,9 +219,11 @@ else
     db="$REPLY"
 fi
 
+reach_default=y
+if [ "$local_default" = y ]; then reach_default=n; fi
 if [ -n "$LOCAL_ONLY" ]; then
     local_only=1
-elif yes_no "Reachable from other devices (not only this machine)?" "$([ "$local_default" = y ] && echo n || echo y)"; then
+elif yes_no "Reachable from other devices (not only this machine)?" "$reach_default"; then
     local_only=0
 else
     local_only=1

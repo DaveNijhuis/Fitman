@@ -210,13 +210,21 @@ Run these from the repo directory.
 | To | Run |
 |---|---|
 | Start, or apply a changed `.env` | `docker compose up -d` |
-| Update to a new version | `git pull && docker compose up -d --build` |
+| Update to a new version | `./update.sh` |
 | Stop (data is kept) | `docker compose down` |
 | See what's running | `docker compose ps` |
 | Follow the logs | `docker compose logs -f backend` |
 | Open a database shell | `docker compose exec postgres psql -U fitman fitman` |
 
 Never add `-v` to `down`: that deletes the database volume.
+
+`./update.sh` updates safely:
+- It fetches the new version and checks it against your `.env` before changing anything. If the new version needs a setting you don't have, it stops and says which.
+- It backs up the database to `backups/`.
+- It updates the code, rebuilds, restarts, and shows the database migrations that ran.
+- If the new version won't start, it prints the exact commands to go back to the version you had, database included.
+
+It refuses to run over local changes to Fitman's own files; settings belong in `.env`. By hand, the same update is `git pull && docker compose up -d --build`, without the checks or the backup.
 
 ### Upgrading from docker-compose.prod.yml
 

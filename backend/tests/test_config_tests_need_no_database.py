@@ -34,6 +34,7 @@ _CONFIG_ONLY = [
     "tests/test_scale_handshake.py",
     "tests/test_scale_protocol.py",
     "tests/test_setup_script.py",
+    "tests/test_update_script.py",
 ]
 
 # Nothing listens here, so any connection attempt fails immediately rather than

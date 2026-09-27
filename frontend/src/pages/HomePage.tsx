@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dumbbell, Activity, Flame, Zap, Clock, Play } from 'lucide-react'
-import { getSessions } from '../api/exercises'
+import { getTemplates, type Template } from '../api/templates'
 import { startSession, saveActiveWorkout, getActiveWorkout } from '../api/workoutSessions'
 import { getHomeStats, type HomeStats } from '../api/stats'
-
-const SESSION_META: Record<string, { focus: string }> = {
-  'Push A': { focus: 'Chest · Shoulders · Triceps' },
-  'Pull A': { focus: 'Back · Biceps · Rear Delts' },
-  'Legs A': { focus: 'Quads · Glutes · Hamstrings' },
-}
 
 function fmtVol(v: number): string {
   return v >= 1000 ? `${(v / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${v}`
@@ -49,25 +43,25 @@ function StatCard({
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const [sessions, setSessions] = useState<string[]>([])
-  const [starting, setStarting] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [starting, setStarting] = useState<number | null>(null)
   const [stats, setStats] = useState<HomeStats | null>(null)
   const [loadError, setLoadError] = useState(false)
 
   const activeWorkout = getActiveWorkout()
 
   useEffect(() => {
-    Promise.all([getSessions(), getHomeStats()])
-      .then(([s, h]) => { setSessions(s); setStats(h) })
+    Promise.all([getTemplates(), getHomeStats()])
+      .then(([t, h]) => { setTemplates(t.filter(x => !x.hidden)); setStats(h) })
       .catch(() => setLoadError(true))
   }, [])
 
-  async function handleStart(session: string) {
-    setStarting(session)
+  async function handleStart(template: Template) {
+    setStarting(template.id)
     try {
-      const workout = await startSession(session)
-      saveActiveWorkout(workout.id, session, workout.started_at)
-      navigate(`/workout/${workout.id}`, { state: { session, sessionId: workout.id } })
+      const workout = await startSession(template.id)
+      saveActiveWorkout(workout.id, workout.session, workout.started_at)
+      navigate(`/workout/${workout.id}`, { state: { session: workout.session, sessionId: workout.id } })
     } finally {
       setStarting(null)
     }
@@ -137,7 +131,7 @@ export default function HomePage() {
         )}
 
         {/* Quick start / Resume */}
-        {sessions.length > 0 && (
+        {templates.length > 0 && (
           activeWorkout ? (
             <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-[var(--color-border)]">
@@ -164,10 +158,10 @@ export default function HomePage() {
                 <p className="font-semibold text-[var(--color-text)]">Quick start</p>
                 <p className="text-xs text-[var(--color-muted)] mt-0.5">Tap a session or use the + button</p>
               </div>
-              {sessions.map(session => (
+              {templates.map(template => (
                 <button
-                  key={session}
-                  onClick={() => handleStart(session)}
+                  key={template.id}
+                  onClick={() => handleStart(template)}
                   disabled={starting !== null}
                   className="w-full flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50"
                 >
@@ -175,11 +169,11 @@ export default function HomePage() {
                     <Dumbbell size={16} className="text-[var(--color-accent)]" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-semibold text-[var(--color-text)]">{session}</p>
-                    <p className="text-xs text-[var(--color-muted)]">{SESSION_META[session]?.focus}</p>
+                    <p className="text-sm font-semibold text-[var(--color-text)]">{template.name}</p>
+                    <p className="text-xs text-[var(--color-muted)]">{template.focus}</p>
                   </div>
                   <span className="text-xs font-semibold text-[var(--color-accent)] shrink-0">
-                    {starting === session ? 'Starting…' : 'Start →'}
+                    {starting === template.id ? 'Starting…' : 'Start →'}
                   </span>
                 </button>
               ))}

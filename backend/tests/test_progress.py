@@ -1,11 +1,14 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from fastapi.testclient import TestClient
 
 from database import SessionLocal
 from models.exercise import Exercise
+from models.user import User
 from models.workout import Log, WorkoutSession
 from routers.progress import epley_1rm
+from tests.builtin import builtin_exercises, builtin_id
 
 
 def _token(client: TestClient) -> str:
@@ -24,7 +27,7 @@ def _log_and_end(
 ) -> None:
     headers = {"Authorization": f"Bearer {_token(client)}"}
     session = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=headers
+        "/api/sessions", json={"template_id": builtin_id("Push A")}, headers=headers
     ).json()
     client.post(
         "/api/logs",
@@ -48,14 +51,42 @@ def test_balance_returns_list(client: TestClient):
     assert isinstance(resp.json(), list)
 
 
+def test_balance_is_empty_for_a_user_with_no_volume(client: TestClient):
+    """Covered only by test order until #355: testuser had no logs yet."""
+    db = SessionLocal()
+    if not db.query(User).filter(User.username == "balance_empty").first():
+        db.add(
+            User(
+                username="balance_empty",
+                hashed_password=bcrypt.hashpw(
+                    b"password1", bcrypt.gensalt(rounds=4)
+                ).decode(),
+                is_active=True,
+                is_admin=False,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+    db.close()
+    token = client.post(
+        "/api/auth/login", json={"username": "balance_empty", "password": "password1"}
+    ).json()["access_token"]
+
+    resp = client.get(
+        "/api/progress/balance", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
 def test_balance_returns_muscle_groups(client: TestClient):
     headers = _auth(client)
 
-    exercises = client.get("/api/exercises?session=Push+A", headers=headers).json()
+    exercises = builtin_exercises("Push A")
     ex = exercises[0]
 
     session = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=headers
+        "/api/sessions", json={"template_id": builtin_id("Push A")}, headers=headers
     ).json()
     client.post(
         "/api/logs",
@@ -86,8 +117,6 @@ def test_balance_skips_exercise_with_null_muscles(client: TestClient):
     null_ex = Exercise(
         name="Test NULL muscles",
         muscles=None,
-        session="Push A",
-        position=99,
         type="weight",
         equip="Dumbbell",
     )
@@ -129,8 +158,6 @@ def test_balance_skips_exercise_with_malformed_muscles(client: TestClient):
     bad_ex = Exercise(
         name="Test malformed muscles",
         muscles=",,",
-        session="Push A",
-        position=98,
         type="weight",
         equip="Dumbbell",
     )
@@ -186,9 +213,7 @@ def test_strength_progression_unknown_exercise_returns_404(client: TestClient):
 
 def test_strength_progression_returns_correct_structure(client: TestClient):
     headers = {"Authorization": f"Bearer {_token(client)}"}
-    exercise_id = client.get("/api/exercises?session=Push+A", headers=headers).json()[
-        0
-    ]["id"]
+    exercise_id = builtin_exercises("Push A")[0]["id"]
     _log_and_end(client, exercise_id, 80.0, 5)
 
     resp = client.get(
@@ -207,11 +232,9 @@ def test_strength_progression_returns_correct_structure(client: TestClient):
 def test_strength_progression_uses_daily_best(client: TestClient):
     """Two sets logged today: the endpoint must reflect the heavier 1RM."""
     headers = {"Authorization": f"Bearer {_token(client)}"}
-    exercise_id = client.get("/api/exercises?session=Push+A", headers=headers).json()[
-        0
-    ]["id"]
+    exercise_id = builtin_exercises("Push A")[0]["id"]
     session = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=headers
+        "/api/sessions", json={"template_id": builtin_id("Push A")}, headers=headers
     ).json()
     for weight in [10.0, 100.0]:
         client.post(
@@ -289,9 +312,7 @@ def test_prs_returns_list(client: TestClient):
 def test_prs_picks_best_set_per_exercise(client: TestClient):
     """Single-rep set: estimated_1rm must equal the weight exactly."""
     headers = {"Authorization": f"Bearer {_token(client)}"}
-    exercise_id = client.get("/api/exercises?session=Push+A", headers=headers).json()[
-        0
-    ]["id"]
+    exercise_id = builtin_exercises("Push A")[0]["id"]
     _log_and_end(client, exercise_id, 100.0, 1)
 
     prs = client.get("/api/progress/prs", headers=headers).json()
@@ -318,7 +339,7 @@ def test_consistency_single_query(client: TestClient):
     from database import SessionLocal, engine
 
     db = SessionLocal()
-    ex = db.query(Exercise).filter(Exercise.session == "Push A").first()
+    ex = db.query(Exercise).filter(Exercise.name == "Flat DB Bench Press").first()
     assert ex is not None
     exercise_id = ex.id
     now = datetime.now(timezone.utc)
@@ -379,7 +400,7 @@ def test_prs_single_query(client: TestClient):
     headers = _auth(client)
 
     # Seed logs across three exercises so N+1 is observable
-    exercises = client.get("/api/exercises?session=Push+A", headers=headers).json()
+    exercises = builtin_exercises("Push A")
     for ex in exercises[:3]:
         _log_and_end(client, ex["id"], 60.0, 8)
 

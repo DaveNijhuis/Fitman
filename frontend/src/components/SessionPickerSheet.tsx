@@ -1,14 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dumbbell, X } from 'lucide-react'
-import { getSessions } from '../api/exercises'
+import { getTemplates, type Template } from '../api/templates'
 import { startSession, saveActiveWorkout } from '../api/workoutSessions'
-
-const SESSION_META: Record<string, string> = {
-  'Push A': 'Chest · Shoulders · Triceps',
-  'Pull A': 'Back · Biceps · Rear Delts',
-  'Legs A': 'Quads · Glutes · Hamstrings',
-}
 
 interface Props {
   onClose: () => void
@@ -16,20 +10,21 @@ interface Props {
 
 export default function SessionPickerSheet({ onClose }: Props) {
   const navigate = useNavigate()
-  const [sessions, setSessions] = useState<string[]>([])
-  const [starting, setStarting] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [starting, setStarting] = useState<number | null>(null)
 
   useEffect(() => {
-    getSessions().then(setSessions).catch(() => {})
+    // Hidden built-ins stay off (#359); they're still in the Library.
+    getTemplates().then(t => setTemplates(t.filter(x => !x.hidden))).catch(() => {})
   }, [])
 
-  async function handleStart(session: string) {
-    setStarting(session)
+  async function handleStart(template: Template) {
+    setStarting(template.id)
     try {
-      const workout = await startSession(session)
-      saveActiveWorkout(workout.id, session, workout.started_at)
+      const workout = await startSession(template.id)
+      saveActiveWorkout(workout.id, workout.session, workout.started_at)
       onClose()
-      navigate(`/workout/${workout.id}`, { state: { session, sessionId: workout.id } })
+      navigate(`/workout/${workout.id}`, { state: { session: workout.session, sessionId: workout.id } })
     } finally {
       setStarting(null)
     }
@@ -48,10 +43,10 @@ export default function SessionPickerSheet({ onClose }: Props) {
             <X size={16} />
           </button>
         </div>
-        {sessions.map(session => (
+        {templates.map(template => (
           <button
-            key={session}
-            onClick={() => handleStart(session)}
+            key={template.id}
+            onClick={() => handleStart(template)}
             disabled={starting !== null}
             className="w-full flex items-center gap-4 p-4 bg-[var(--color-bg)] rounded-2xl border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors disabled:opacity-50 text-left"
           >
@@ -59,12 +54,12 @@ export default function SessionPickerSheet({ onClose }: Props) {
               <Dumbbell size={18} className="text-[var(--color-accent)]" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-[var(--color-text)]">{session}</p>
-              {SESSION_META[session] && (
-                <p className="text-xs text-[var(--color-muted)] mt-0.5">{SESSION_META[session]}</p>
+              <p className="font-semibold text-[var(--color-text)]">{template.name}</p>
+              {template.focus && (
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">{template.focus}</p>
               )}
             </div>
-            {starting === session && (
+            {starting === template.id && (
               <span className="text-sm text-[var(--color-muted)] shrink-0">Starting…</span>
             )}
           </button>

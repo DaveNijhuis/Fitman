@@ -50,3 +50,42 @@ describe('body metrics', () => {
     expect(list.queryByText(/WHR/)).toBeNull()
   })
 })
+
+/**
+ * Calendar colours come from each workout's template (#355), not a map of
+ * three hard-coded names — so a user-made template gets its own colour, and a
+ * workout whose template is gone falls back to the accent.
+ */
+describe('consistency calendar', () => {
+  const WEEK = {
+    week: '2026-W39',
+    days: [
+      { date: '2026-09-21', trained: true, session: 'Chest Day', colour: '#123456', volume_kg: null },
+      { date: '2026-09-22', trained: true, session: 'Old Day', colour: null, volume_kg: null },
+      { date: '2026-09-23', trained: false, session: null, colour: null, volume_kg: null },
+    ],
+  }
+
+  async function renderCalendar() {
+    vi.mocked(progress.getConsistency).mockResolvedValue([WEEK])
+    render(<MemoryRouter><ProgressPage /></MemoryRouter>)
+    return screen.findByTitle('2026-09-21 · Chest Day')
+  }
+
+  it("colours a day with its template's colour", async () => {
+    const day = await renderCalendar()
+    expect(day.style.background).toBe('rgba(18, 52, 86, 0.6)')
+  })
+
+  it('falls back to the accent for a workout with no template', async () => {
+    await renderCalendar()
+    expect(screen.getByTitle('2026-09-22 · Old Day').style.background).toBe('rgba(255, 90, 54, 0.6)')
+  })
+
+  it('lists the templates in view in the legend, each in its own colour', async () => {
+    await renderCalendar()
+    const swatch = screen.getByText('Chest Day').previousElementSibling as HTMLElement
+    expect(swatch.style.background).toBe('rgb(18, 52, 86)')
+    expect(screen.queryByText('Push A')).toBeNull()
+  })
+})

@@ -8,9 +8,12 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.cardio import CardioEntry
+from models.exercise import Exercise
 from models.measurement import BodyMeasurement
+from models.template import HiddenTemplate, SessionTemplate
 from models.user import User
 from models.workout import Log, WorkoutSession
+from session_templates import template_exercises
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,25 @@ def export_my_data(
         else []
     )
     cardio = db.query(CardioEntry).filter(CardioEntry.user_id == user_id).all()
+    custom_exercises = (
+        db.query(Exercise)
+        .filter(Exercise.user_id == user_id)
+        .order_by(Exercise.id)
+        .all()
+    )
+    own_templates = (
+        db.query(SessionTemplate)
+        .filter(SessionTemplate.user_id == user_id)
+        .order_by(SessionTemplate.position, SessionTemplate.id)
+        .all()
+    )
+    hidden = (
+        db.query(SessionTemplate.name)
+        .join(HiddenTemplate, HiddenTemplate.template_id == SessionTemplate.id)
+        .filter(HiddenTemplate.user_id == user_id)
+        .order_by(SessionTemplate.position)
+        .all()
+    )
     measurements = (
         db.query(BodyMeasurement).filter(BodyMeasurement.user_id == user_id).all()
     )
@@ -70,6 +92,28 @@ def export_my_data(
             }
             for s in sessions
         ],
+        "custom_exercises": [
+            {
+                "id": e.id,
+                "name": e.name,
+                "muscles": e.muscles,
+                "type": e.type,
+                "equip": e.equip,
+                "archived_at": _dt(e.archived_at),
+            }
+            for e in custom_exercises
+        ],
+        "templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "focus": t.focus,
+                "colour": t.colour,
+                "exercises": [e.name for e in template_exercises(db, t)],
+            }
+            for t in own_templates
+        ],
+        "hidden_templates": [name for (name,) in hidden],
         "logs": [
             {
                 "id": log.id,

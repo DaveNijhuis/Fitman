@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, Check, Clock, Dumbbell } from 'lucide-react'
-import { getExercises, type Exercise } from '../api/exercises'
+import type { Exercise } from '../api/exercises'
 import { getLastSet, logSet, type LogEntry } from '../api/logs'
-import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSession, getSessionLogs, saveActiveWorkout, type SessionLogEntry } from '../api/workoutSessions'
+import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSession, getSessionExercises, getSessionLogs, saveActiveWorkout, type SessionLogEntry } from '../api/workoutSessions'
 import FinishWorkoutSheet from '../components/FinishWorkoutSheet'
 
 interface SetRow {
@@ -53,7 +53,9 @@ export default function ActiveWorkoutPage() {
   const { state } = useLocation()
   const navigate = useNavigate()
 
-  const session: string = state?.session ?? ''
+  // Shown at once from navigation state when there is some; the server's copy
+  // replaces it, so a reload or a bookmarked URL still opens the workout (#355).
+  const [session, setSession] = useState<string>(state?.session ?? '')
   const id = Number(sessionId)
 
   const startedAt = useRef(
@@ -86,7 +88,11 @@ export default function ActiveWorkoutPage() {
   useEffect(() => {
     let alive = true
     getSession(id)
-      .then(w => { if (alive && w.ended_at) leave(`/history/${id}`) })
+      .then(w => {
+        if (!alive) return
+        if (w.ended_at) leave(`/history/${id}`)
+        else setSession(w.session)
+      })
       .catch((err: unknown) => {
         // Only "not found" means it's gone; offline, say, proves nothing.
         if (alive && err instanceof Error && err.message === 'Session not found') leave('/')
@@ -109,10 +115,10 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(tick)
   }, [rest > 0])
 
-  // Load exercises, previous sets, and any already-completed sets for this session
+  // Load the workout's own exercises, previous sets, and any completed sets.
+  // Its list was fixed when it started, so editing its day changes nothing (#359).
   useEffect(() => {
-    if (!session) { navigate('/'); return }
-    Promise.all([getExercises(session), getSessionLogs(id)])
+    Promise.all([getSessionExercises(id), getSessionLogs(id)])
       .then(([exs, currentLogs]) => {
         setExercises(exs)
 
@@ -154,7 +160,7 @@ export default function ActiveWorkoutPage() {
       })
       .catch(() => {})
       .finally(() => setExercisesLoading(false))
-  }, [session])
+  }, [id])
 
   function updateSet(exerciseId: number, si: number, field: 'weight' | 'reps', value: string) {
     setSets(prev => {

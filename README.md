@@ -21,12 +21,13 @@ Commercial fitness apps either cost a recurring subscription or monetise your tr
 ## Features
 
 - **Workout logging** — log sets, reps, and weight per exercise in real time with a rest timer
+- **Training days** — six built-in days (Push, Pull and Legs, A and B, after Legacy Muscle's dumbbell-only 6-day split) plus your own: build a day from the library in any order, or duplicate a built-in and change it. Hide the built-ins you don't use. A workout keeps the exercise list it started with, so editing a day never changes a workout under way or in History
 - **Cardio tracking** — log runs, rides, swims and more with distance and duration
 - **Progress dashboard** — strength progression, weekly volume, consistency heatmap, muscle balance, personal records, and interactive body composition trends
 - **Smart scale weigh-in (opt-in)** — weigh in on an e.volve (iCOMON) Bluetooth scale straight from the web app, no Fitdays account or cloud: your phone's browser relays the scale to your server. The scale shows your name, keeps each user apart, and live weight shows while you stand. Needs HTTPS and a Web Bluetooth browser (Chrome on Android, Bluefy on iPhone); see [SCALE.md](SCALE.md)
 - **Body composition analysis** — from the scale's body fat and limb impedances, iCOMON's WLA25 algorithm (the one the scale's own app, Fitdays, uses) derives fat and muscle mass, body water, bone mass, BMR, visceral fat, body age, and fat and muscle per arm, leg and trunk, matching Fitdays to within rounding
 - **Body measurements** — manually log weight and body fat % over time with trend charts
-- **Exercise library** — browse and search all exercises with muscle and equipment info
+- **Exercise library** — 48 built-in dumbbell and bodyweight exercises to browse by day, equipment or name, plus your own with any equipment (cable, machine, bands…). Deleting one you've logged archives it: out of the library, history kept
 - **Workout history** — review past sessions with full set-by-set detail, and delete one after a confirmation
 - **User profile** — set display name, birth year, sex, and height; profile fields are used as fallback inputs for BIA body composition formulas
 - **Multi-user support** — admin can invite users, enable/disable accounts, and delete users with full data cascade; each user's data is fully isolated
@@ -391,8 +392,8 @@ npm run dev
 Run the test suites:
 
 ```bash
-cd backend  && .venv/bin/pytest    # 523 tests, 90% coverage floor
-cd frontend && npm test            # 88 tests, Vitest + jsdom
+cd backend  && .venv/bin/pytest    # 664 tests, 90% coverage floor
+cd frontend && npm test            # 124 tests, Vitest + jsdom
 ```
 
 The frontend dev server runs on `http://localhost:3000` and proxies `/api` requests to the backend automatically.
@@ -434,7 +435,7 @@ See [SCALE.md](SCALE.md) for the smart scale BLE protocol, packet decoding, and 
 
 If you share this app with others on your Tailscale network, users should know:
 
-- **What is stored:** workout sessions, sets, cardio entries, body measurements (weight, body fat %, BIA impedance readings), profile fields (display name, birth year, sex, height), and, if you use the smart scale, a random id the scale knows you by
+- **What is stored:** workout sessions, sets, your own exercises and training days, cardio entries, body measurements (weight, body fat %, BIA impedance readings), profile fields (display name, birth year, sex, height), and, if you use the smart scale, a random id the scale knows you by
 - **What goes to the smart scale:** weighing in sends the scale your height, age, sex, last weight and display name (shown on its screen), over Bluetooth from your phone. The scale keeps them, with its own history of your weigh-ins, until it is reset
 - **Where it is stored:** exclusively on your self-hosted server — no data is sent to any third party
 - **User rights:** each user can export all their data (`GET /api/gdpr/export`) or permanently delete their account and all associated data (`DELETE /api/gdpr/erase`) at any time

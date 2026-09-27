@@ -1,16 +1,10 @@
+import type { components } from './schema'
 import { request } from './client'
+import type { Exercise } from './exercises'
 
-export interface WorkoutSession {
-  id: number
-  session: string
-  started_at: string
-  ended_at: string | null
-}
-
-export interface WorkoutSessionSummary extends WorkoutSession {
-  set_count: number
-  volume_kg: number
-}
+/** `session` is the template's name when the workout started (#354). */
+export type WorkoutSession = components['schemas']['WorkoutSessionOut']
+export type WorkoutSessionSummary = components['schemas']['WorkoutSessionSummary']
 
 export interface SessionLogEntry {
   id: number
@@ -42,6 +36,11 @@ export function getHistory(): Promise<WorkoutSessionSummary[]> {
   return request<WorkoutSessionSummary[]>('/api/sessions')
 }
 
+/** The workout's exercise list, fixed when it started (#359). */
+export function getSessionExercises(sessionId: number): Promise<Exercise[]> {
+  return request<Exercise[]>(`/api/sessions/${sessionId}/exercises`)
+}
+
 export function getSessionLogs(sessionId: number): Promise<SessionLogEntry[]> {
   return request<SessionLogEntry[]>(`/api/sessions/${sessionId}/logs`)
 }
@@ -51,10 +50,10 @@ export function getSession(sessionId: number): Promise<WorkoutSession> {
   return request<WorkoutSession>(`/api/sessions/${sessionId}`)
 }
 
-export function startSession(session: string): Promise<WorkoutSession> {
+export function startSession(templateId: number): Promise<WorkoutSession> {
   return request<WorkoutSession>('/api/sessions', {
     method: 'POST',
-    body: JSON.stringify({ session }),
+    body: JSON.stringify({ template_id: templateId }),
   })
 }
 

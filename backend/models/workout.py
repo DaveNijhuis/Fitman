@@ -32,7 +32,12 @@ class Log(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     exercise_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("exercises.id"), nullable=False, index=True
+        Integer,
+        # Checked at commit, not per cascade step: erasing a user removes their
+        # custom exercises and their workouts' rows in separate cascades (#358).
+        ForeignKey("exercises.id", deferrable=True, initially="DEFERRED"),
+        nullable=False,
+        index=True,
     )
     session_id: Mapped[int] = mapped_column(
         Integer,

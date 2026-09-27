@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.cardio import CardioEntry
+from models.exercise import Exercise
 from models.measurement import BodyMeasurement
 from models.user import User
 from models.workout import Log, WorkoutSession
@@ -42,6 +43,12 @@ def export_my_data(
         else []
     )
     cardio = db.query(CardioEntry).filter(CardioEntry.user_id == user_id).all()
+    custom_exercises = (
+        db.query(Exercise)
+        .filter(Exercise.user_id == user_id)
+        .order_by(Exercise.id)
+        .all()
+    )
     measurements = (
         db.query(BodyMeasurement).filter(BodyMeasurement.user_id == user_id).all()
     )
@@ -69,6 +76,17 @@ def export_my_data(
                 "ended_at": _dt(s.ended_at),
             }
             for s in sessions
+        ],
+        "custom_exercises": [
+            {
+                "id": e.id,
+                "name": e.name,
+                "muscles": e.muscles,
+                "type": e.type,
+                "equip": e.equip,
+                "archived_at": _dt(e.archived_at),
+            }
+            for e in custom_exercises
         ],
         "logs": [
             {

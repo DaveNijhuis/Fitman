@@ -15,7 +15,7 @@ import * as logs from '../../api/logs'
  */
 
 const STARTED = '2026-09-21T08:00:00Z'
-const EXERCISE = { id: 5, name: 'Bench Press', muscles: 'Chest', type: 'weight', equip: 'Barbell' }
+const EXERCISE = { id: 5, name: 'Bench Press', muscles: 'Chest', type: 'weight', equip: 'Barbell', custom: false, archived: false }
 const TEMPLATE = { id: 7, name: 'Push A', focus: null, colour: null, builtin: true, exercises: [EXERCISE] }
 
 function renderAt(state: unknown = { session: 'Push A' }) {

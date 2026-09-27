@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from exercise_access import visible_exercise
 from models.exercise import Exercise
 from models.template import SessionTemplate
 from models.user import User
@@ -54,7 +55,7 @@ def strength_progression(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> StrengthData:
-    exercise = db.get(Exercise, exercise_id)
+    exercise = visible_exercise(db, current_user, exercise_id)
     if not exercise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"

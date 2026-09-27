@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models.exercise import Exercise
+from exercise_access import visible_exercise
 from models.user import User
 from models.workout import Log, WorkoutSession
 
@@ -40,9 +40,14 @@ def log_set(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Log:
-    if not db.get(Exercise, body.exercise_id):
+    exercise = visible_exercise(db, current_user, body.exercise_id)
+    if not exercise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found"
+        )
+    if exercise.archived:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Exercise is archived"
         )
     workout = db.get(WorkoutSession, body.session_id)
     if not workout or workout.user_id != current_user.id:

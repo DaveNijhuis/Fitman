@@ -5,6 +5,8 @@ addopts = "--cov=. --cov-report=term-missing --cov-fail-under=90"
 omit = ["alembic/versions/*"]
 
 [tool.ruff]
+# Production's Python (Dockerfile), as in ../ruff.toml (#362).
+target-version = "py311"
 exclude = [".venv", "__pycache__", "alembic/versions"]
 
 [tool.ruff.lint]

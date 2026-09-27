@@ -10,15 +10,16 @@ Production is the reference; the other two must follow it.
 """
 
 import re
+import tomllib
 from pathlib import Path
 
-import tomllib
 import yaml
 
 _ROOT = Path(__file__).resolve().parents[2]
 _CI = _ROOT / ".github" / "workflows" / "ci.yml"
 _DOCKERFILE = _ROOT / "backend" / "Dockerfile"
 _PYPROJECT = _ROOT / "backend" / "pyproject.toml"
+_RUFF_TOML = _ROOT / "ruff.toml"
 
 
 def _production_python() -> str:
@@ -52,3 +53,17 @@ def test_ci_venv_uses_the_production_python() -> None:
 def test_mypy_parses_for_the_production_python() -> None:
     mypy = tomllib.loads(_PYPROJECT.read_text())["tool"]["mypy"]
     assert mypy["python_version"] == _production_python()
+
+
+def test_ruff_lints_for_the_production_python() -> None:
+    """Without a target, ruff lints for its own default Python (#362).
+
+    That is older than 3.11, so it filed `tomllib`, stdlib since 3.11, as a
+    third-party import. Both configs: ruff.toml covers the repo root,
+    pyproject.toml the backend.
+    """
+    expected = "py" + _production_python().replace(".", "")
+    repo = tomllib.loads(_RUFF_TOML.read_text())
+    backend = tomllib.loads(_PYPROJECT.read_text())["tool"]["ruff"]
+    assert repo.get("target-version") == expected
+    assert backend.get("target-version") == expected

@@ -258,11 +258,55 @@ EXERCISES = [
         "type": "weight",
         "equip": "Dumbbell",
     },
+    # Added for Legacy Muscle's B days (#357)
+    {
+        "name": "DB Front Raise",
+        "muscles": "Front Delt",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB High Row",
+        "muscles": "Rear Delt, Traps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Renegade Row",
+        "muscles": "Lats, Rear Delt, Biceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Curl",
+        "muscles": "Biceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Reverse Curl",
+        "muscles": "Brachialis, Biceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Stiff-Legged Deadlift",
+        "muscles": "Hamstrings, Glutes, Lower Back",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Lateral Lunge",
+        "muscles": "Quads, Glutes",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
 ]
 
 
-# Built-in session templates, in display order (#354). The migration that
-# introduced templates writes the same names, focus and colours.
+# Built-in session templates, in display order: the A days (#354) and the B
+# days (#357). The migrations that added them write the same names, focus and
+# colours.
 class _Template(TypedDict):
     name: str
     focus: str
@@ -310,6 +354,42 @@ TEMPLATES: list[_Template] = [
             "Romanian Deadlift",
             "Glute Bridge",
             "Single-Leg Calf Raise",
+        ],
+    },
+    {
+        "name": "Push B",
+        "focus": "Shoulders · Chest · Triceps",
+        "colour": "#ff5a36",
+        "exercises": [
+            "Arnold Press",
+            "DB Front Raise",
+            "Push-Up",
+            "DB Pullover",
+            "DB Skull Crusher",
+        ],
+    },
+    {
+        "name": "Pull B",
+        "focus": "Back · Traps · Biceps",
+        "colour": "#3b82f6",
+        "exercises": [
+            "DB High Row",
+            "Renegade Row",
+            "DB Shrug",
+            "DB Curl",
+            "DB Reverse Curl",
+        ],
+    },
+    {
+        "name": "Legs B",
+        "focus": "Hamstrings · Glutes · Quads",
+        "colour": "#1f9d62",
+        "exercises": [
+            "DB Goblet Squat",
+            "DB Stiff-Legged Deadlift",
+            "DB Lateral Lunge",
+            "DB Hip Thrust",
+            "Seated DB Calf Raise",
         ],
     },
 ]

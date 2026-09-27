@@ -85,7 +85,8 @@ jobs:
           restore-keys: mypy-
       - name: Install dependencies
         run: |
-          uv venv .venv
+          # Production's Python, not the runner's (#361).
+          uv venv .venv --python 3.11
           uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
       - name: Security audit (pip-audit)
         # Auditing the requirements files resolves the full transitive tree,

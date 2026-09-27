@@ -548,6 +548,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Templates */
+        get: operations["list_templates_api_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Template */
+        get: operations["get_template_api_templates__template_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -699,10 +733,6 @@ export interface components {
             muscles: string | null;
             /** Name */
             name: string;
-            /** Position */
-            position: number;
-            /** Session */
-            session: string;
             /** Type */
             type: string;
         };
@@ -1054,10 +1084,15 @@ export interface components {
             /** Required */
             required: boolean;
         };
-        /** StartSessionRequest */
+        /**
+         * StartSessionRequest
+         * @description Exactly one: a template id, or a template's name (until #355).
+         */
         StartSessionRequest: {
             /** Session */
-            session: string;
+            session?: string | null;
+            /** Template Id */
+            template_id?: number | null;
         };
         /** StrengthData */
         StrengthData: {
@@ -1074,6 +1109,34 @@ export interface components {
             date: string;
             /** Estimated 1Rm */
             estimated_1rm: number;
+        };
+        /** TemplateDetail */
+        TemplateDetail: {
+            /** Builtin */
+            builtin: boolean;
+            /** Colour */
+            colour: string | null;
+            /** Exercises */
+            exercises: components["schemas"]["ExerciseOut"][];
+            /** Focus */
+            focus: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /** TemplateOut */
+        TemplateOut: {
+            /** Builtin */
+            builtin: boolean;
+            /** Colour */
+            colour: string | null;
+            /** Focus */
+            focus: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -1138,6 +1201,8 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
+            /** Template Id */
+            template_id: number | null;
         };
         /** WorkoutSessionSummary */
         WorkoutSessionSummary: {
@@ -1154,6 +1219,8 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
+            /** Template Id */
+            template_id: number | null;
             /** Volume Kg */
             volume_kg: number;
         };
@@ -2237,6 +2304,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomeStats"];
+                };
+            };
+        };
+    };
+    list_templates_api_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"][];
+                };
+            };
+        };
+    };
+    get_template_api_templates__template_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

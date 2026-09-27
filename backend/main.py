@@ -32,6 +32,7 @@ from routers import progress as progress_router
 from routers import scale as scale_router
 from routers import sessions as sessions_router
 from routers import stats as stats_router
+from routers import templates as templates_router
 from seed import seed_exercises
 
 _request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
@@ -120,6 +121,7 @@ app.include_router(exercises_router.router)
 app.include_router(features_router.router)
 app.include_router(scale_router.router)
 app.include_router(sessions_router.router)
+app.include_router(templates_router.router)
 app.include_router(logs_router.router)
 app.include_router(progress_router.router)
 app.include_router(measurements_router.router)

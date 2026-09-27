@@ -389,14 +389,6 @@
             "title": "Name",
             "type": "string"
           },
-          "position": {
-            "title": "Position",
-            "type": "integer"
-          },
-          "session": {
-            "title": "Session",
-            "type": "string"
-          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -406,8 +398,6 @@
           "id",
           "name",
           "muscles",
-          "session",
-          "position",
           "type",
           "equip"
         ],
@@ -1837,15 +1827,31 @@
         "type": "object"
       },
       "StartSessionRequest": {
+        "description": "Exactly one: a template id, or a template's name (until #355).",
         "properties": {
           "session": {
-            "title": "Session",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
           }
         },
-        "required": [
-          "session"
-        ],
         "title": "StartSessionRequest",
         "type": "object"
       },
@@ -1891,6 +1897,108 @@
           "estimated_1rm"
         ],
         "title": "StrengthPoint",
+        "type": "object"
+      },
+      "TemplateDetail": {
+        "properties": {
+          "builtin": {
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "exercises": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseOut"
+            },
+            "title": "Exercises",
+            "type": "array"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "focus",
+          "colour",
+          "builtin",
+          "exercises"
+        ],
+        "title": "TemplateDetail",
+        "type": "object"
+      },
+      "TemplateOut": {
+        "properties": {
+          "builtin": {
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "focus",
+          "colour",
+          "builtin"
+        ],
+        "title": "TemplateOut",
         "type": "object"
       },
       "TokenResponse": {
@@ -2053,11 +2161,23 @@
             "format": "date-time",
             "title": "Started At",
             "type": "string"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
           }
         },
         "required": [
           "id",
           "session",
+          "template_id",
           "started_at",
           "ended_at"
         ],
@@ -2095,6 +2215,17 @@
             "title": "Started At",
             "type": "string"
           },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          },
           "volume_kg": {
             "title": "Volume Kg",
             "type": "number"
@@ -2103,6 +2234,7 @@
         "required": [
           "id",
           "session",
+          "template_id",
           "started_at",
           "ended_at",
           "set_count",
@@ -3715,6 +3847,83 @@
         "summary": "Home Stats",
         "tags": [
           "stats"
+        ]
+      }
+    },
+    "/api/templates": {
+      "get": {
+        "operationId": "list_templates_api_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateOut"
+                  },
+                  "title": "Response List Templates Api Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Templates",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/templates/{template_id}": {
+      "get": {
+        "operationId": "get_template_api_templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Template",
+        "tags": [
+          "templates"
         ]
       }
     },

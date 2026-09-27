@@ -1,9 +1,8 @@
 """Static checks that the ruff and mypy gates are configured strictly (#222)."""
 
+import tomllib
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 _PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 

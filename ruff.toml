@@ -11,6 +11,8 @@
 # Kept in step with backend/pyproject.toml so both halves are held to one
 # standard.
 
+# Production's Python (backend/Dockerfile), not ruff's own default (#362).
+target-version = "py311"
 exclude = [".venv", "__pycache__", "backend/alembic/versions"]
 
 [lint]

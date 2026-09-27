@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, Check, Clock, Dumbbell } from 'lucide-react'
 import type { Exercise } from '../api/exercises'
-import { getTemplate } from '../api/templates'
 import { getLastSet, logSet, type LogEntry } from '../api/logs'
-import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSession, getSessionLogs, saveActiveWorkout, type SessionLogEntry } from '../api/workoutSessions'
+import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSession, getSessionExercises, getSessionLogs, saveActiveWorkout, type SessionLogEntry } from '../api/workoutSessions'
 import FinishWorkoutSheet from '../components/FinishWorkoutSheet'
 
 interface SetRow {
@@ -89,7 +88,11 @@ export default function ActiveWorkoutPage() {
   useEffect(() => {
     let alive = true
     getSession(id)
-      .then(w => { if (alive && w.ended_at) leave(`/history/${id}`) })
+      .then(w => {
+        if (!alive) return
+        if (w.ended_at) leave(`/history/${id}`)
+        else setSession(w.session)
+      })
       .catch((err: unknown) => {
         // Only "not found" means it's gone; offline, say, proves nothing.
         if (alive && err instanceof Error && err.message === 'Session not found') leave('/')
@@ -112,13 +115,10 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(tick)
   }, [rest > 0])
 
-  // Load the template's exercises, previous sets, and any already-completed sets
+  // Load the workout's own exercises, previous sets, and any completed sets.
+  // Its list was fixed when it started, so editing its day changes nothing (#359).
   useEffect(() => {
-    const templateExercises = getSession(id).then(w => {
-      setSession(w.session)
-      return w.template_id === null ? [] : getTemplate(w.template_id).then(t => t.exercises)
-    })
-    Promise.all([templateExercises, getSessionLogs(id)])
+    Promise.all([getSessionExercises(id), getSessionLogs(id)])
       .then(([exs, currentLogs]) => {
         setExercises(exs)
 

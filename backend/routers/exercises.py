@@ -12,7 +12,7 @@ from exercise_access import library, visible_exercise
 from models.exercise import Exercise
 from models.template import SessionTemplate, TemplateExercise
 from models.user import User
-from models.workout import Log
+from models.workout import Log, WorkoutExercise
 from session_templates import template_exercises, visible_templates
 
 router = APIRouter(prefix="/api/exercises", tags=["exercises"])
@@ -217,13 +217,12 @@ def delete_exercise(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    """Delete it, or archive it if it has history: sets or a place in a template."""
+    """Delete it, or archive it if anything points at it: sets, a place in a
+    day, or a workout's exercise list (#359)."""
     exercise = _own_exercise(db, current_user, exercise_id)
-    in_use = (
-        db.query(Log.id).filter(Log.exercise_id == exercise.id).first()
-        or db.query(TemplateExercise.id)
-        .filter(TemplateExercise.exercise_id == exercise.id)
-        .first()
+    in_use = any(
+        db.query(model.id).filter(model.exercise_id == exercise.id).first()
+        for model in (Log, TemplateExercise, WorkoutExercise)
     )
     if in_use:
         exercise.archived_at = datetime.now(timezone.utc)

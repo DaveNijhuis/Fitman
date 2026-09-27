@@ -3,7 +3,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ActiveWorkoutPage from '../ActiveWorkoutPage'
 import * as sessions from '../../api/workoutSessions'
-import * as templates from '../../api/templates'
 import * as logs from '../../api/logs'
 
 /**
@@ -16,7 +15,6 @@ import * as logs from '../../api/logs'
 
 const STARTED = '2026-09-21T08:00:00Z'
 const EXERCISE = { id: 5, name: 'Bench Press', muscles: 'Chest', type: 'weight', equip: 'Barbell', custom: false, archived: false }
-const TEMPLATE = { id: 7, name: 'Push A', focus: null, colour: null, builtin: true, exercises: [EXERCISE] }
 
 function renderAt(state: unknown = { session: 'Push A' }) {
   render(
@@ -34,7 +32,7 @@ beforeEach(() => {
   sessions.saveActiveWorkout(42, 'Push A', STARTED)
   vi.spyOn(sessions, 'getSession').mockResolvedValue({ id: 42, session: 'Push A', template_id: 7, started_at: STARTED, ended_at: null })
   vi.spyOn(sessions, 'getSessionLogs').mockResolvedValue([])
-  vi.spyOn(templates, 'getTemplate').mockResolvedValue(TEMPLATE)
+  vi.spyOn(sessions, 'getSessionExercises').mockResolvedValue([EXERCISE])
   vi.spyOn(logs, 'getLastSet').mockResolvedValue({ id: 1, exercise_id: 5, session_id: 1, weight: 60, reps: 8, logged_at: STARTED })
 })
 
@@ -44,15 +42,16 @@ afterEach(() => {
 })
 
 /**
- * The workout's exercises come from its template on the server (#355), not
- * from a session name in navigation state — which a reload or a bookmarked
- * URL doesn't carry, so the page used to bounce home.
+ * The workout's exercises come from the server (#355), not from a session
+ * name in navigation state — which a reload or a bookmarked URL doesn't
+ * carry. Since #359 they are the workout's own list, fixed when it started,
+ * so editing its day mid-workout changes nothing here.
  */
 describe('loading the workout', () => {
-  it("loads the exercises of the workout's template", async () => {
+  it("loads the workout's own exercise list", async () => {
     renderAt()
     expect(await screen.findByText('Bench Press')).toBeInTheDocument()
-    expect(templates.getTemplate).toHaveBeenCalledWith(7)
+    expect(sessions.getSessionExercises).toHaveBeenCalledWith(42)
   })
 
   it('opens without navigation state, as after a reload', async () => {
@@ -94,10 +93,9 @@ describe('opening a workout that is no longer in progress', () => {
   it('keeps the marker when the check merely fails, e.g. offline', async () => {
     vi.mocked(sessions.getSession).mockRejectedValue(new Error('Failed to fetch'))
     renderAt()
-    // Exercises come from the workout's template since #355, so with the
-    // workout unreadable there are none to show; what matters is staying put.
-    await waitFor(() => expect(sessions.getSession).toHaveBeenCalled())
-    await new Promise(resolve => setTimeout(resolve, 0))
+    // The workout's own exercise list doesn't depend on this check (#359), so
+    // the page stays usable, not just open.
+    expect(await screen.findByText('Bench Press')).toBeInTheDocument()
     expect(screen.queryByText('Home')).toBeNull()
     expect(screen.queryByText('History entry')).toBeNull()
     expect(sessions.getActiveWorkout()?.id).toBe(42)

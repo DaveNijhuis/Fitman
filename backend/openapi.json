@@ -544,6 +544,19 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HiddenIn": {
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hidden"
+        ],
+        "title": "HiddenIn",
+        "type": "object"
+      },
       "HomeStats": {
         "properties": {
           "prev_week_volume": {
@@ -2031,6 +2044,10 @@
             ],
             "title": "Focus"
           },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -2046,9 +2063,53 @@
           "focus",
           "colour",
           "builtin",
+          "hidden",
           "exercises"
         ],
         "title": "TemplateDetail",
+        "type": "object"
+      },
+      "TemplateIn": {
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "exercise_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Exercise Ids",
+            "type": "array"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "exercise_ids"
+        ],
+        "title": "TemplateIn",
         "type": "object"
       },
       "TemplateOut": {
@@ -2079,6 +2140,10 @@
             ],
             "title": "Focus"
           },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -2093,9 +2158,63 @@
           "name",
           "focus",
           "colour",
-          "builtin"
+          "builtin",
+          "hidden"
         ],
         "title": "TemplateOut",
+        "type": "object"
+      },
+      "TemplateUpdate": {
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "exercise_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercise Ids"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "TemplateUpdate",
         "type": "object"
       },
       "TokenResponse": {
@@ -3020,7 +3139,7 @@
     },
     "/api/exercises/{exercise_id}": {
       "delete": {
-        "description": "Delete it, or archive it if it has history: sets or a place in a template.",
+        "description": "Delete it, or archive it if anything points at it: sets, a place in a\nday, or a workout's exercise list (#359).",
         "operationId": "delete_exercise_api_exercises__exercise_id__delete",
         "parameters": [
           {
@@ -4025,6 +4144,58 @@
         ]
       }
     },
+    "/api/sessions/{session_id}/exercises": {
+      "get": {
+        "description": "The workout's exercise list, as it was when it started (#359).",
+        "operationId": "get_session_exercises_api_sessions__session_id__exercises_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExerciseOut"
+                  },
+                  "title": "Response Get Session Exercises Api Sessions  Session Id  Exercises Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Session Exercises",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/sessions/{session_id}/logs": {
       "get": {
         "operationId": "get_session_logs_api_sessions__session_id__logs_get",
@@ -4130,9 +4301,92 @@
         "tags": [
           "templates"
         ]
+      },
+      "post": {
+        "operationId": "create_template_api_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Template",
+        "tags": [
+          "templates"
+        ]
       }
     },
     "/api/templates/{template_id}": {
+      "delete": {
+        "description": "Its workouts keep their name and their own exercise list (#359).",
+        "operationId": "delete_template_api_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Template",
+        "tags": [
+          "templates"
+        ]
+      },
       "get": {
         "operationId": "get_template_api_templates__template_id__get",
         "parameters": [
@@ -4174,6 +4428,167 @@
           }
         ],
         "summary": "Get Template",
+        "tags": [
+          "templates"
+        ]
+      },
+      "patch": {
+        "operationId": "update_template_api_templates__template_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Template",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/templates/{template_id}/duplicate": {
+      "post": {
+        "description": "An editable copy of any day the user can see, built-in or their own.",
+        "operationId": "duplicate_template_api_templates__template_id__duplicate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Duplicate Template",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/templates/{template_id}/hidden": {
+      "put": {
+        "description": "Hide a built-in from Home and the picker; still startable (#359).",
+        "operationId": "set_hidden_api_templates__template_id__hidden_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HiddenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Hidden",
         "tags": [
           "templates"
         ]

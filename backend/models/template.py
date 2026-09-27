@@ -50,3 +50,18 @@ class TemplateExercise(Base):
         index=True,
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class HiddenTemplate(Base):
+    """A built-in the user has hidden from Home and the picker (#359)."""
+
+    __tablename__ = "hidden_templates"
+
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    template_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("session_templates.id", ondelete="CASCADE"),
+        primary_key=True,
+    )

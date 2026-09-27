@@ -375,8 +375,54 @@
         "title": "ExchangeOut",
         "type": "object"
       },
+      "ExerciseIn": {
+        "properties": {
+          "equip": {
+            "title": "Equip",
+            "type": "string"
+          },
+          "muscles": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muscles"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "weight",
+              "bodyweight"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "equip"
+        ],
+        "title": "ExerciseIn",
+        "type": "object"
+      },
       "ExerciseOut": {
         "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "custom": {
+            "title": "Custom",
+            "type": "boolean"
+          },
           "equip": {
             "title": "Equip",
             "type": "string"
@@ -410,9 +456,65 @@
           "name",
           "muscles",
           "type",
-          "equip"
+          "equip",
+          "custom",
+          "archived"
         ],
         "title": "ExerciseOut",
+        "type": "object"
+      },
+      "ExerciseUpdate": {
+        "properties": {
+          "equip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equip"
+          },
+          "muscles": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muscles"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "weight",
+                  "bodyweight"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "ExerciseUpdate",
         "type": "object"
       },
       "FeaturesOut": {
@@ -2786,6 +2888,22 @@
               ],
               "title": "Search"
             }
+          },
+          {
+            "in": "query",
+            "name": "equip",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Equip"
+            }
           }
         ],
         "responses": {
@@ -2823,9 +2941,123 @@
         "tags": [
           "exercises"
         ]
+      },
+      "post": {
+        "operationId": "create_exercise_api_exercises_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Exercise",
+        "tags": [
+          "exercises"
+        ]
+      }
+    },
+    "/api/exercises/equipment": {
+      "get": {
+        "description": "The equipment in the user's library: suggestions and the filter (#358).",
+        "operationId": "list_equipment_api_exercises_equipment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Equipment Api Exercises Equipment Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Equipment",
+        "tags": [
+          "exercises"
+        ]
       }
     },
     "/api/exercises/{exercise_id}": {
+      "delete": {
+        "description": "Delete it, or archive it if it has history: sets or a place in a template.",
+        "operationId": "delete_exercise_api_exercises__exercise_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "title": "Exercise Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Exercise",
+        "tags": [
+          "exercises"
+        ]
+      },
       "get": {
         "operationId": "get_exercise_api_exercises__exercise_id__get",
         "parameters": [
@@ -2867,6 +3099,61 @@
           }
         ],
         "summary": "Get Exercise",
+        "tags": [
+          "exercises"
+        ]
+      },
+      "patch": {
+        "operationId": "update_exercise_api_exercises__exercise_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "title": "Exercise Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Exercise",
         "tags": [
           "exercises"
         ]

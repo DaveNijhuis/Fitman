@@ -30,7 +30,7 @@ Fitman is a two-service web application: a Python REST API and a React single-pa
 - Serves a REST JSON API consumed by the frontend
 - Handles authentication (JWT tokens, bcrypt password hashing via `hash_password` / `verify_password` in `auth.py`)
 - Reads and writes all data to PostgreSQL via SQLAlchemy
-- Runs database migrations automatically on startup via Alembic, then seeds the exercise library and fills in derived body-composition fields for measurements stored without them (`measurement_backfill.py`, #325)
+- Runs database migrations automatically on startup via Alembic, then seeds the exercise library and built-in session templates and fills in derived body-composition fields for measurements stored without them (`measurement_backfill.py`, #325)
 - Attaches a `X-Request-ID` UUID header to every response, and injects the same
   id into every Python log record emitted while handling that request
 - Emits structured JSON logs by default (`FITMAN_LOG_FORMAT=text` for plain output)
@@ -64,14 +64,17 @@ Fitman/
 │   ├── auth.py              # JWT creation and verification
 │   ├── database.py          # DB connection and session setup
 │   ├── limiter.py           # SlowAPI rate limiter
-│   ├── seed.py              # Initial exercise data
+│   ├── seed.py              # Built-in exercise library and session templates (fresh installs)
+│   ├── exercise_access.py   # Which exercises a user may reach: built-ins + their own (#358)
+│   ├── session_templates.py # Which templates a user may see; a template's exercises in order
 │   ├── formulas.py          # BIA body-composition formulas, incl. WLA25 estimates (#325)
 │   ├── measurement_backfill.py  # Startup: derive fields for measurements stored without them
 │   ├── features.py          # require_scale_enabled: scale endpoints 404 unless SCALE_ENABLED
 │   ├── entrypoint.sh        # Docker entrypoint: runs migrations then uvicorn
 │   ├── routers/             # API route handlers
 │   │   ├── auth.py          # POST /api/auth/login, /register, /change-password
-│   │   ├── exercises.py     # GET /api/exercises
+│   │   ├── exercises.py     # Exercise library; custom exercises (#358)
+│   │   ├── templates.py     # Session templates: built-in and user-made days (#354, #359)
 │   │   ├── sessions.py      # Workout session management
 │   │   ├── logs.py          # Set logging
 │   │   ├── progress.py      # Progress calculations
@@ -91,7 +94,8 @@ Fitman/
 │   ├── models/              # SQLAlchemy database models
 │   │   ├── user.py
 │   │   ├── exercise.py
-│   │   ├── workout.py
+│   │   ├── template.py      # SessionTemplate, TemplateExercise, HiddenTemplate
+│   │   ├── workout.py       # WorkoutSession, WorkoutExercise, Log
 │   │   ├── cardio.py
 │   │   └── measurement.py
 │   ├── alembic/             # Database migrations
@@ -161,25 +165,53 @@ users
 ### Strength training
 
 ```
-exercises
-  id         INTEGER PRIMARY KEY
-  name       TEXT NOT NULL          -- e.g. "Flat DB Bench Press"
-  muscles    TEXT                   -- e.g. "Chest, Front Delt, Triceps"
-  session    TEXT NOT NULL          -- "Push A" | "Pull A" | "Legs A"
-  position   INTEGER NOT NULL       -- display order within the session
-  type       TEXT NOT NULL          -- "weight" | "bodyweight"
-  equip      TEXT NOT NULL          -- "Dumbbell" | "Bodyweight"
+exercises                            -- the library: a flat list (#354)
+  id          INTEGER PRIMARY KEY
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE  -- NULL: built-in; else the user's own (#358)
+  name        TEXT NOT NULL          -- e.g. "Flat DB Bench Press"
+  muscles     TEXT                   -- e.g. "Chest, Front Delt, Triceps"
+  type        TEXT NOT NULL          -- "weight" | "bodyweight"
+  equip       TEXT NOT NULL          -- free text: "Dumbbell", "Cable", "Machine"…
+  archived_at TIMESTAMPTZ            -- set when a logged custom exercise is deleted: hidden, history kept
+
+session_templates                    -- a training day (#354)
+  id          INTEGER PRIMARY KEY
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE  -- NULL: built-in (Push/Pull/Legs A and B)
+  name        TEXT NOT NULL
+  focus       TEXT                   -- e.g. "Chest · Shoulders · Triceps"
+  colour      TEXT                   -- "#rrggbb"; built-ins share their category's (#357)
+  position    INTEGER NOT NULL       -- display order
+
+template_exercises                   -- a day's exercises, in order
+  id          INTEGER PRIMARY KEY
+  template_id INTEGER REFERENCES session_templates(id) ON DELETE CASCADE
+  exercise_id INTEGER REFERENCES exercises(id)  -- DEFERRABLE INITIALLY DEFERRED
+  position    INTEGER NOT NULL
+  UNIQUE (template_id, exercise_id)
+
+hidden_templates                     -- built-ins a user hid from Home and the picker (#359)
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE
+  template_id INTEGER REFERENCES session_templates(id) ON DELETE CASCADE
+  PRIMARY KEY (user_id, template_id)
 
 workout_sessions
   id          INTEGER PRIMARY KEY
   user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE
-  session     TEXT NOT NULL          -- "Push A" | "Pull A" | "Legs A"
+  session     TEXT NOT NULL          -- the template's name when the workout started
+  template_id INTEGER REFERENCES session_templates(id) ON DELETE SET NULL
   started_at  TIMESTAMPTZ NOT NULL
   ended_at    TIMESTAMPTZ             -- null while in progress
 
+workout_exercises                    -- a workout's exercise list, fixed when it starts (#359)
+  id                 INTEGER PRIMARY KEY
+  workout_session_id INTEGER REFERENCES workout_sessions(id) ON DELETE CASCADE
+  exercise_id        INTEGER REFERENCES exercises(id)  -- DEFERRABLE INITIALLY DEFERRED
+  position           INTEGER NOT NULL
+  UNIQUE (workout_session_id, exercise_id)
+
 logs
   id          INTEGER PRIMARY KEY
-  exercise_id INTEGER REFERENCES exercises(id)
+  exercise_id INTEGER REFERENCES exercises(id)  -- DEFERRABLE INITIALLY DEFERRED
   session_id  INTEGER REFERENCES workout_sessions(id)
   weight      REAL NOT NULL          -- kg (0 for bodyweight exercises)
   reps        INTEGER NOT NULL
@@ -255,25 +287,38 @@ POST   /api/admin/users                  Create a new user (admin only)
 PATCH  /api/admin/users/{id}            Enable or disable a user account (admin only)
 DELETE /api/admin/users/{id}            Delete a user and all their data (admin only)
 
-# Exercises
-GET    /api/exercises/sessions            List session names (Push A, Pull A, Legs A)
-GET    /api/exercises                     All exercises (optional ?session= and ?search= filters)
-GET    /api/exercises/{id}               Single exercise by ID
+# Exercises (built-ins plus the user's own; anyone else's is a 404 everywhere, #358)
+GET    /api/exercises                     The library, archived excluded (optional ?template_id=, ?search=, ?equip=)
+GET    /api/exercises/equipment           Equipment in the user's library, for the filter and suggestions
+POST   /api/exercises                     Add a custom exercise { name, muscles, type, equip }; 409 on a name in use
+GET    /api/exercises/{id}               Single exercise, archived included (for history)
+PATCH  /api/exercises/{id}               Edit your own exercise; 403 for a built-in
+DELETE /api/exercises/{id}               Delete your own exercise, or archive it if anything points at it
+
+# Session templates (built-ins plus the user's own, #354, #359)
+GET    /api/templates                     Templates in display order, built-ins first, each with a hidden flag
+GET    /api/templates/{id}               One template with its exercises in order
+POST   /api/templates                     Build a day { name, focus, colour, exercise_ids }; 409 on a name in use
+PATCH  /api/templates/{id}               Edit your own day; 403 for a built-in
+DELETE /api/templates/{id}               Delete your own day; its workouts keep their name and exercise list
+POST   /api/templates/{id}/duplicate      Copy any visible day into an editable one of your own
+PUT    /api/templates/{id}/hidden         Hide or show a built-in { hidden } on Home and in the picker
 
 # Strength logging
-POST   /api/sessions                      Start a workout session
+POST   /api/sessions                      Start a workout from a template { template_id }; copies its exercise list
 DELETE /api/sessions/{id}                Delete a session and all its logs: discard one in progress, or delete a finished one from History (#336)
 PATCH  /api/sessions/{id}/end            End a workout session (400 if already ended)
 GET    /api/sessions                      List completed sessions with volume + set count
 GET    /api/sessions/{id}                One session; ended_at tells whether it is still in progress (#338)
+GET    /api/sessions/{id}/exercises      The workout's exercise list, fixed when it started (#359)
 GET    /api/sessions/{id}/logs           All logs for a session
-POST   /api/logs                          Log a set { exercise_id, session_id, weight, reps }; 409 once the session has ended (#338)
+POST   /api/logs                          Log a set { exercise_id, session_id, weight, reps }; 409 once the session has ended (#338) or the exercise is archived
 GET    /api/logs/last/{exercise_id}      Most recent set for an exercise
 
 # Progress
 GET    /api/progress/strength?exercise_id=X   Estimated 1RM over time (Epley formula)
 GET    /api/progress/volume                    Total kg lifted per week
-GET    /api/progress/consistency              17-week training heatmap data
+GET    /api/progress/consistency              17-week training heatmap data, each day with its template's colour
 GET    /api/progress/balance                  Volume % breakdown by muscle group
 GET    /api/progress/prs                      Personal records per exercise
 
@@ -493,6 +538,14 @@ GDPR Article 32 requires "appropriate technical and organisational measures" to 
 **Backup note:** Encrypted backups are only as strong as the decryption key. Store backups on an encrypted medium and never in the same location as the key.
 
 **Revisit trigger:** If Fitman is ever deployed as a shared multi-user service (beyond household use), column-level encryption for health measurements should be implemented to comply with GDPR Article 32 in a multi-tenant context.
+
+### A workout keeps its own exercise list
+
+Users can edit or delete their days (#359), so a workout can't read its exercises from its template: an edit mid-workout would change the list under the user, and a deleted day would leave History with nothing to show. Starting a workout copies the template's exercises into `workout_exercises`, and the active workout reads only that. `workout_sessions.session` likewise keeps the template's name as it was, and `template_id` goes NULL when the day is deleted. The migration that introduced the copy gave existing workouts their template's list at the time — the closest record there was.
+
+### Foreign keys into `exercises` are checked at commit
+
+`logs`, `template_exercises` and `workout_exercises` reference `exercises` with `DEFERRABLE INITIALLY DEFERRED` (#358). Erasing a user cascades down two paths at once: to their custom exercises, and through their workouts and days to the rows that point at those exercises. PostgreSQL checks a `NO ACTION` key after each cascade step, so it saw an exercise gone while its logs still existed and refused the erasure. Deferring the check to commit lets both cascades finish first. Nothing new cascades: deleting an exercise still never takes a log with it — a custom exercise with anything pointing at it is archived instead. A migration that deletes rows before altering one of these tables must run `SET CONSTRAINTS ALL IMMEDIATE` first; PostgreSQL won't alter a table with checks pending.
 
 ## Hosting & access
 

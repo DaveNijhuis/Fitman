@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import schema from '../schema.d.ts?raw'
 import cardioSource from '../cardio.ts?raw'
 import measurementsSource from '../measurements.ts?raw'
+import exercisesSource from '../exercises.ts?raw'
+import templatesSource from '../templates.ts?raw'
+import workoutSessionsSource from '../workoutSessions.ts?raw'
 
 /**
  * The API layer must derive its response types from the backend's published
@@ -45,5 +48,33 @@ describe('API modules', () => {
 
   it('measurements does not hand-declare its response shape', () => {
     expect(measurementsSource).not.toMatch(/^export interface Measurement \{/m)
+  })
+})
+
+/**
+ * Templates replaced session names (#355). Exercise and WorkoutSession changed
+ * shape with them, and the hand-written Exercise interface kept `session` and
+ * `position` compiling for a whole merge after the API dropped both.
+ */
+describe('template-era API modules', () => {
+  it('the schema describes the templates endpoints', () => {
+    expect(schema).toContain('/api/templates')
+    expect(schema).toContain('TemplateDetail')
+  })
+
+  it.each([
+    ['exercises', exercisesSource],
+    ['templates', templatesSource],
+    ['workoutSessions', workoutSessionsSource],
+  ])('%s derives its types from the generated schema', (_, source) => {
+    expect(source).toMatch(/from '\.\/schema/)
+  })
+
+  it('exercises does not hand-declare its response shape', () => {
+    expect(exercisesSource).not.toMatch(/^export interface Exercise \{/m)
+  })
+
+  it('workoutSessions does not hand-declare the session shape', () => {
+    expect(workoutSessionsSource).not.toMatch(/^export interface WorkoutSession \{/m)
   })
 })

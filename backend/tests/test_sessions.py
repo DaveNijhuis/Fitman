@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from database import SessionLocal
 from models.user import User
+from tests.builtin import builtin_exercises, builtin_id
 
 
 def _create_user_b() -> None:
@@ -51,14 +52,12 @@ def _auth(client: TestClient) -> dict:
 
 def _start(client: TestClient, name: str = "Push A") -> dict:
     return client.post(
-        "/api/sessions", json={"session": name}, headers=_auth(client)
+        "/api/sessions", json={"template_id": builtin_id(name)}, headers=_auth(client)
     ).json()
 
 
 def _first_exercise_id(client: TestClient) -> int:
-    return client.get("/api/exercises?session=Push+A", headers=_auth(client)).json()[0][
-        "id"
-    ]
+    return builtin_exercises("Push A")[0]["id"]
 
 
 def _log_set(client: TestClient, session_id: int, exercise_id: int) -> None:
@@ -79,7 +78,9 @@ def _log_set(client: TestClient, session_id: int, exercise_id: int) -> None:
 
 def test_start_session_returns_201(client: TestClient):
     resp = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=_auth(client)
+        "/api/sessions",
+        json={"template_id": builtin_id("Push A")},
+        headers=_auth(client),
     )
     assert resp.status_code == 201
     data = resp.json()
@@ -89,11 +90,12 @@ def test_start_session_returns_201(client: TestClient):
     assert "id" in data
 
 
-def test_start_session_rejects_unknown_name(client: TestClient):
+def test_start_session_by_name_is_gone(client: TestClient):
+    """Workouts start from a template id; the name-based form was #354's bridge."""
     resp = client.post(
-        "/api/sessions", json={"session": "Chest Day"}, headers=_auth(client)
+        "/api/sessions", json={"session": "Push A"}, headers=_auth(client)
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 422
 
 
 # ── End session ───────────────────────────────────────────────────────────────
@@ -321,7 +323,7 @@ def test_full_workout_session_flow(client: TestClient):
 
     # Start
     session = client.post(
-        "/api/sessions", json={"session": "Pull A"}, headers=headers
+        "/api/sessions", json={"template_id": builtin_id("Pull A")}, headers=headers
     ).json()
     assert session["ended_at"] is None
 

@@ -171,6 +171,17 @@
       },
       "ConsistencyDay": {
         "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
           "date": {
             "title": "Date",
             "type": "string"
@@ -1827,31 +1838,15 @@
         "type": "object"
       },
       "StartSessionRequest": {
-        "description": "Exactly one: a template id, or a template's name (until #355).",
         "properties": {
-          "session": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Session"
-          },
           "template_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Template Id"
+            "title": "Template Id",
+            "type": "integer"
           }
         },
+        "required": [
+          "template_id"
+        ],
         "title": "StartSessionRequest",
         "type": "object"
       },
@@ -2762,18 +2757,18 @@
         "parameters": [
           {
             "in": "query",
-            "name": "session",
+            "name": "template_id",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "integer"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Session"
+              "title": "Template Id"
             }
           },
           {
@@ -2825,36 +2820,6 @@
           }
         ],
         "summary": "List Exercises",
-        "tags": [
-          "exercises"
-        ]
-      }
-    },
-    "/api/exercises/sessions": {
-      "get": {
-        "operationId": "list_sessions_api_exercises_sessions_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "title": "Response List Sessions Api Exercises Sessions Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "List Sessions",
         "tags": [
           "exercises"
         ]

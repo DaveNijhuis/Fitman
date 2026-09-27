@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models.exercise import Exercise
+from models.template import SessionTemplate
 from models.user import User
 from models.workout import Log, WorkoutSession
 
@@ -108,6 +109,7 @@ class ConsistencyDay(BaseModel):
     date: str
     trained: bool
     session: str | None = None
+    colour: str | None = None  # the workout's template's, "#rrggbb" (#355)
     volume_kg: float | None = None
 
 
@@ -125,22 +127,28 @@ def consistency(
     rows = (
         db.query(
             WorkoutSession,
+            SessionTemplate.colour,
             func.coalesce(func.sum(Log.weight * Log.reps), 0).label("volume"),
         )
         .outerjoin(Log, Log.session_id == WorkoutSession.id)
+        .outerjoin(SessionTemplate, SessionTemplate.id == WorkoutSession.template_id)
         .filter(
             WorkoutSession.user_id == current_user.id,
             WorkoutSession.started_at >= cutoff,
             WorkoutSession.ended_at.isnot(None),
         )
-        .group_by(WorkoutSession.id)
+        .group_by(WorkoutSession.id, SessionTemplate.id)
         .all()
     )
 
     trained_data: dict[str, dict] = {}
-    for s, volume in rows:
+    for s, colour, volume in rows:
         date = s.started_at.date().isoformat()
-        trained_data[date] = {"session": s.session, "volume_kg": round(volume, 1)}
+        trained_data[date] = {
+            "session": s.session,
+            "colour": colour,
+            "volume_kg": round(volume, 1),
+        }
 
     now = datetime.now(timezone.utc)
     weeks = []
@@ -156,6 +164,7 @@ def consistency(
                         date=date_str,
                         trained=True,
                         session=trained_data[date_str]["session"],
+                        colour=trained_data[date_str]["colour"],
                         volume_kg=trained_data[date_str]["volume_kg"],
                     )
                 )

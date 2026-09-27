@@ -10,7 +10,6 @@ live beside user-owned ones.
 from datetime import datetime, timezone
 
 import bcrypt
-import pytest
 from fastapi.testclient import TestClient
 
 from database import SessionLocal
@@ -151,15 +150,6 @@ def test_start_by_template_id(client: TestClient):
     assert body["template_id"] == pull_a
 
 
-def test_start_by_legacy_name_still_links_the_template(client: TestClient):
-    """The current frontend sends a name; it keeps working until #355."""
-    resp = client.post(
-        "/api/sessions", json={"session": "Legs A"}, headers=_auth(client)
-    )
-    assert resp.status_code == 201
-    assert resp.json()["template_id"] == _built_in_id(client, "Legs A")
-
-
 def test_start_from_unknown_template_is_404(client: TestClient):
     resp = client.post(
         "/api/sessions", json={"template_id": 999999}, headers=_auth(client)
@@ -185,12 +175,15 @@ def test_start_from_another_users_template_is_404_and_stores_nothing(
     db.close()
 
 
-@pytest.mark.parametrize(
-    "body", [{}, {"template_id": 1, "session": "Push A"}], ids=["neither", "both"]
-)
-def test_start_needs_exactly_one_of_template_id_or_name(client: TestClient, body):
-    resp = client.post("/api/sessions", json=body, headers=_auth(client))
+def test_start_needs_a_template_id(client: TestClient):
+    resp = client.post("/api/sessions", json={}, headers=_auth(client))
     assert resp.status_code == 422
+
+
+def test_filtering_the_library_by_another_users_template_is_404(client: TestClient):
+    theirs = _own_template("tpl_owner_g", "G's Chest Day", ["Flat DB Bench Press"])
+    resp = client.get(f"/api/exercises?template_id={theirs}", headers=_auth(client))
+    assert resp.status_code == 404
 
 
 # ── One exercise, many templates ──────────────────────────────────────────────
@@ -304,3 +297,41 @@ def test_seed_builds_templates_when_the_exercises_already_exist(client: TestClie
     assert names == list(BUILT_INS)
     assert db.query(Exercise).count() == exercises_before
     db.close()
+
+
+# ── Progress calendar colour ──────────────────────────────────────────────────
+
+
+def _trained_days(client: TestClient, headers: dict) -> list[dict]:
+    weeks = client.get("/api/progress/consistency", headers=headers).json()
+    return [d for w in weeks for d in w["days"] if d["trained"]]
+
+
+def test_a_calendar_day_carries_its_workouts_template_colour(client: TestClient):
+    headers = _auth(client, "tpl_owner_h")
+    workout = client.post(
+        "/api/sessions",
+        json={"template_id": _built_in_id(client, "Pull A")},
+        headers=headers,
+    ).json()
+    client.patch(f"/api/sessions/{workout['id']}/end", headers=headers)
+
+    [day] = _trained_days(client, headers)
+    assert day["session"] == "Pull A"
+    assert day["colour"] == "#3b82f6"
+
+
+def test_a_workout_without_a_template_has_no_colour(client: TestClient):
+    """Its template was deleted, or it predates templates and matched no name."""
+    user_id = _user("tpl_owner_i")
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    db.add(
+        WorkoutSession(user_id=user_id, session="Old Day", started_at=now, ended_at=now)
+    )
+    db.commit()
+    db.close()
+
+    [day] = _trained_days(client, _auth(client, "tpl_owner_i"))
+    assert day["session"] == "Old Day"
+    assert day["colour"] is None

@@ -183,23 +183,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/exercises/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Sessions */
-        get: operations["list_sessions_api_exercises_sessions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/exercises/{exercise_id}": {
         parameters: {
             query?: never;
@@ -654,6 +637,8 @@ export interface components {
         };
         /** ConsistencyDay */
         ConsistencyDay: {
+            /** Colour */
+            colour?: string | null;
             /** Date */
             date: string;
             /** Session */
@@ -1084,15 +1069,10 @@ export interface components {
             /** Required */
             required: boolean;
         };
-        /**
-         * StartSessionRequest
-         * @description Exactly one: a template id, or a template's name (until #355).
-         */
+        /** StartSessionRequest */
         StartSessionRequest: {
-            /** Session */
-            session?: string | null;
             /** Template Id */
-            template_id?: number | null;
+            template_id: number;
         };
         /** StrengthData */
         StrengthData: {
@@ -1588,7 +1568,7 @@ export interface operations {
     list_exercises_api_exercises_get: {
         parameters: {
             query?: {
-                session?: string | null;
+                template_id?: number | null;
                 search?: string | null;
             };
             header?: never;
@@ -1613,26 +1593,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_sessions_api_exercises_sessions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string[];
                 };
             };
         };

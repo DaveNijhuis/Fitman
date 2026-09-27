@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, Check, Clock, Dumbbell } from 'lucide-react'
-import { getExercises, type Exercise } from '../api/exercises'
+import type { Exercise } from '../api/exercises'
+import { getTemplate } from '../api/templates'
 import { getLastSet, logSet, type LogEntry } from '../api/logs'
 import { endSession, discardSession, clearActiveWorkout, getActiveWorkout, getSession, getSessionLogs, saveActiveWorkout, type SessionLogEntry } from '../api/workoutSessions'
 import FinishWorkoutSheet from '../components/FinishWorkoutSheet'
@@ -53,7 +54,9 @@ export default function ActiveWorkoutPage() {
   const { state } = useLocation()
   const navigate = useNavigate()
 
-  const session: string = state?.session ?? ''
+  // Shown at once from navigation state when there is some; the server's copy
+  // replaces it, so a reload or a bookmarked URL still opens the workout (#355).
+  const [session, setSession] = useState<string>(state?.session ?? '')
   const id = Number(sessionId)
 
   const startedAt = useRef(
@@ -109,10 +112,13 @@ export default function ActiveWorkoutPage() {
     return () => clearInterval(tick)
   }, [rest > 0])
 
-  // Load exercises, previous sets, and any already-completed sets for this session
+  // Load the template's exercises, previous sets, and any already-completed sets
   useEffect(() => {
-    if (!session) { navigate('/'); return }
-    Promise.all([getExercises(session), getSessionLogs(id)])
+    const templateExercises = getSession(id).then(w => {
+      setSession(w.session)
+      return w.template_id === null ? [] : getTemplate(w.template_id).then(t => t.exercises)
+    })
+    Promise.all([templateExercises, getSessionLogs(id)])
       .then(([exs, currentLogs]) => {
         setExercises(exs)
 
@@ -154,7 +160,7 @@ export default function ActiveWorkoutPage() {
       })
       .catch(() => {})
       .finally(() => setExercisesLoading(false))
-  }, [session])
+  }, [id])
 
   function updateSet(exerciseId: number, si: number, field: 'weight' | 'reps', value: string) {
     setSets(prev => {

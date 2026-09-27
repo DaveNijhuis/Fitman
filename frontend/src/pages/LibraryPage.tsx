@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 import { getAllExercises, type Exercise } from '../api/exercises'
-
-const SESSIONS = ['All', 'Push A', 'Pull A', 'Legs A']
+import { getTemplates, type Template } from '../api/templates'
 
 const EQUIP_COLORS: Record<string, string> = {
   Dumbbell:   'bg-blue-50 text-blue-700',
@@ -11,7 +10,9 @@ const EQUIP_COLORS: Record<string, string> = {
 
 export default function LibraryPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
-  const [activeSession, setActiveSession] = useState('All')
+  const [templates, setTemplates] = useState<Template[]>([])
+  // null is All: the whole library.
+  const [activeTemplate, setActiveTemplate] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -21,9 +22,17 @@ export default function LibraryPage() {
   }, [search])
 
   useEffect(() => {
-    const session = activeSession === 'All' ? undefined : activeSession
-    getAllExercises(session, debouncedSearch || undefined).then(setExercises)
-  }, [activeSession, debouncedSearch])
+    getTemplates().then(setTemplates).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    getAllExercises(activeTemplate ?? undefined, debouncedSearch || undefined).then(setExercises)
+  }, [activeTemplate, debouncedSearch])
+
+  const tabs: { id: number | null; label: string }[] = [
+    { id: null, label: 'All' },
+    ...templates.map(t => ({ id: t.id, label: t.name })),
+  ]
 
   return (
     <div className="min-h-screen pb-6">
@@ -43,19 +52,19 @@ export default function LibraryPage() {
         </div>
       </header>
 
-      {/* Session tabs */}
+      {/* Template tabs */}
       <div className="flex gap-2 px-4 pb-4 overflow-x-auto no-scrollbar">
-        {SESSIONS.map(s => (
+        {tabs.map(tab => (
           <button
-            key={s}
-            onClick={() => setActiveSession(s)}
+            key={tab.id ?? 'all'}
+            onClick={() => setActiveTemplate(tab.id)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              activeSession === s
+              activeTemplate === tab.id
                 ? 'bg-[var(--color-accent)] text-white'
                 : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)]'
             }`}
           >
-            {s}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -77,12 +86,9 @@ export default function LibraryPage() {
                       <p className="text-xs text-[var(--color-muted)] mt-0.5">{ex.muscles}</p>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${EQUIP_COLORS[ex.equip] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {ex.equip}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-muted)]">{ex.session}</span>
-                  </div>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${EQUIP_COLORS[ex.equip] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {ex.equip}
+                  </span>
                 </div>
               </div>
             ))}

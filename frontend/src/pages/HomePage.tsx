@@ -52,7 +52,7 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.all([getTemplates(), getHomeStats()])
-      .then(([t, h]) => { setTemplates(t); setStats(h) })
+      .then(([t, h]) => { setTemplates(t.filter(x => !x.hidden)); setStats(h) })
       .catch(() => setLoadError(true))
   }, [])
 

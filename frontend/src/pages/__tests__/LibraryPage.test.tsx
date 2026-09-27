@@ -12,8 +12,8 @@ import * as exercises from '../../api/exercises'
  */
 
 const TEMPLATES = [
-  { id: 1, name: 'Push A', focus: null, colour: '#ff5a36', builtin: true },
-  { id: 9, name: 'Chest Day', focus: null, colour: '#123456', builtin: false },
+  { id: 1, name: 'Push A', focus: null, colour: '#ff5a36', builtin: true, hidden: false },
+  { id: 9, name: 'Chest Day', focus: null, colour: '#123456', builtin: false, hidden: false },
 ]
 const BENCH = {
   id: 5, name: 'Flat DB Bench Press', muscles: 'Chest', type: 'weight', equip: 'Dumbbell',

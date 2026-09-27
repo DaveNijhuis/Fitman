@@ -13,8 +13,9 @@ import * as stats from '../../api/stats'
  */
 
 const TEMPLATES = [
-  { id: 1, name: 'Push A', focus: 'Chest · Shoulders · Triceps', colour: '#ff5a36', builtin: true },
-  { id: 9, name: 'Chest Day', focus: 'Chest · Upper Chest', colour: '#123456', builtin: false },
+  { id: 1, name: 'Push A', focus: 'Chest · Shoulders · Triceps', colour: '#ff5a36', builtin: true, hidden: false },
+  { id: 9, name: 'Chest Day', focus: 'Chest · Upper Chest', colour: '#123456', builtin: false, hidden: false },
+  { id: 6, name: 'Legs B', focus: 'Hamstrings · Glutes · Quads', colour: '#1f9d62', builtin: true, hidden: true },
 ]
 
 function renderHome() {
@@ -58,5 +59,11 @@ describe('quick start', () => {
     expect(await screen.findByText('Workout page')).toBeInTheDocument()
     expect(sessions.startSession).toHaveBeenCalledWith(9)
     expect(sessions.getActiveWorkout()).toMatchObject({ id: 77, session: 'Chest Day' })
+  })
+
+  it('leaves out the built-ins you have hidden (#359)', async () => {
+    renderHome()
+    await screen.findByText('Chest Day')
+    expect(screen.queryByText('Legs B')).toBeNull()
   })
 })

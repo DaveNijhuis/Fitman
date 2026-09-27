@@ -1,5 +1,6 @@
 import type { components } from './schema'
 import { request } from './client'
+import type { Exercise } from './exercises'
 
 /** `session` is the template's name when the workout started (#354). */
 export type WorkoutSession = components['schemas']['WorkoutSessionOut']
@@ -33,6 +34,11 @@ export function getActiveWorkout(): { id: number; session: string; startedAt: st
 
 export function getHistory(): Promise<WorkoutSessionSummary[]> {
   return request<WorkoutSessionSummary[]>('/api/sessions')
+}
+
+/** The workout's exercise list, fixed when it started (#359). */
+export function getSessionExercises(sessionId: number): Promise<Exercise[]> {
+  return request<Exercise[]>(`/api/sessions/${sessionId}/exercises`)
 }
 
 export function getSessionLogs(sessionId: number): Promise<SessionLogEntry[]> {

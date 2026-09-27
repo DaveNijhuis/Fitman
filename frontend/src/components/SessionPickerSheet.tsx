@@ -14,7 +14,8 @@ export default function SessionPickerSheet({ onClose }: Props) {
   const [starting, setStarting] = useState<number | null>(null)
 
   useEffect(() => {
-    getTemplates().then(setTemplates).catch(() => {})
+    // Hidden built-ins stay off (#359); they're still in the Library.
+    getTemplates().then(t => setTemplates(t.filter(x => !x.hidden))).catch(() => {})
   }, [])
 
   async function handleStart(template: Template) {

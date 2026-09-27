@@ -8,8 +8,9 @@ import * as sessions from '../../api/workoutSessions'
 /** The + button's picker lists the server's templates, like Quick start (#355). */
 
 const TEMPLATES = [
-  { id: 3, name: 'Legs A', focus: 'Quads · Glutes · Hamstrings', colour: '#1f9d62', builtin: true },
-  { id: 9, name: 'Chest Day', focus: 'Chest · Upper Chest', colour: '#123456', builtin: false },
+  { id: 3, name: 'Legs A', focus: 'Quads · Glutes · Hamstrings', colour: '#1f9d62', builtin: true, hidden: false },
+  { id: 9, name: 'Chest Day', focus: 'Chest · Upper Chest', colour: '#123456', builtin: false, hidden: false },
+  { id: 4, name: 'Push B', focus: 'Shoulders · Chest · Triceps', colour: '#ff5a36', builtin: true, hidden: true },
 ]
 
 function renderPicker(onClose = vi.fn()) {
@@ -51,5 +52,11 @@ describe('session picker', () => {
     expect(sessions.startSession).toHaveBeenCalledWith(9)
     expect(onClose).toHaveBeenCalled()
     expect(sessions.getActiveWorkout()).toMatchObject({ id: 78, session: 'Chest Day' })
+  })
+
+  it('leaves out the built-ins you have hidden (#359)', async () => {
+    renderPicker()
+    await screen.findByText('Chest Day')
+    expect(screen.queryByText('Push B')).toBeNull()
   })
 })

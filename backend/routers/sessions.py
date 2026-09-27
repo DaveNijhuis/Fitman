@@ -11,8 +11,9 @@ from database import get_db
 from models.exercise import Exercise
 from models.template import SessionTemplate
 from models.user import User
-from models.workout import Log, WorkoutSession
-from session_templates import visible_templates
+from models.workout import Log, WorkoutExercise, WorkoutSession
+from routers.exercises import ExerciseOut
+from session_templates import template_exercises, visible_templates
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,15 @@ def start_session(
         started_at=datetime.now(timezone.utc),
     )
     db.add(workout)
+    db.flush()
+    # The workout's own list, fixed now: editing the day later changes nothing
+    # here (#359). Archived exercises take no new sets, so they're left out.
+    db.add_all(
+        WorkoutExercise(workout_session_id=workout.id, exercise_id=e.id, position=i)
+        for i, e in enumerate(
+            e for e in template_exercises(db, template) if not e.archived
+        )
+    )
     db.commit()
     db.refresh(workout)
     return workout
@@ -123,6 +133,27 @@ def get_session(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
     return workout
+
+
+@router.get("/{session_id}/exercises")
+def get_session_exercises(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ExerciseOut]:
+    """The workout's exercise list, as it was when it started (#359)."""
+    workout = db.get(WorkoutSession, session_id)
+    if not workout or workout.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+    return [
+        ExerciseOut.model_validate(e)
+        for e in db.query(Exercise)
+        .join(WorkoutExercise, WorkoutExercise.exercise_id == Exercise.id)
+        .filter(WorkoutExercise.workout_session_id == workout.id)
+        .order_by(WorkoutExercise.position)
+    ]
 
 
 @router.get("/{session_id}/logs", response_model=list[SessionLogEntry])

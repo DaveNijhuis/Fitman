@@ -23,6 +23,9 @@ BUILT_INS = {
     "Push A": ("Chest · Shoulders · Triceps", "#ff5a36"),
     "Pull A": ("Back · Biceps · Rear Delts", "#3b82f6"),
     "Legs A": ("Quads · Glutes · Hamstrings", "#1f9d62"),
+    "Push B": ("Shoulders · Chest · Triceps", "#ff5a36"),
+    "Pull B": ("Back · Traps · Biceps", "#3b82f6"),
+    "Legs B": ("Hamstrings · Glutes · Quads", "#1f9d62"),
 }
 
 
@@ -86,7 +89,7 @@ def _built_in_id(client: TestClient, name: str) -> int:
 # ── Listing ───────────────────────────────────────────────────────────────────
 
 
-def test_lists_the_three_built_ins_in_order_with_focus_and_colour(client: TestClient):
+def test_lists_the_six_built_ins_in_order_with_focus_and_colour(client: TestClient):
     resp = client.get("/api/templates", headers=_auth(client))
     assert resp.status_code == 200
     built_ins = [t for t in resp.json() if t["builtin"]]
@@ -131,7 +134,7 @@ def test_another_users_template_is_invisible(client: TestClient):
 def test_owner_sees_their_own_template_after_the_built_ins(client: TestClient):
     mine = _own_template("tpl_owner_c", "C's Arm Day", ["DB Hammer Curl"])
     listed = client.get("/api/templates", headers=_auth(client, "tpl_owner_c")).json()
-    assert [t["name"] for t in listed[:3]] == list(BUILT_INS)
+    assert [t["name"] for t in listed[: len(BUILT_INS)]] == list(BUILT_INS)
     own = next(t for t in listed if t["id"] == mine)
     assert own["builtin"] is False
 
@@ -240,19 +243,25 @@ def test_deleting_a_template_keeps_its_workouts_and_exercises(client: TestClient
     ).json()
 
     db = SessionLocal()
-    db.delete(db.get(SessionTemplate, mine))
-    db.commit()
+    try:
+        db.delete(db.get(SessionTemplate, mine))
+        db.commit()
 
-    kept = db.get(WorkoutSession, workout["id"])
-    assert kept is not None
-    assert kept.template_id is None
-    assert kept.session == "F's Leg Day"
-    assert (
-        db.query(TemplateExercise).filter(TemplateExercise.template_id == mine).count()
-        == 0
-    )
-    assert db.query(Exercise).filter(Exercise.name == "DB Goblet Squat").count() == 1
-    db.close()
+        kept = db.get(WorkoutSession, workout["id"])
+        assert kept is not None
+        kept_template_id, kept_session = kept.template_id, kept.session
+        links = (
+            db.query(TemplateExercise)
+            .filter(TemplateExercise.template_id == mine)
+            .count()
+        )
+        squats = db.query(Exercise).filter(Exercise.name == "DB Goblet Squat").count()
+    finally:
+        db.close()
+    assert kept_template_id is None
+    assert kept_session == "F's Leg Day"
+    assert links == 0
+    assert squats == 1
 
 
 # ── Seed ──────────────────────────────────────────────────────────────────────
@@ -281,22 +290,27 @@ def test_seed_builds_templates_when_the_exercises_already_exist(client: TestClie
     seed_exercises commits, so this really replaces the built-ins; later tests
     look templates up by name, never by a remembered id.
     """
+    # Closed before asserting: a failed assert must not leave the session idle
+    # in its transaction, holding locks every later migration test waits on.
     db = SessionLocal()
-    exercises_before = db.query(Exercise).count()
-    db.query(SessionTemplate).filter(SessionTemplate.user_id.is_(None)).delete()
-    db.commit()
+    try:
+        exercises_before = db.query(Exercise).count()
+        db.query(SessionTemplate).filter(SessionTemplate.user_id.is_(None)).delete()
+        db.commit()
 
-    seed_exercises(db)
+        seed_exercises(db)
 
-    names = [
-        t.name
-        for t in db.query(SessionTemplate)
-        .filter(SessionTemplate.user_id.is_(None))
-        .order_by(SessionTemplate.position)
-    ]
+        names = [
+            t.name
+            for t in db.query(SessionTemplate)
+            .filter(SessionTemplate.user_id.is_(None))
+            .order_by(SessionTemplate.position)
+        ]
+        exercises_after = db.query(Exercise).count()
+    finally:
+        db.close()
     assert names == list(BUILT_INS)
-    assert db.query(Exercise).count() == exercises_before
-    db.close()
+    assert exercises_after == exercises_before
 
 
 # ── Progress calendar colour ──────────────────────────────────────────────────

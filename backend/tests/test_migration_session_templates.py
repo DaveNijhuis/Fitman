@@ -23,6 +23,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 
 from database import engine
+from tests.migrations import step_down_through, step_down_to
 
 BACKEND = Path(__file__).resolve().parents[1]
 REVISION = "l8m0n2o4p6q8"
@@ -58,9 +59,8 @@ def test_upgrade_turns_each_session_into_a_template_and_loses_nothing():
     with engine.connect() as conn:
         trans = conn.begin()
         try:
+            step_down_through(conn, REVISION)
             with Operations.context(MigrationContext.configure(conn)):
-                mod.downgrade()
-
                 assert {"session", "position"} <= _columns(conn, "exercises")
                 assert "template_id" not in _columns(conn, "workout_sessions")
                 assert not inspect(conn).has_table("session_templates")
@@ -156,6 +156,7 @@ def test_downgrade_restores_each_exercises_session_and_position():
     with engine.connect() as conn:
         trans = conn.begin()
         try:
+            step_down_to(conn, REVISION)
             before = conn.execute(
                 text(
                     "SELECT te.exercise_id, t.name, te.position FROM template_exercises te "

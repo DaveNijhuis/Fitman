@@ -21,6 +21,7 @@ from sqlalchemy import text
 
 from database import engine
 from seed import EXERCISES as SEED_EXERCISES
+from tests.migrations import step_down_through
 
 BACKEND = Path(__file__).resolve().parents[1]
 REVISION = "m9n1o3p5q7r9"
@@ -72,7 +73,7 @@ def test_upgrade_adds_exactly_the_new_exercises_and_touches_nothing_else():
     with engine.connect() as conn:
         trans = conn.begin()
         try:
-            _run(conn, mod.downgrade)
+            step_down_through(conn, REVISION)
             before = _library(conn)
             assert new_names.isdisjoint(before)
 
@@ -143,7 +144,7 @@ def test_downgrade_keeps_an_exercise_that_has_been_logged():
                 {"e": chin_up, "s": workout, "t": datetime.now(timezone.utc)},
             )
 
-            _run(conn, mod.downgrade)
+            step_down_through(conn, REVISION)
 
             left = _library(conn)
             assert "Chin-Up" in left
@@ -153,8 +154,11 @@ def test_downgrade_keeps_an_exercise_that_has_been_logged():
 
 
 def test_a_fresh_install_and_an_upgraded_one_have_the_same_library():
-    """The seed's list is the original library plus exactly the migration's."""
+    """The seed carries every exercise the migration adds, identically.
+
+    The seed's exact make-up is checked by the latest library migration's
+    test (#357), since each later one adds to it.
+    """
     seed = {e["name"]: tuple(e[c] for c in COLUMNS) for e in SEED_EXERCISES}
     added = {e["name"]: tuple(e[c] for c in COLUMNS) for e in _migration().EXERCISES}
     assert {n: seed[n] for n in added if n in seed} == added
-    assert len(seed) == 20 + len(added)

@@ -5,7 +5,7 @@ import bodyFrontUrl from '../assets/body_front.svg'
 import {
   getStrengthProgression, getVolume, getPRs, getConsistency, getBalance,
   type StrengthData, type VolumePoint, type PersonalRecord,
-  type ConsistencyWeek, type MuscleBalance,
+  type ConsistencyDay, type ConsistencyWeek, type MuscleBalance,
 } from '../api/progress'
 import { getMeasurements, logMeasurement, deleteMeasurement, type Measurement } from '../api/measurements'
 import WeighIn from '../components/WeighIn'
@@ -13,15 +13,19 @@ import { numericTooltipFormatter } from '../chartFormatters'
 
 const DAY_LABELS = ['M', '', 'W', '', 'F', '', 'S']
 
-const SESSION_RGB: Record<string, [number, number, number]> = {
-  'Push A': [255, 90, 54],
-  'Pull A': [59, 130, 246],
-  'Legs A': [31, 157, 98],
+/** The accent, for a workout whose template is gone. */
+const DEFAULT_RGB: [number, number, number] = [255, 90, 54]
+
+/** "#rrggbb" to its channels; the default for anything else. */
+function hexToRgb(hex: string | null): [number, number, number] {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return DEFAULT_RGB
+  const n = parseInt(hex.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-function dayStyle(day: { trained: boolean; session: string | null; volume_kg: number | null }, maxVol: number): React.CSSProperties {
+function dayStyle(day: ConsistencyDay, maxVol: number): React.CSSProperties {
   if (!day.trained) return { background: 'var(--color-border)' }
-  const rgb = SESSION_RGB[day.session ?? ''] ?? [255, 90, 54]
+  const rgb = hexToRgb(day.colour)
   const opacity = day.volume_kg && maxVol > 0 ? Math.max(0.25, Math.min(1, day.volume_kg / maxVol)) : 0.6
   return { background: `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${opacity})` }
 }
@@ -192,6 +196,12 @@ export default function ProgressPage() {
 
   const totalTrainedDays = consistency.reduce((sum, w) => sum + w.days.filter(d => d.trained).length, 0)
   const maxVolume = Math.max(...consistency.flatMap(w => w.days).map(d => d.volume_kg ?? 0), 1)
+  // The templates trained in view, each once, in its own colour (#355).
+  const legend = [...new Map(
+    consistency.flatMap(w => w.days)
+      .filter(d => d.trained && d.session)
+      .map(d => [d.session as string, hexToRgb(d.colour)] as const),
+  )]
 
   const weightChartData = [...measurements]
     .reverse()
@@ -640,7 +650,7 @@ export default function ProgressPage() {
                 </div>
                 {/* Legend */}
                 <div className="flex items-center gap-4 mt-3 flex-wrap">
-                  {Object.entries(SESSION_RGB).map(([label, rgb]) => (
+                  {legend.map(([label, rgb]) => (
                     <div key={label} className="flex items-center gap-1.5">
                       <div className="w-3 h-3 rounded-[3px]" style={{ background: `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` }} />
                       <span className="text-[11px] font-semibold text-[var(--color-muted)]">{label}</span>

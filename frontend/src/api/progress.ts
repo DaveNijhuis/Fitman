@@ -29,6 +29,8 @@ export interface ConsistencyDay {
   date: string
   trained: boolean
   session: string | null
+  /** The workout's template colour, "#rrggbb"; null once the template is gone (#355). */
+  colour: string | null
   volume_kg: number | null
 }
 

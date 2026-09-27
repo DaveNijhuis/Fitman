@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -20,16 +20,7 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
 class StartSessionRequest(BaseModel):
-    """Exactly one: a template id, or a template's name (until #355)."""
-
-    template_id: int | None = None
-    session: str | None = None
-
-    @model_validator(mode="after")
-    def _exactly_one(self) -> "StartSessionRequest":
-        if (self.template_id is None) == (self.session is None):
-            raise ValueError("Give exactly one of template_id or session")
-        return self
+    template_id: int
 
 
 class WorkoutSessionOut(BaseModel):
@@ -64,19 +55,15 @@ def start_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> WorkoutSession:
-    templates = visible_templates(db, current_user)
-    if body.template_id is not None:
-        template = templates.filter(SessionTemplate.id == body.template_id).first()
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
-            )
-    else:
-        template = templates.filter(SessionTemplate.name == body.session).first()
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
-            )
+    template = (
+        visible_templates(db, current_user)
+        .filter(SessionTemplate.id == body.template_id)
+        .first()
+    )
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
+        )
     workout = WorkoutSession(
         user_id=current_user.id,
         session=template.name,

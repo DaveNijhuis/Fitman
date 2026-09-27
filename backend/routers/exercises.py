@@ -22,34 +22,22 @@ class ExerciseOut(BaseModel):
     equip: str
 
 
-# Session names in place of templates: what the frontend uses until #355
-# moves it to /api/templates, which removes these.
-
-
-@router.get("/sessions")
-def list_sessions(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> list[str]:
-    return [t.name for t in visible_templates(db, current_user)]
-
-
 @router.get("")
 def list_exercises(
-    session: str | None = Query(default=None),
+    template_id: int | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ExerciseOut]:
-    if session is not None:
+    if template_id is not None:
         template = (
             visible_templates(db, current_user)
-            .filter(SessionTemplate.name == session)
+            .filter(SessionTemplate.id == template_id)
             .first()
         )
         if not template:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
             )
         exercises = template_exercises(db, template)
         if search is not None:

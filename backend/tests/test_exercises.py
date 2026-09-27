@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from tests.builtin import builtin_exercises, builtin_id
+
 
 def _token(client: TestClient) -> str:
     resp = client.post(
@@ -12,14 +14,12 @@ def _auth(client: TestClient) -> dict:
     return {"Authorization": f"Bearer {_token(client)}"}
 
 
-# ── Sessions list ─────────────────────────────────────────────────────────────
+# ── Filtering by template ─────────────────────────────────────────────────────
 
 
-def test_legacy_session_filter_returns_the_templates_exercises_in_order(
-    client: TestClient,
-):
-    """Kept for the current frontend until #355 moves it to /api/templates."""
-    resp = client.get("/api/exercises?session=Legs+A", headers=_auth(client))
+def test_template_filter_returns_its_exercises_in_order(client: TestClient):
+    legs_a = builtin_id("Legs A")
+    resp = client.get(f"/api/exercises?template_id={legs_a}", headers=_auth(client))
     assert resp.status_code == 200
     names = [e["name"] for e in resp.json()]
     assert names[0] == "DB Goblet Squat"
@@ -27,30 +27,44 @@ def test_legacy_session_filter_returns_the_templates_exercises_in_order(
     assert len(names) == 6
 
 
-def test_legacy_session_filter_combines_with_search(client: TestClient):
-    """The Library sends both: a session tab and the search box."""
+def test_template_filter_combines_with_search(client: TestClient):
+    """The Library sends both: a template tab and the search box.
+
+    "DB" matches exercises in every template, so only the template filter can
+    narrow it to these two.
+    """
+    legs_a = builtin_id("Legs A")
     resp = client.get(
-        "/api/exercises?session=Pull+A&search=CURL", headers=_auth(client)
+        f"/api/exercises?template_id={legs_a}&search=db", headers=_auth(client)
     )
     assert resp.status_code == 200
-    assert [e["name"] for e in resp.json()] == ["Incline DB Curl", "DB Hammer Curl"]
+    assert [e["name"] for e in resp.json()] == ["DB Goblet Squat", "DB Reverse Lunge"]
 
 
-def test_list_sessions_returns_known_names(client: TestClient):
+def test_unknown_template_filter_is_404(client: TestClient):
+    resp = client.get("/api/exercises?template_id=999999", headers=_auth(client))
+    assert resp.status_code == 404
+
+
+# ── #354's name-based bridge is gone ──────────────────────────────────────────
+
+
+def test_the_session_names_endpoint_is_gone(client: TestClient):
+    """/sessions now falls through to /{exercise_id}, which wants an integer."""
     resp = client.get("/api/exercises/sessions", headers=_auth(client))
+    assert resp.status_code == 422
+
+
+def test_the_session_name_filter_is_ignored(client: TestClient):
+    """An unknown query parameter filters nothing: the whole library comes back."""
+    headers = _auth(client)
+    everything = client.get("/api/exercises", headers=headers).json()
+    resp = client.get("/api/exercises?session=Legs+A", headers=headers)
     assert resp.status_code == 200
-    sessions = resp.json()
-    assert "Push A" in sessions
-    assert "Pull A" in sessions
-    assert "Legs A" in sessions
+    assert resp.json() == everything
 
 
 # ── Exercise list ─────────────────────────────────────────────────────────────
-
-
-def test_list_exercises_unknown_session_returns_400(client: TestClient):
-    resp = client.get("/api/exercises?session=Chest+Day", headers=_auth(client))
-    assert resp.status_code == 400
 
 
 def test_list_exercises_search_filter(client: TestClient):
@@ -72,9 +86,7 @@ def test_list_exercises_search_returns_empty_for_no_match(client: TestClient):
 
 def test_get_exercise_by_id(client: TestClient):
     headers = _auth(client)
-    exercise_id = client.get("/api/exercises?session=Push+A", headers=headers).json()[
-        0
-    ]["id"]
+    exercise_id = builtin_exercises("Push A")[0]["id"]
     resp = client.get(f"/api/exercises/{exercise_id}", headers=headers)
     assert resp.status_code == 200
     data = resp.json()

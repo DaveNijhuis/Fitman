@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ActiveWorkoutPage from '../ActiveWorkoutPage'
 import * as sessions from '../../api/workoutSessions'
-import * as exercises from '../../api/exercises'
+import * as templates from '../../api/templates'
 import * as logs from '../../api/logs'
 
 /**
@@ -15,11 +15,12 @@ import * as logs from '../../api/logs'
  */
 
 const STARTED = '2026-09-21T08:00:00Z'
-const EXERCISE = { id: 5, name: 'Bench Press', muscles: 'Chest', equip: 'Barbell' }
+const EXERCISE = { id: 5, name: 'Bench Press', muscles: 'Chest', type: 'weight', equip: 'Barbell' }
+const TEMPLATE = { id: 7, name: 'Push A', focus: null, colour: null, builtin: true, exercises: [EXERCISE] }
 
-function renderAt() {
+function renderAt(state: unknown = { session: 'Push A' }) {
   render(
-    <MemoryRouter initialEntries={[{ pathname: '/workout/42', state: { session: 'Push A' } }]}>
+    <MemoryRouter initialEntries={[{ pathname: '/workout/42', state }]}>
       <Routes>
         <Route path="/workout/:sessionId" element={<ActiveWorkoutPage />} />
         <Route path="/history/:sessionId" element={<div>History entry</div>} />
@@ -31,15 +32,34 @@ function renderAt() {
 
 beforeEach(() => {
   sessions.saveActiveWorkout(42, 'Push A', STARTED)
-  vi.spyOn(sessions, 'getSession').mockResolvedValue({ id: 42, session: 'Push A', started_at: STARTED, ended_at: null })
+  vi.spyOn(sessions, 'getSession').mockResolvedValue({ id: 42, session: 'Push A', template_id: 7, started_at: STARTED, ended_at: null })
   vi.spyOn(sessions, 'getSessionLogs').mockResolvedValue([])
-  vi.spyOn(exercises, 'getExercises').mockResolvedValue([EXERCISE] as never)
+  vi.spyOn(templates, 'getTemplate').mockResolvedValue(TEMPLATE)
   vi.spyOn(logs, 'getLastSet').mockResolvedValue({ id: 1, exercise_id: 5, session_id: 1, weight: 60, reps: 8, logged_at: STARTED })
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
   sessions.clearActiveWorkout()
+})
+
+/**
+ * The workout's exercises come from its template on the server (#355), not
+ * from a session name in navigation state — which a reload or a bookmarked
+ * URL doesn't carry, so the page used to bounce home.
+ */
+describe('loading the workout', () => {
+  it("loads the exercises of the workout's template", async () => {
+    renderAt()
+    expect(await screen.findByText('Bench Press')).toBeInTheDocument()
+    expect(templates.getTemplate).toHaveBeenCalledWith(7)
+  })
+
+  it('opens without navigation state, as after a reload', async () => {
+    renderAt(null)
+    expect(await screen.findByText('Bench Press')).toBeInTheDocument()
+    expect(screen.queryByText('Home')).toBeNull()
+  })
 })
 
 describe('opening a workout that is no longer in progress', () => {
@@ -50,7 +70,7 @@ describe('opening a workout that is no longer in progress', () => {
   })
 
   it('goes to the History entry of a finished workout and stops offering Resume', async () => {
-    vi.mocked(sessions.getSession).mockResolvedValue({ id: 42, session: 'Push A', started_at: STARTED, ended_at: '2026-09-21T09:00:00Z' })
+    vi.mocked(sessions.getSession).mockResolvedValue({ id: 42, session: 'Push A', template_id: 7, started_at: STARTED, ended_at: '2026-09-21T09:00:00Z' })
     renderAt()
     expect(await screen.findByText('History entry')).toBeInTheDocument()
     expect(sessions.getActiveWorkout()).toBeNull()
@@ -65,7 +85,7 @@ describe('opening a workout that is no longer in progress', () => {
 
   it('leaves the marker alone when it belongs to another workout', async () => {
     sessions.saveActiveWorkout(43, 'Pull A', STARTED)
-    vi.mocked(sessions.getSession).mockResolvedValue({ id: 42, session: 'Push A', started_at: STARTED, ended_at: '2026-09-21T09:00:00Z' })
+    vi.mocked(sessions.getSession).mockResolvedValue({ id: 42, session: 'Push A', template_id: 7, started_at: STARTED, ended_at: '2026-09-21T09:00:00Z' })
     renderAt()
     expect(await screen.findByText('History entry')).toBeInTheDocument()
     expect(sessions.getActiveWorkout()?.id).toBe(43)
@@ -74,7 +94,12 @@ describe('opening a workout that is no longer in progress', () => {
   it('keeps the marker when the check merely fails, e.g. offline', async () => {
     vi.mocked(sessions.getSession).mockRejectedValue(new Error('Failed to fetch'))
     renderAt()
-    expect(await screen.findByText('Bench Press')).toBeInTheDocument()
+    // Exercises come from the workout's template since #355, so with the
+    // workout unreadable there are none to show; what matters is staying put.
+    await waitFor(() => expect(sessions.getSession).toHaveBeenCalled())
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(screen.queryByText('Home')).toBeNull()
+    expect(screen.queryByText('History entry')).toBeNull()
     expect(sessions.getActiveWorkout()?.id).toBe(42)
   })
 
@@ -98,7 +123,7 @@ describe('finishing', () => {
     let markerWhileEnding: unknown = 'not called'
     vi.spyOn(sessions, 'endSession').mockImplementation(async () => {
       markerWhileEnding = sessions.getActiveWorkout()
-      return { id: 42, session: 'Push A', started_at: STARTED, ended_at: '2026-09-21T09:00:00Z' }
+      return { id: 42, session: 'Push A', template_id: 7, started_at: STARTED, ended_at: '2026-09-21T09:00:00Z' }
     })
     renderAt()
     await screen.findByText('Bench Press')

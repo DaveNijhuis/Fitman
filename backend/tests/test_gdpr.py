@@ -8,6 +8,7 @@ from models.cardio import CardioEntry
 from models.measurement import BodyMeasurement
 from models.user import User
 from models.workout import Log, WorkoutSession
+from tests.builtin import builtin_id
 
 
 def _make_user(username: str, password: str = "pass1234") -> int:
@@ -189,7 +190,7 @@ def test_export_includes_workout_sessions(client: TestClient):
     _make_user("export_data_user")
     headers = _login(client, "export_data_user")
     session = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=headers
+        "/api/sessions", json={"template_id": builtin_id("Push A")}, headers=headers
     ).json()
     client.patch(f"/api/sessions/{session['id']}/end", headers=headers)
     data = client.get("/api/gdpr/export", headers=headers).json()

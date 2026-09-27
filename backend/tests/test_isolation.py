@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from database import SessionLocal
 from models.user import User
+from tests.builtin import builtin_id
 
 
 def _create_user_b() -> None:
@@ -53,7 +54,9 @@ def test_user_b_cannot_see_user_a_sessions(client: TestClient):
     _create_user_b()
 
     session = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=_auth_a(client)
+        "/api/sessions",
+        json={"template_id": builtin_id("Push A")},
+        headers=_auth_a(client),
     ).json()
     client.patch(f"/api/sessions/{session['id']}/end", headers=_auth_a(client))
 
@@ -116,7 +119,9 @@ def test_user_b_cannot_see_user_a_logs_via_exercise_filter(client: TestClient):
 
     # User A: start a session, log one set for exercise 1
     session = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=_auth_a(client)
+        "/api/sessions",
+        json={"template_id": builtin_id("Push A")},
+        headers=_auth_a(client),
     ).json()
     client.post(
         "/api/logs",

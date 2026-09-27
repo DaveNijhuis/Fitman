@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from tests.builtin import builtin_exercises, builtin_id
+
 
 def _token(client: TestClient) -> str:
     resp = client.post(
@@ -14,14 +16,15 @@ def _auth(client: TestClient) -> dict:
 
 def _make_session(client: TestClient) -> int:
     resp = client.post(
-        "/api/sessions", json={"session": "Push A"}, headers=_auth(client)
+        "/api/sessions",
+        json={"template_id": builtin_id("Push A")},
+        headers=_auth(client),
     )
     return resp.json()["id"]
 
 
 def _first_exercise_id(client: TestClient) -> int:
-    resp = client.get("/api/exercises?session=Push+A", headers=_auth(client))
-    return resp.json()[0]["id"]
+    return builtin_exercises("Push A")[0]["id"]
 
 
 # ── Failing tests (red) — validation does not exist yet ──────────────────────
@@ -80,9 +83,7 @@ def test_log_rejects_negative_reps(client: TestClient):
 
 def test_log_allows_zero_weight_for_bodyweight(client: TestClient):
     session_id = _make_session(client)
-    exercises = client.get(
-        "/api/exercises?session=Push+A", headers=_auth(client)
-    ).json()
+    exercises = builtin_exercises("Push A")
     bodyweight_ex = next(e for e in exercises if e["type"] == "bodyweight")
     resp = client.post(
         "/api/logs",
@@ -174,9 +175,7 @@ def test_get_last_log_returns_most_recent(client: TestClient):
 
 
 def test_get_last_log_returns_null_when_no_logs(client: TestClient):
-    exercises = client.get(
-        "/api/exercises?session=Legs+A", headers=_auth(client)
-    ).json()
+    exercises = builtin_exercises("Legs A")
     untouched_id = exercises[-1]["id"]
     resp = client.get(f"/api/logs/last/{untouched_id}", headers=_auth(client))
     assert resp.status_code == 200

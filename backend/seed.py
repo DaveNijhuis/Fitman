@@ -129,6 +129,135 @@ EXERCISES = [
         "type": "bodyweight",
         "equip": "Bodyweight",
     },
+    # Push, added for B days and user-made days (#356)
+    {
+        "name": "Arnold Press",
+        "muscles": "Front Delt, Side Delt, Triceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Low-Incline DB Press",
+        "muscles": "Upper Chest, Chest, Front Delt, Triceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Close-Grip DB Press",
+        "muscles": "Triceps, Chest, Front Delt",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Lean-Away Lateral Raise",
+        "muscles": "Side Delt",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Skull Crusher",
+        "muscles": "Triceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Pike Push-Up",
+        "muscles": "Front Delt, Side Delt, Triceps",
+        "type": "bodyweight",
+        "equip": "Bodyweight",
+    },
+    {
+        "name": "Diamond Push-Up",
+        "muscles": "Triceps, Chest",
+        "type": "bodyweight",
+        "equip": "Bodyweight",
+    },
+    # Pull, added for B days and user-made days (#356)
+    {
+        "name": "Two-Arm Bent-Over DB Row",
+        "muscles": "Lats, Rear Delt, Biceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Seal Row",
+        "muscles": "Lats, Rear Delt, Traps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Shrug",
+        "muscles": "Traps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Prone Y-T-W Raise",
+        "muscles": "Rear Delt, Traps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Zottman Curl",
+        "muscles": "Biceps, Brachialis",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Concentration Curl",
+        "muscles": "Biceps",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Chin-Up",
+        "muscles": "Lats, Biceps",
+        "type": "bodyweight",
+        "equip": "Bodyweight",
+    },
+    # Legs, added for B days and user-made days (#356)
+    {
+        "name": "Single-Leg RDL",
+        "muscles": "Hamstrings, Glutes",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Step-Up",
+        "muscles": "Quads, Glutes",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Sumo Squat",
+        "muscles": "Quads, Glutes",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "DB Hip Thrust",
+        "muscles": "Glutes, Hamstrings",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
+    {
+        "name": "Cossack Squat",
+        "muscles": "Quads, Glutes",
+        "type": "bodyweight",
+        "equip": "Bodyweight",
+    },
+    {
+        "name": "Nordic Curl",
+        "muscles": "Hamstrings",
+        "type": "bodyweight",
+        "equip": "Bodyweight",
+    },
+    {
+        "name": "Seated DB Calf Raise",
+        "muscles": "Calves",
+        "type": "weight",
+        "equip": "Dumbbell",
+    },
 ]
 
 

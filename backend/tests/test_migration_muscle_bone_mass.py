@@ -37,9 +37,10 @@ def _migration():
     return mod
 
 
-def test_it_is_the_single_head_after_scale_user_id():
+def test_it_follows_scale_user_id_on_the_main_line():
     scripts = ScriptDirectory.from_config(Config(str(BACKEND / "alembic.ini")))
-    assert scripts.get_heads() == [REVISION]
+    assert len(scripts.get_heads()) == 1
+    assert REVISION in {r.revision for r in scripts.walk_revisions()}
     assert _migration().down_revision == "j6k8l0m2n4o5"
 
 

@@ -86,8 +86,6 @@ def test_balance_skips_exercise_with_null_muscles(client: TestClient):
     null_ex = Exercise(
         name="Test NULL muscles",
         muscles=None,
-        session="Push A",
-        position=99,
         type="weight",
         equip="Dumbbell",
     )
@@ -129,8 +127,6 @@ def test_balance_skips_exercise_with_malformed_muscles(client: TestClient):
     bad_ex = Exercise(
         name="Test malformed muscles",
         muscles=",,",
-        session="Push A",
-        position=98,
         type="weight",
         equip="Dumbbell",
     )
@@ -318,7 +314,7 @@ def test_consistency_single_query(client: TestClient):
     from database import SessionLocal, engine
 
     db = SessionLocal()
-    ex = db.query(Exercise).filter(Exercise.session == "Push A").first()
+    ex = db.query(Exercise).filter(Exercise.name == "Flat DB Bench Press").first()
     assert ex is not None
     exercise_id = ex.id
     now = datetime.now(timezone.utc)

@@ -2,16 +2,17 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
 from models.exercise import Exercise
+from models.template import SessionTemplate
 from models.user import User
 from models.workout import Log, WorkoutSession
-from routers.exercises import SESSIONS
+from session_templates import visible_templates
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,16 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
 class StartSessionRequest(BaseModel):
-    session: str
+    """Exactly one: a template id, or a template's name (until #355)."""
+
+    template_id: int | None = None
+    session: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "StartSessionRequest":
+        if (self.template_id is None) == (self.session is None):
+            raise ValueError("Give exactly one of template_id or session")
+        return self
 
 
 class WorkoutSessionOut(BaseModel):
@@ -27,6 +37,7 @@ class WorkoutSessionOut(BaseModel):
 
     id: int
     session: str
+    template_id: int | None
     started_at: datetime
     ended_at: datetime | None
 
@@ -53,13 +64,23 @@ def start_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> WorkoutSession:
-    if body.session not in SESSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
-        )
+    templates = visible_templates(db, current_user)
+    if body.template_id is not None:
+        template = templates.filter(SessionTemplate.id == body.template_id).first()
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
+            )
+    else:
+        template = templates.filter(SessionTemplate.name == body.session).first()
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown session"
+            )
     workout = WorkoutSession(
         user_id=current_user.id,
-        session=body.session,
+        session=template.name,
+        template_id=template.id,
         started_at=datetime.now(timezone.utc),
     )
     db.add(workout)
@@ -92,6 +113,7 @@ def list_sessions(
         WorkoutSessionSummary(
             id=w.id,
             session=w.session,
+            template_id=w.template_id,
             started_at=w.started_at,
             ended_at=w.ended_at,
             set_count=set_count,

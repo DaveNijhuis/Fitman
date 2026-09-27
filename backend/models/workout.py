@@ -13,7 +13,12 @@ class WorkoutSession(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # The template's name when the workout was started, so history still reads
+    # right after a template is renamed or deleted (template_id then goes NULL).
     session: Mapped[str] = mapped_column(String, nullable=False)
+    template_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("session_templates.id", ondelete="SET NULL"), index=True
+    )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

@@ -15,6 +15,27 @@ def _auth(client: TestClient) -> dict:
 # ── Sessions list ─────────────────────────────────────────────────────────────
 
 
+def test_legacy_session_filter_returns_the_templates_exercises_in_order(
+    client: TestClient,
+):
+    """Kept for the current frontend until #355 moves it to /api/templates."""
+    resp = client.get("/api/exercises?session=Legs+A", headers=_auth(client))
+    assert resp.status_code == 200
+    names = [e["name"] for e in resp.json()]
+    assert names[0] == "DB Goblet Squat"
+    assert names[-1] == "Single-Leg Calf Raise"
+    assert len(names) == 6
+
+
+def test_legacy_session_filter_combines_with_search(client: TestClient):
+    """The Library sends both: a session tab and the search box."""
+    resp = client.get(
+        "/api/exercises?session=Pull+A&search=CURL", headers=_auth(client)
+    )
+    assert resp.status_code == 200
+    assert [e["name"] for e in resp.json()] == ["Incline DB Curl", "DB Hammer Curl"]
+
+
 def test_list_sessions_returns_known_names(client: TestClient):
     resp = client.get("/api/exercises/sessions", headers=_auth(client))
     assert resp.status_code == 200
@@ -59,7 +80,9 @@ def test_get_exercise_by_id(client: TestClient):
     data = resp.json()
     assert data["id"] == exercise_id
     assert "name" in data
-    assert "session" in data
+    # An exercise sits in any number of templates now, not one session (#354).
+    assert "session" not in data
+    assert "position" not in data
 
 
 def test_get_exercise_by_id_not_found(client: TestClient):
